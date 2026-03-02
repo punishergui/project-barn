@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#3B1A08">
+  <title>{% block title %}Project Barn{% endblock %}</title>
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  {% set profiles_view = request.path == '/profiles' %}
+  {% if not profiles_view %}
+  <header class="top-bar">
+    <div class="brand">
+      <svg class="barn-mark" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 10.5 12 4l9 6.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        <rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/>
+        <path d="M11 20v-6h2v6" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      </svg>
+      <span>PROJECT BARN</span>
+    </div>
+    <a class="avatar-link" href="/profiles">{{ active_profile.name[0] if active_profile else '?' }}</a>
+  </header>
+
+  <nav class="bottom-nav" aria-label="Primary">
+    <a class="nav-item active" href="/"><svg viewBox="0 0 24 24"><path d="M4 11 12 5l8 6v8H4z"/></svg><span>Dashboard</span></a>
+    <a class="nav-item" href="#"><svg viewBox="0 0 24 24"><path d="M5 19V9m7 10V5m7 14v-7"/></svg><span>Reports</span></a>
+    <a class="nav-item" href="#"><svg viewBox="0 0 24 24"><path d="M4 8h16M6 8l1 11h10l1-11"/></svg><span>Expenses</span></a>
+    <a class="nav-item" href="#"><svg viewBox="0 0 24 24"><path d="M3 7h18M8 3v4m8-4v4M5 11h14v10H5z"/></svg><span>Shows</span></a>
+    <a class="nav-item" href="#"><svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/></svg><span>Projects</span></a>
+  </nav>
+  {% endif %}
+
+  <main class="content {% if profiles_view %}profiles-content{% endif %}">
+    {% block content %}{% endblock %}
+  </main>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

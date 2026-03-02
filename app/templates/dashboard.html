@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · Project Barn{% endblock %}
+{% block content %}
+<section class="dashboard-wrap">
+  <div class="greeting">
+    <p>{{ greeting }},</p>
+    <h1>{{ active_profile.name }}</h1>
+  </div>
+
+  {% set animal_types = ['cow','pig','goat','sheep','chicken','rabbit'] %}
+  {% set animal_count = projects | selectattr('type','in',animal_types) | list | length %}
+  <div class="chips-row">
+    <article class="chip"><strong>{{ projects|length }}</strong><span>PROJECTS</span></article>
+    <article class="chip"><strong>{{ animal_count }}</strong><span>ANIMALS</span></article>
+    <article class="chip"><strong>{{ shows_upcoming|length }}</strong><span>SHOWS</span></article>
+  </div>
+
+  <p class="section-label">ANIMALS &amp; PROJECTS</p>
+  <div class="project-row">
+    {% set emoji = {'cow':'🐄','pig':'🐖','goat':'🐐','sheep':'🐑','chicken':'🐔','rabbit':'🐇','baking':'🧁','welding':'🔧','other':'📋'} %}
+    {% for project in projects %}
+    <a class="project-card" href="/projects/{{ project.id }}">
+      <div class="project-hero">{{ emoji.get(project.type, '📋') }}</div>
+      <div class="project-meta">
+        <strong>{{ project.name }}</strong>
+        <span>{{ profiles[project.owner_id].name }}</span>
+      </div>
+    </a>
+    {% endfor %}
+    <a class="project-card add-card" href="/projects/add">
+      <div class="project-hero">+</div>
+      <div class="project-meta"><strong>Add Project</strong><span>New entry</span></div>
+    </a>
+  </div>
+
+  <p class="section-label">TODAY'S TASKS</p>
+  <div class="task-list">
+    {% set task_icon = {'feed':'🌾','walk':'🏃','groom':'✂️','weigh':'⚖️','other':'📝','show':'🏅','note':'📝'} %}
+    {% for task in tasks_today %}
+    {% set done = task.logged_at is not none %}
+    <form method="post" action="/tasks/log" class="task-card {% if done %}done{% endif %}">
+      <input type="hidden" name="task_id" value="{{ task.id }}">
+      <button type="submit" class="check">{% if done %}✓{% endif %}</button>
+      <span class="task-emoji">{{ task_icon.get(task.task_type, '📝') }}</span>
+      <div class="task-info">
+        <strong>{{ task.notes or task.task_type|capitalize }}</strong>
+        <span>by {{ profiles[task.logged_by_id].name }}</span>
+      </div>
+      <span class="task-time">{% if not done and task.notes and 'Due' in task.notes %}{{ task.notes.split('Due ')[-1] }}{% endif %}</span>
+    </form>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

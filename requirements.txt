@@ -1,0 +1,6 @@
+flask
+flask-sqlalchemy
+bcrypt
+python-dotenv
+gunicorn
+Pillow

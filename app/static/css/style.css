@@ -1,0 +1,84 @@
+:root {
+  --dark-bg: #1C0E05;
+  --dark-card: #2A1506;
+  --dark-card-2: #341A08;
+  --barn-red: #7B2415;
+  --barn-red-2: #9B3020;
+  --gold: #C4830A;
+  --gold-light: #E8A020;
+  --light-text: #FAF0E0;
+  --muted: #A08060;
+  --cream: #FAF6ED;
+  --radius: 14px;
+  --radius-sm: 9px;
+  --nav-h: 72px;
+  --top-h: 62px;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--dark-bg); color: var(--light-text); font-family: "DM Sans", sans-serif; }
+h1,h2,h3 { font-family: "Playfair Display", serif; }
+.section-label { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 0 0 8px; }
+.content { padding: calc(var(--top-h) + env(safe-area-inset-top) + 20px) 18px calc(var(--nav-h) + env(safe-area-inset-bottom) + 16px); }
+.profiles-content { padding: 0; min-height: 100vh; }
+.top-bar { position: fixed; top: 0; left: 0; right: 0; height: calc(var(--top-h) + env(safe-area-inset-top)); padding: calc(12px + env(safe-area-inset-top)) 14px 10px; display:flex; justify-content:space-between; align-items:center; background: rgba(28,14,5,.95); z-index: 40; }
+.brand { display:flex; align-items:center; gap: 8px; font-size: 12px; letter-spacing: .12em; }
+.barn-mark { width: 22px; height: 22px; color: var(--gold-light); }
+.avatar-link { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; text-decoration: none; color: var(--cream); background: var(--barn-red-2); }
+.bottom-nav { position: fixed; left: 0; right: 0; bottom: 0; height: calc(var(--nav-h) + env(safe-area-inset-bottom)); padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); background: var(--dark-card); display: grid; grid-template-columns: repeat(5,1fr); gap: 6px; }
+.nav-item { display:grid; place-items:center; gap:2px; color: rgba(250,240,224,.45); text-decoration:none; font-size:10px; }
+.nav-item svg { width:18px; height:18px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+.nav-item.active { color: var(--gold-light); }
+
+.profiles-page { min-height: 100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.profiles-logo { width: 84px; height: 84px; }
+.profiles-page h1 { margin: 10px 0 4px; font-size: 28px; }
+.profiles-sub { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
+.profiles-grid { display:flex; flex-wrap: wrap; justify-content:center; gap: 20px; }
+.profile-tile { background: transparent; border: 0; color: var(--light-text); cursor: pointer; }
+.avatar-round { width:72px; height:72px; border-radius:50%; display:grid; place-items:center; background: var(--avatar-color); font: 700 34px/1 "Playfair Display", serif; margin: 0 auto 10px; }
+.profile-name { display:block; text-align:center; font-size:14px; }
+.profile-role { display:block; text-align:center; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color: var(--muted); }
+
+.pin-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.28); backdrop-filter: blur(6px); opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+.pin-backdrop.open { opacity: 1; pointer-events: auto; }
+.pin-sheet { position: absolute; left: 0; right: 0; bottom: 0; background: var(--dark-card); border-radius: 16px 16px 0 0; transform: translateY(105%); transition: transform .2s ease; padding: 14px; }
+.pin-backdrop.open .pin-sheet { transform: translateY(0); }
+.pin-title { margin: 0 0 10px; text-align:center; font-weight: 700; }
+.pin-dots { display:flex; justify-content:center; gap:9px; margin-bottom: 12px; }
+.pin-dots span { width:11px; height:11px; border-radius:50%; border: 1px solid var(--muted); }
+.pin-dots span.fill { background: var(--gold); border-color: var(--gold); }
+.pin-dots.shake { animation: shake .5s linear; }
+@keyframes shake { 20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)} }
+.pin-pad { display:grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+.pin-key { min-height: 48px; border: 1px solid rgba(255,255,255,.06); border-radius: var(--radius-sm); background: var(--dark-card-2); color: var(--cream); }
+.pin-key:active { background: var(--barn-red); }
+.pin-key.blank { visibility: hidden; }
+.pin-cancel { margin: 10px auto 0; display:block; border:0; background:none; color: var(--muted); }
+.pin-error { min-height: 18px; text-align:center; color: #ffb4a8; margin: 4px 0 0; }
+
+.dashboard-wrap { display:grid; gap: 12px; }
+.greeting { padding-top: 20px; }
+.greeting p { margin: 0; font-size: 13px; color: var(--muted); }
+.greeting h1 { margin: 2px 0 0; font-size: 26px; }
+.chips-row { display:flex; gap:10px; padding-bottom:20px; }
+.chip { flex:1; background: var(--dark-card-2); border-radius: var(--radius-sm); border:1px solid rgba(255,255,255,.06); padding:12px 10px; text-align:center; }
+.chip strong { display:block; font-family:"Playfair Display",serif; font-size:22px; color: var(--gold-light); }
+.chip span { font-size:10px; letter-spacing:.05em; color: var(--muted); }
+.project-row { display:flex; gap: 10px; overflow-x:auto; padding: 0 0 24px; scrollbar-width: none; }
+.project-row::-webkit-scrollbar { display:none; }
+.project-card { flex-shrink:0; width:130px; text-decoration:none; color: var(--light-text); background: var(--dark-card-2); border:1px solid rgba(255,255,255,.06); border-radius:14px; }
+.project-hero { height:90px; display:grid; place-items:center; font-size: 30px; }
+.project-meta { padding: 10px; }
+.project-meta strong { display:block; font-size:14px; }
+.project-meta span { font-size:11px; color: var(--muted); }
+.add-card { border-style: dashed; }
+.task-list { display:grid; gap:6px; }
+.task-card { background: var(--dark-card-2); border-radius: var(--radius-sm); padding:13px 14px; border:1px solid rgba(255,255,255,.04); display:flex; align-items:center; gap:12px; }
+.check { width:22px; height:22px; border-radius:50%; border:1px solid var(--gold); color:var(--gold-light); background:transparent; }
+.task-emoji { font-size: 18px; }
+.task-info { flex:1; }
+.task-info strong { font-size:14px; display:block; }
+.task-info span { font-size:12px; color: var(--muted); }
+.task-time { color: var(--gold); font-size:12px; }
+.task-card.done { opacity:.4; }
+.task-card.done .task-info strong { text-decoration: line-through; }
