@@ -5,7 +5,7 @@ from io import BytesIO
 from flask import Blueprint, current_app, jsonify, redirect, render_template, request, send_file, send_from_directory, session, url_for
 
 from app import save_upload
-from app.models import Expense, Photo, Profile, Project, Show, ShowDay, ShowDayCheck, ShowEntry, Task, db
+from app.models import Expense, Goal, Notification, Photo, Profile, Project, Show, ShowDay, ShowDayCheck, ShowEntry, Task, db
 
 
 dashboard_bp = Blueprint("dashboard", __name__)
@@ -109,6 +109,37 @@ def dashboard_home():
         for project in projects
     }
 
+    # Auto-generate notifications
+    profile_id = session["active_profile_id"]
+    upcoming_shows = Show.query.filter(
+        Show.start_date >= date.today(),
+        Show.start_date <= date.today() + timedelta(days=3)
+    ).all()
+    for show in upcoming_shows:
+        exists = Notification.query.filter_by(
+            profile_id=profile_id, type="show_alert", title=f"Upcoming: {show.name}"
+        ).first()
+        if not exists:
+            db.session.add(Notification(
+                profile_id=profile_id, title=f"Upcoming: {show.name}",
+                body=f"{show.start_date.strftime('%b %-d')} at {show.location}",
+                type="show_alert", link=f"/shows/{show.id}"
+            ))
+    pending_tasks = Task.query.filter(Task.logged_at.is_(None)).limit(5).all()
+    for task in pending_tasks:
+        exists = Notification.query.filter_by(
+            profile_id=profile_id, type="task_due", title=f"Pending: {task.notes or task.task_type}"
+        ).first()
+        if not exists:
+            db.session.add(Notification(
+                profile_id=profile_id,
+                title=f"Pending: {task.notes or task.task_type}",
+                body="Task not yet logged", type="task_due"
+            ))
+    db.session.commit()
+    unread_count = Notification.query.filter_by(profile_id=profile_id, read=False).count()
+    notifications = Notification.query.filter_by(profile_id=profile_id).order_by(Notification.created_at.desc()).limit(10).all()
+
     return render_template(
         "dashboard.html",
         active_profile=active_profile,
@@ -125,6 +156,8 @@ def dashboard_home():
         today=date.today(),
         recent_expenses=recent_expenses,
         expense_categories=EXPENSE_CATEGORIES,
+        unread_count=unread_count,
+        notifications=notifications,
     )
 
 
@@ -213,6 +246,7 @@ def project_detail(project_id: int):
     total_spent = sum(expense.amount for expense in expenses)
     tab = request.args.get("tab", "timeline")
     photos = Photo.query.filter_by(project_id=project.id).order_by(Photo.uploaded_at.desc()).all()
+    goals = Goal.query.filter_by(project_id=project_id).order_by(Goal.completed.asc(), Goal.created_at.asc()).all()
 
     return render_template(
         "project_detail.html",
@@ -231,6 +265,7 @@ def project_detail(project_id: int):
         tab=tab,
         hide_top_bar=True,
         expense_categories=EXPENSE_CATEGORIES,
+        goals=goals,
     )
 
 
@@ -766,3 +801,42 @@ def upload_show_day_photo(show_id: int, day_num: int):
     db.session.add(photo)
     db.session.commit()
     return jsonify({"success": True, "filename": filename})
+
+
+@dashboard_bp.post("/projects/<int:project_id>/goals/add")
+def goal_add(project_id):
+    project = Project.query.get_or_404(project_id)
+    payload = request.get_json(silent=True) or {}
+    text = (payload.get("text") or "").strip()
+    if not text:
+        return jsonify({"success": False, "error": "Text required"})
+    goal = Goal(project_id=project.id, text=text)
+    db.session.add(goal)
+    db.session.commit()
+    return jsonify({"success": True, "id": goal.id, "text": goal.text})
+
+
+@dashboard_bp.post("/projects/<int:project_id>/goals/<int:goal_id>/toggle")
+def goal_toggle(project_id, goal_id):
+    goal = Goal.query.filter_by(id=goal_id, project_id=project_id).first_or_404()
+    goal.completed = not goal.completed
+    goal.completed_at = datetime.now() if goal.completed else None
+    goal.completed_by_id = session["active_profile_id"] if goal.completed else None
+    db.session.commit()
+    return jsonify({"success": True, "completed": goal.completed})
+
+
+@dashboard_bp.post("/notifications/read/<int:notif_id>")
+def notification_read(notif_id):
+    notif = Notification.query.get_or_404(notif_id)
+    notif.read = True
+    db.session.commit()
+    return jsonify({"success": True})
+
+
+@dashboard_bp.post("/notifications/read-all")
+def notification_read_all():
+    profile_id = session["active_profile_id"]
+    Notification.query.filter_by(profile_id=profile_id, read=False).update({"read": True})
+    db.session.commit()
+    return jsonify({"success": True})

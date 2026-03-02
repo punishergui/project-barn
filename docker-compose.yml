@@ -12,8 +12,6 @@ services:
       SECRET_KEY: ${SECRET_KEY}
       BARN_DB_PATH: /data/barn.db
       BARN_UPLOAD_DIR: /data/uploads
-      BARN_BASE_URL: https://barn.white-house.cc
-      PARENT_PIN: ${PARENT_PIN:-1234}
     volumes:
       - ./data:/data
     labels:
