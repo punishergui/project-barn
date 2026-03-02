@@ -158,7 +158,6 @@ h1,h2,h3 { font-family: "Playfair Display", serif; }
 .lightbox-close { position: absolute; top: 18px; right: 18px; width: 34px; height: 34px; border-radius: 50%; border: 0; background: rgba(255,255,255,.15); color: var(--cream); font-size: 24px; line-height: 1; }
 .lightbox-image { max-width: 100%; max-height: 78vh; border-radius: var(--radius-sm); }
 .lightbox-caption { color: var(--cream); text-align:center; margin: 0; font-size: 13px; }
-
 .tab-panel[data-tab-content="gallery"] {
   padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 80px);
 }
