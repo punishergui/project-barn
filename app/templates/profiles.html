@@ -13,9 +13,16 @@
   <div class="profiles-grid">
     {% for profile in profiles %}
     <button class="profile-tile" type="button" data-profile-id="{{ profile.id }}" data-profile-name="{{ profile.name }}" data-requires-pin="{{ 'true' if (profile.role == 'parent' or profile.pin_hash) else 'false' }}" style="--avatar-color: {{ profile.color }}">
-      <span class="avatar-round">{{ profile.name[0] }}</span>
+      <span class="avatar-round">
+        {% if profile.avatar_path %}
+        <img src="/uploads/{{ profile.avatar_path }}" alt="{{ profile.name }}" class="profile-avatar-img">
+        {% else %}
+        {{ profile.name[0] }}
+        {% endif %}
+      </span>
       <span class="profile-name">{{ profile.name }}</span>
       <span class="profile-role">{{ profile.role }}</span>
+      <input type="file" class="avatar-upload-input" accept="image/*" capture="environment" hidden>
     </button>
     {% endfor %}
   </div>

@@ -103,3 +103,19 @@ class Expense(db.Model):
     __table_args__ = (
         CheckConstraint("category IN ('feed','bedding','vet','entry_fee','supplies','other')", name="ck_expense_category"),
     )
+
+
+class Photo(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
+    show_id = db.Column(db.Integer, db.ForeignKey("show.id"), nullable=True)
+    show_day_id = db.Column(db.Integer, db.ForeignKey("show_day.id"), nullable=True)
+    filename = db.Column(db.String(255), nullable=False)
+    caption = db.Column(db.Text, nullable=True)
+    photo_type = db.Column(db.String(20), nullable=False, default="photo")
+    uploaded_by_id = db.Column(db.Integer, db.ForeignKey("profile.id"), nullable=False)
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("photo_type IN ('photo','video','ribbon')", name="ck_photo_type"),
+    )

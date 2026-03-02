@@ -1,8 +1,9 @@
 from datetime import date, datetime, timedelta
 
-from flask import Blueprint, jsonify, redirect, render_template, request, session, url_for
+from flask import Blueprint, current_app, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 
-from app.models import Expense, Profile, Project, Show, ShowDay, ShowDayCheck, ShowEntry, Task, db
+from app import save_upload
+from app.models import Expense, Photo, Profile, Project, Show, ShowDay, ShowDayCheck, ShowEntry, Task, db
 
 
 dashboard_bp = Blueprint("dashboard", __name__)
@@ -48,7 +49,7 @@ SHOW_CHECK_ITEMS = [
 
 @dashboard_bp.before_app_request
 def require_session():
-    if request.path.startswith("/static") or request.path.startswith("/profiles"):
+    if request.path.startswith("/static") or request.path.startswith("/profiles") or request.path.startswith("/uploads"):
         return
     if request.endpoint == "auth.logout":
         return
@@ -91,6 +92,10 @@ def dashboard_home():
     greeting = "Good morning" if hour < 12 else ("Good afternoon" if hour < 18 else "Good evening")
     profiles = {profile.id: profile for profile in Profile.query.all()}
     project_map = {project.id: project for project in projects}
+    project_photos = {
+        project.id: Photo.query.filter_by(project_id=project.id).order_by(Photo.uploaded_at.desc()).first()
+        for project in projects
+    }
 
     return render_template(
         "dashboard.html",
@@ -104,6 +109,7 @@ def dashboard_home():
         task_icons=TASK_ICONS,
         recent_activity=recent_activity,
         project_map=project_map,
+        project_photos=project_photos,
         today=date.today(),
     )
 
@@ -126,12 +132,17 @@ def projects_list():
     active_profile = Profile.query.get_or_404(session["active_profile_id"])
     projects = Project.query.order_by(Project.name.asc()).all()
     profiles = {profile.id: profile for profile in Profile.query.order_by(Profile.name.asc()).all()}
+    project_photos = {
+        project.id: Photo.query.filter_by(project_id=project.id).order_by(Photo.uploaded_at.desc()).first()
+        for project in projects
+    }
     return render_template(
         "projects_list.html",
         active_profile=active_profile,
         projects=projects,
         profiles=profiles,
         project_emoji=PROJECT_EMOJI,
+        project_photos=project_photos,
         page_title="Projects",
     )
 
@@ -187,6 +198,7 @@ def project_detail(project_id: int):
     shows = {show.id: show for show in Show.query.filter(Show.id.in_(show_ids)).all()} if show_ids else {}
     total_spent = sum(expense.amount for expense in expenses)
     tab = request.args.get("tab", "timeline")
+    photos = Photo.query.filter_by(project_id=project.id).order_by(Photo.uploaded_at.desc()).all()
 
     return render_template(
         "project_detail.html",
@@ -201,6 +213,7 @@ def project_detail(project_id: int):
         task_icons=TASK_ICONS,
         ribbon_labels=RIBBON_LABELS,
         project_emoji=PROJECT_EMOJI,
+        photos=photos,
         tab=tab,
         hide_top_bar=True,
     )
@@ -367,6 +380,7 @@ def show_day(show_id: int, day_num: int):
     entries = ShowEntry.query.filter_by(show_id=show.id).order_by(ShowEntry.id.asc()).all()
     project_ids = [entry.project_id for entry in entries]
     projects = {project.id: project for project in Project.query.filter(Project.id.in_(project_ids)).all()} if project_ids else {}
+    day_photos = Photo.query.filter_by(show_day_id=show_day_record.id).order_by(Photo.uploaded_at.desc()).all()
 
     return render_template(
         "show_day.html",
@@ -380,6 +394,7 @@ def show_day(show_id: int, day_num: int):
         projects=projects,
         project_emoji=PROJECT_EMOJI,
         ribbon_labels=RIBBON_LABELS,
+        day_photos=day_photos,
         page_title="Show Day",
         back_url=url_for("dashboard.show_detail", show_id=show.id),
     )
@@ -470,3 +485,53 @@ def expenses_stub():
 def reports_stub():
     active_profile = Profile.query.get_or_404(session["active_profile_id"])
     return render_template("reports.html", active_profile=active_profile, page_title="Reports")
+
+
+@dashboard_bp.get("/uploads/<path:filename>")
+def uploaded_file(filename: str):
+    return send_from_directory(current_app.config["BARN_UPLOAD_DIR"], filename)
+
+
+@dashboard_bp.post("/projects/<int:project_id>/photos/upload")
+def upload_project_photo(project_id: int):
+    project = Project.query.get_or_404(project_id)
+    file_storage = request.files.get("photo")
+
+    try:
+        filename = save_upload(file_storage, current_app.config["BARN_UPLOAD_DIR"])
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+
+    photo = Photo(
+        project_id=project.id,
+        filename=filename,
+        caption=(request.form.get("caption") or "").strip() or None,
+        photo_type="photo",
+        uploaded_by_id=session["active_profile_id"],
+    )
+    db.session.add(photo)
+    db.session.commit()
+    return jsonify({"success": True, "filename": filename, "id": photo.id})
+
+
+@dashboard_bp.post("/shows/<int:show_id>/day/<int:day_num>/photos/upload")
+def upload_show_day_photo(show_id: int, day_num: int):
+    show = Show.query.get_or_404(show_id)
+    show_day_record = _get_or_create_show_day(show, day_num)
+    file_storage = request.files.get("photo")
+
+    try:
+        filename = save_upload(file_storage, current_app.config["BARN_UPLOAD_DIR"])
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+
+    photo = Photo(
+        show_id=show.id,
+        show_day_id=show_day_record.id,
+        filename=filename,
+        photo_type="photo",
+        uploaded_by_id=session["active_profile_id"],
+    )
+    db.session.add(photo)
+    db.session.commit()
+    return jsonify({"success": True, "filename": filename})

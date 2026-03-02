@@ -1,7 +1,8 @@
 import bcrypt
-from flask import Blueprint, jsonify, redirect, render_template, request, session, url_for
+from flask import Blueprint, current_app, jsonify, redirect, render_template, request, session, url_for
 
-from app.models import Profile
+from app import save_upload
+from app.models import Profile, db
 
 
 auth_bp = Blueprint("auth", __name__)
@@ -36,3 +37,18 @@ def select_profile():
 def logout():
     session.clear()
     return redirect(url_for("auth.profiles_page"))
+
+
+@auth_bp.post("/profiles/<int:profile_id>/avatar")
+def upload_avatar(profile_id: int):
+    profile = Profile.query.get_or_404(profile_id)
+    file_storage = request.files.get("avatar")
+
+    try:
+        filename = save_upload(file_storage, current_app.config["BARN_UPLOAD_DIR"])
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+
+    profile.avatar_path = filename
+    db.session.commit()
+    return jsonify({"success": True, "filename": filename})
