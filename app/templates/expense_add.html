@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Add Expense · Project Barn{% endblock %}
+{% block content %}
+<section class="form-page">
+  <form method="post" class="stack-form">
+    <label class="field"><span>Amount</span><input name="amount" type="number" required step="0.01"></label>
+    <label class="field"><span>Category</span>
+      <select name="category">
+        {% for value in ['feed','bedding','vet','entry_fee','supplies','other'] %}
+        <option value="{{ value }}">{{ value|replace('_',' ')|capitalize }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="field"><span>Date</span><input name="date" type="date" value="{{ today }}"></label>
+    <label class="field"><span>Notes</span><input name="notes" type="text"></label>
+    <button class="submit-btn" type="submit">Save Expense</button>
+  </form>
+</section>
+{% endblock %}

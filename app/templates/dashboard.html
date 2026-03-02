@@ -35,19 +35,33 @@
 
   <p class="section-label">TODAY'S TASKS</p>
   <div class="task-list">
-    {% set task_icon = {'feed':'🌾','walk':'🏃','groom':'✂️','weigh':'⚖️','other':'📝','show':'🏅','note':'📝'} %}
     {% for task in tasks_today %}
     {% set done = task.logged_at is not none %}
     <form method="post" action="/tasks/log" class="task-card {% if done %}done{% endif %}">
       <input type="hidden" name="task_id" value="{{ task.id }}">
       <button type="submit" class="check">{% if done %}✓{% endif %}</button>
-      <span class="task-emoji">{{ task_icon.get(task.task_type, '📝') }}</span>
+      <span class="task-emoji">{{ task_icons.get(task.task_type, '📝') }}</span>
       <div class="task-info">
         <strong>{{ task.notes or task.task_type|capitalize }}</strong>
         <span>by {{ profiles[task.logged_by_id].name }}</span>
       </div>
-      <span class="task-time">{% if not done and task.notes and 'Due' in task.notes %}{{ task.notes.split('Due ')[-1] }}{% endif %}</span>
+      <span class="task-time">{% if task.logged_at %}{{ task.logged_at.strftime('%-I:%M %p') }}{% endif %}</span>
     </form>
+    {% endfor %}
+  </div>
+
+  <p class="section-label">RECENT ACTIVITY</p>
+  <div class="task-list">
+    {% for task in recent_activity %}
+    <article class="task-card">
+      <span class="task-emoji">{{ task_icons.get(task.task_type, '📝') }}</span>
+      <div class="task-info">
+        <strong>{{ profiles[task.logged_by_id].name }} logged {{ task.task_type }} for {{ project_map[task.project_id].name }}</strong>
+      </div>
+      <span class="task-time">{{ task.logged_at.strftime('%-m/%-d %-I:%M %p') }}</span>
+    </article>
+    {% else %}
+    <article class="task-card"><div class="task-info"><strong>No activity yet</strong></div></article>
     {% endfor %}
   </div>
 </section>

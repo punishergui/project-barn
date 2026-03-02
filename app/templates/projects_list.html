@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Projects · Project Barn{% endblock %}
+{% block content %}
+<section class="dashboard-wrap">
+  <div class="list-head"><p class="section-label">ALL PROJECTS</p><a class="inline-link-btn" href="/projects/add">+ New Project</a></div>
+  <div class="project-list">
+    {% for project in projects %}
+    <a class="task-card" href="/projects/{{ project.id }}">
+      <span class="task-emoji">{{ project_emoji.get(project.type, '📋') }}</span>
+      <div class="task-info"><strong>{{ project.name }}</strong><span>{{ profiles[project.owner_id].name }} · {{ project.type|capitalize }}</span></div>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
