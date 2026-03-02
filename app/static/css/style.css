@@ -152,13 +152,12 @@ h1,h2,h3 { font-family: "Playfair Display", serif; }
 .photo-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .photo-cell { border: 0; padding: 0; background: transparent; }
 .photo-cell img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid rgba(255,255,255,.08); }
-.photo-upload-form { margin-top: 10px; flex-shrink: 0; display: flex; justify-content: center; }
+.photo-upload-form { margin-top: 10px; }
 .lightbox-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.9); display:none; align-items:center; justify-content:center; flex-direction:column; gap: 8px; z-index: 200; padding: 18px; }
 .lightbox-overlay.open { display:flex; }
 .lightbox-close { position: absolute; top: 18px; right: 18px; width: 34px; height: 34px; border-radius: 50%; border: 0; background: rgba(255,255,255,.15); color: var(--cream); font-size: 24px; line-height: 1; }
 .lightbox-image { max-width: 100%; max-height: 78vh; border-radius: var(--radius-sm); }
 .lightbox-caption { color: var(--cream); text-align:center; margin: 0; font-size: 13px; }
-
 
 .tab-panel[data-tab-content="gallery"] {
   padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 80px);
@@ -167,6 +166,13 @@ h1,h2,h3 { font-family: "Playfair Display", serif; }
 .tab-panel[data-tab-content="gallery"].active {
   display: flex;
   flex-direction: column;
+}
+
+.photo-upload-form {
+  margin-top: 10px;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
 }
 
 .photo-upload-input {
