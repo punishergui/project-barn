@@ -3,8 +3,9 @@ from datetime import date, datetime, timedelta
 
 import bcrypt
 from flask import Flask
+from sqlalchemy import text
 
-from app.models import Expense, Profile, Project, Show, ShowEntry, Task, db
+from app.models import Expense, Profile, Project, Show, ShowDay, ShowDayCheck, ShowEntry, Task, db
 
 
 def create_app() -> Flask:
@@ -31,9 +32,28 @@ def create_app() -> Flask:
 
     with app.app_context():
         db.create_all()
+        run_migrations()
         seed_if_empty()
 
     return app
+
+
+def run_migrations() -> None:
+    statements = [
+        "ALTER TABLE show_entry ADD COLUMN day_number INTEGER",
+        "ALTER TABLE show_entry ADD COLUMN ring TEXT",
+        "ALTER TABLE show_entry ADD COLUMN class_name TEXT",
+        "ALTER TABLE show_day ADD COLUMN date DATE",
+        "ALTER TABLE show_day ADD COLUMN notes TEXT",
+    ]
+
+    with db.engine.connect() as conn:
+        for statement in statements:
+            try:
+                conn.execute(text(statement))
+            except Exception:
+                pass
+        conn.commit()
 
 
 def seed_if_empty() -> None:
