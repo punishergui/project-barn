@@ -1,3 +1,48 @@
 {% extends "base.html" %}
 {% block title %}Expenses · Project Barn{% endblock %}
-{% block content %}<section class="stub-page"><h1>Expenses coming in Phase 3</h1></section>{% endblock %}
+{% block content %}
+<section class="expenses-page">
+  <div class="chips-row expenses-filters" data-expense-filters>
+    <button type="button" class="chip filter-chip active" data-project-filter="all">All</button>
+    {% for project in projects.values()|sort(attribute='name') %}
+    <button type="button" class="chip filter-chip" data-project-filter="{{ project.id }}">{{ project.name }}</button>
+    {% endfor %}
+  </div>
+
+  {% if month_sections %}
+    {% for section in month_sections %}
+    <div class="month-group" data-expense-month>
+      <p class="section-label">{{ section.label }}</p>
+      <div class="expense-list">
+        {% for expense in section.expenses %}
+        <article class="expense-card" data-project-id="{{ expense.project_id }}">
+          <div>
+            <p class="section-label">{{ expense_categories.get(expense.category, expense.category) }}</p>
+            <strong>{{ expense.notes or 'Expense' }}</strong>
+            <p class="expense-meta">{{ projects[expense.project_id].name }} · {{ expense.date.strftime('%b %-d, %Y') }}</p>
+          </div>
+          <span class="expense-amount">${{ '%.2f'|format(expense.amount) }}</span>
+        </article>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+
+    <article class="expenses-summary" data-expenses-summary>
+      {% for row in summary_rows %}
+      <div class="summary-row">
+        <span>{{ row.project.name }}</span>
+        <strong class="expense-amount">${{ '%.2f'|format(row.total) }}</strong>
+      </div>
+      {% endfor %}
+      <hr>
+      <div class="summary-row total">
+        <strong>Total</strong>
+        <strong class="summary-total-amount">${{ '%.2f'|format(grand_total) }}</strong>
+      </div>
+    </article>
+  {% else %}
+    <p class="empty-state">No expenses yet</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -3,6 +3,15 @@
 {% block content %}
 <section class="form-page">
   <form method="post" class="stack-form">
+    {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
+    <label class="field"><span>Project</span>
+      <select name="project_id" required>
+        <option value="">Select a project</option>
+        {% for project in projects %}
+        <option value="{{ project.id }}">{{ project.name }} · {{ profiles[project.owner_id].name }}</option>
+        {% endfor %}
+      </select>
+    </label>
     <label class="field"><span>Amount</span><input name="amount" type="number" required step="0.01"></label>
     <label class="field"><span>Category</span>
       <select name="category">

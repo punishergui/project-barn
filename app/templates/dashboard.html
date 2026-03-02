@@ -93,5 +93,23 @@
     <article class="task-card"><div class="task-info"><strong>No upcoming shows</strong></div></article>
     {% endfor %}
   </div>
+
+  <section class="dash-block">
+    <div class="block-head"><p class="section-label">RECENT EXPENSES</p><a href="/expenses" class="link-inline">View all →</a></div>
+    <div class="task-list">
+      {% for expense in recent_expenses %}
+      <article class="task-card">
+        <div class="task-info">
+          <span class="section-label">{{ expense_categories.get(expense.category, expense.category) }}</span>
+          <strong>{{ expense.notes or 'Expense' }}</strong>
+          <span>{{ project_map[expense.project_id].name }}</span>
+        </div>
+        <span class="task-time">${{ '%.2f'|format(expense.amount) }}</span>
+      </article>
+      {% else %}
+      <article class="task-card"><div class="task-info"><strong>No expenses yet</strong></div></article>
+      {% endfor %}
+    </div>
+  </section>
 </section>
 {% endblock %}
