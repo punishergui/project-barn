@@ -10,7 +10,7 @@ auth_bp = Blueprint("auth", __name__)
 
 @auth_bp.get("/profiles")
 def profiles_page():
-    profiles = Profile.query.order_by(Profile.name.asc()).all()
+    profiles = Profile.query.filter_by(archived=False).order_by(Profile.name.asc()).all()
     return render_template("profiles.html", profiles=profiles)
 
 
@@ -21,7 +21,7 @@ def select_profile():
     pin = str(payload.get("pin", ""))
 
     profile = Profile.query.get_or_404(profile_id)
-    requires_pin = profile.role == "parent" or bool(profile.pin_hash)
+    requires_pin = profile.role in {"parent", "grandparent"} or bool(profile.pin_hash)
 
     if requires_pin:
         if not profile.pin_hash:

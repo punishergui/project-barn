@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Admin · Project Barn{% endblock %}
+{% block content %}
+<section class="dashboard-wrap">
+  <p class="section-label">ALL PROJECTS</p>
+  <div class="project-row">{% for project in all_projects %}<a class="project-card" href="/projects/{{ project.id }}"><div class="project-meta"><strong>{{ project.name }}</strong><span>{{ profiles[project.owner_id].name }}</span></div></a>{% endfor %}</div>
+  <p class="section-label">THIS MONTH'S EXPENSES</p>
+  <article class="total-card">${{ '%.2f'|format(monthly_total) }}</article>
+  <div class="task-list">{% for row in monthly_by_project_rows %}<article class="task-card"><div class="task-info"><strong>{{ row.project.name }}</strong><span>{{ profiles[row.project.owner_id].name }}</span></div><span class="task-time">${{ '%.2f'|format(row.amount) }}</span></article>{% endfor %}</div>
+  <p class="section-label">RIBBONS & AWARDS</p>
+  <article class="chip"><strong>{{ ribbon_total }}</strong><span>TOTAL RIBBONS</span></article>
+  <div class="task-list">{% for entry in recent_ribbons %}<article class="task-card"><div class="task-info"><strong>{{ entry.ribbon_color|capitalize }}</strong><span>{{ shows.get(entry.show_id).name if shows.get(entry.show_id) else 'Show' }} · {{ entry.placing or 'Placing' }}</span></div></article>{% endfor %}</div>
+  <p class="section-label">FAMILY OVERVIEW</p>
+  <div class="task-list">{% for p in all_profiles %}<a class="task-card" href="/profiles/{{ p.id }}/summary"><div class="task-info"><strong>{{ p.name }}</strong><span>{{ weekly_task_counts.get(p.id,0) }} tasks this week</span></div></a>{% endfor %}</div>
+  <p class="section-label">QUICK LINKS</p>
+  <div class="task-list"><a class="task-card" href="/settings/profiles"><div class="task-info"><strong>Manage Profiles</strong></div></a><a class="task-card" href="/shows/add"><div class="task-info"><strong>Add Show</strong></div></a><a class="task-card" href="/reports"><div class="task-info"><strong>View Reports</strong></div></a></div>
+</section>
+{% endblock %}

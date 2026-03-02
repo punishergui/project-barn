@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}{{ profile.name }} Summary · Project Barn{% endblock %}
+{% block content %}
+<section class="dashboard-wrap">
+  <div class="summary-head">
+    <span class="avatar-round summary-avatar" style="background:{{ profile.color }}">{% if profile.avatar_path %}<img src="/uploads/{{ profile.avatar_path }}" class="profile-avatar-img" alt="{{ profile.name }}">{% else %}{{ profile.name[0].upper() }}{% endif %}</span>
+    <h1>{{ profile.name }}</h1>
+    <p>{{ profile.role|capitalize }}{% if age is not none %} · {{ age }} years old{% endif %} · Year {{ years_active }} in program</p>
+  </div>
+  <div class="chips-row">
+    <article class="chip"><strong>{{ projects|length }}</strong><span>PROJECTS</span></article>
+    <article class="chip"><strong>{{ total_ribbons }}</strong><span>RIBBONS</span></article>
+    <article class="chip"><strong>${{ '%.2f'|format(total_spent) }}</strong><span>SPENT</span></article>
+    <article class="chip"><strong>{{ total_tasks }}</strong><span>TASKS LOGGED</span></article>
+  </div>
+  <p class="section-label">PROJECTS</p>
+  <div class="task-list">{% for project in projects %}<article class="task-card"><div class="task-info"><strong>{{ project.name }}</strong><span>${{ '%.2f'|format(project_totals.get(project.id, 0)) }} spent</span></div></article>{% endfor %}</div>
+  <p class="section-label">RIBBON HISTORY</p>
+  <div class="task-list">{% for entry in entries if entry.ribbon_color %}{% set show = shows.get(entry.show_id) %}{% set project = projects_by_id.get(entry.project_id) %}<article class="task-card"><div class="task-info"><strong>{% if entry.ribbon_color=='blue' %}🔵{% elif entry.ribbon_color=='red' %}🔴{% elif entry.ribbon_color=='white' %}⚪{% elif entry.ribbon_color=='yellow' %}🟡{% elif entry.ribbon_color=='purple' %}🟣{% elif entry.ribbon_color=='grand' %}🏆{% elif entry.ribbon_color=='reserve' %}🥈{% endif %} {{ show.name if show else 'Show' }}</strong><span>{{ project.name if project else 'Project' }} · {{ entry.placing or 'Placing' }} · {{ entry.ribbon_color|capitalize }}</span></div></article>{% else %}<article class="task-card"><div class="task-info"><strong>No ribbons logged yet</strong></div></article>{% endfor %}</div>
+</section>
+{% endblock %}

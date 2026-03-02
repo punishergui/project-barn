@@ -4,7 +4,7 @@
 <section class="dashboard-wrap">
   <div class="greeting">
     <p>{{ greeting }},</p>
-    <h1>{{ active_profile.name }}</h1>
+    <h1><a href="/profiles/{{ active_profile.id }}/summary" class="profile-summary-link">{{ active_profile.name }}</a></h1>
   </div>
 
   {% set animal_types = ['cow','pig','goat','sheep','chicken','rabbit'] %}

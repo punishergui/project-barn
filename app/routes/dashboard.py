@@ -1,4 +1,6 @@
 from collections import defaultdict
+
+import bcrypt
 from datetime import date, datetime, timedelta
 from io import BytesIO
 
@@ -66,6 +68,23 @@ def require_session():
         return
     if not session.get("active_profile_id"):
         return redirect(url_for("auth.profiles_page"))
+
+    active_profile = Profile.query.get(session["active_profile_id"])
+    if not active_profile:
+        session.clear()
+        return redirect(url_for("auth.profiles_page"))
+
+    if active_profile.role == "grandparent" and request.method == "POST":
+        allowed_posts = (
+            request.path == "/tasks/log"
+            or request.path.endswith("/tasks/log")
+            or request.path.startswith("/notifications/read/")
+            or request.path == "/notifications/read-all"
+        )
+        if not allowed_posts:
+            if request.is_json:
+                return jsonify({"success": False, "error": "Grandparent accounts are view-only"}), 403
+            return redirect(request.referrer or url_for("dashboard.dashboard_home"))
 
 
 def _show_total_days(show: Show) -> int:
@@ -216,6 +235,8 @@ def project_add():
             type=request.form.get("type", "other"),
             owner_id=request.form.get("owner_id", type=int),
             breed=(request.form.get("breed") or "").strip() or None,
+            start_date=request.form.get("start_date", type=lambda v: datetime.strptime(v, "%Y-%m-%d").date()) if request.form.get("start_date") else None,
+            purchase_date=request.form.get("purchase_date", type=lambda v: datetime.strptime(v, "%Y-%m-%d").date()) if request.form.get("purchase_date") else None,
             purchase_price=request.form.get("purchase_price", type=float) or 0,
             notes=(request.form.get("notes") or "").strip() or None,
         )
@@ -838,5 +859,219 @@ def notification_read(notif_id):
 def notification_read_all():
     profile_id = session["active_profile_id"]
     Notification.query.filter_by(profile_id=profile_id, read=False).update({"read": True})
+    db.session.commit()
+    return jsonify({"success": True})
+
+
+@dashboard_bp.route("/projects/<int:project_id>/edit", methods=["GET", "POST"])
+def project_edit(project_id: int):
+    active_profile = Profile.query.get_or_404(session["active_profile_id"])
+    project = Project.query.get_or_404(project_id)
+    profiles = Profile.query.order_by(Profile.name.asc()).all()
+
+    if request.method == "POST":
+        project.name = (request.form.get("name") or "").strip() or project.name
+        project.type = request.form.get("type", project.type)
+        project.owner_id = request.form.get("owner_id", type=int) or project.owner_id
+        project.breed = (request.form.get("breed") or "").strip() or None
+        project.start_date = request.form.get("start_date", type=lambda v: datetime.strptime(v, "%Y-%m-%d").date()) if request.form.get("start_date") else None
+        project.purchase_date = request.form.get("purchase_date", type=lambda v: datetime.strptime(v, "%Y-%m-%d").date()) if request.form.get("purchase_date") else None
+        project.purchase_price = request.form.get("purchase_price", type=float) or 0
+        project.notes = (request.form.get("notes") or "").strip() or None
+        db.session.commit()
+        return redirect(url_for("dashboard.project_detail", project_id=project.id))
+
+    return render_template(
+        "project_edit.html",
+        active_profile=active_profile,
+        profiles=profiles,
+        project=project,
+        page_title="Edit Project",
+        back_url=url_for("dashboard.project_detail", project_id=project.id),
+    )
+
+
+@dashboard_bp.get("/profiles/<int:profile_id>/summary")
+def profile_summary(profile_id: int):
+    active_profile = Profile.query.get_or_404(session["active_profile_id"])
+    profile = Profile.query.get_or_404(profile_id)
+    age = ((date.today() - profile.birthdate).days // 365) if profile.birthdate else None
+    years_active = date.today().year - profile.created_at.year + 1
+    projects = Project.query.filter_by(owner_id=profile.id).order_by(Project.name.asc()).all()
+    project_ids = [project.id for project in projects]
+    entries = ShowEntry.query.filter(ShowEntry.project_id.in_(project_ids)).all() if project_ids else []
+    total_ribbons = len([entry for entry in entries if entry.ribbon_color])
+    expenses = Expense.query.filter(Expense.project_id.in_(project_ids)).all() if project_ids else []
+    total_spent = sum(expense.amount for expense in expenses)
+    total_tasks = Task.query.filter_by(logged_by_id=profile.id).count()
+    shows = {show.id: show for show in Show.query.filter(Show.id.in_([entry.show_id for entry in entries])).all()} if entries else {}
+    projects_by_id = {project.id: project for project in projects}
+    project_totals = defaultdict(float)
+    for expense in expenses:
+        project_totals[expense.project_id] += expense.amount
+
+    return render_template(
+        "profile_summary.html",
+        active_profile=active_profile,
+        profile=profile,
+        age=age,
+        years_active=years_active,
+        projects=projects,
+        total_ribbons=total_ribbons,
+        total_spent=total_spent,
+        total_tasks=total_tasks,
+        entries=entries,
+        shows=shows,
+        projects_by_id=projects_by_id,
+        project_totals=project_totals,
+        page_title="Profile Summary",
+        back_url=url_for("dashboard.dashboard_home"),
+    )
+
+
+@dashboard_bp.get("/settings/profiles")
+def settings_profiles():
+    active_profile = Profile.query.get_or_404(session["active_profile_id"])
+    if active_profile.role != "parent":
+        return redirect(url_for("dashboard.dashboard_home"))
+    profiles = Profile.query.order_by(Profile.name.asc()).all()
+    today = date.today()
+    return render_template("settings_profiles.html", active_profile=active_profile, profiles=profiles, today=today, page_title="Manage Profiles", back_url=url_for("dashboard.dashboard_home"))
+
+
+@dashboard_bp.route("/settings/profiles/add", methods=["GET", "POST"])
+def settings_profiles_add():
+    active_profile = Profile.query.get_or_404(session["active_profile_id"])
+    if active_profile.role != "parent":
+        return redirect(url_for("dashboard.dashboard_home"))
+
+    colors = ["#5C2E00", "#1A3A5C", "#2D5A1B", "#6B2D6B", "#1A4A4A", "#8B4513"]
+    if request.method == "POST":
+        pin = (request.form.get("pin") or "").strip()
+        pin_confirm = (request.form.get("pin_confirm") or "").strip()
+        if pin and pin != pin_confirm:
+            return render_template("settings_profile_add.html", active_profile=active_profile, colors=colors, error="PINs do not match", page_title="Add Profile", back_url=url_for("dashboard.settings_profiles"))
+        pin_hash = bcrypt.hashpw(pin.encode("utf-8"), bcrypt.gensalt()).decode("utf-8") if pin else None
+        profile = Profile(
+            name=(request.form.get("name") or "").strip(),
+            role=request.form.get("role", "kid"),
+            pin_hash=pin_hash,
+            color=request.form.get("color") or colors[0],
+            birthdate=request.form.get("birthdate", type=lambda v: datetime.strptime(v, "%Y-%m-%d").date()) if request.form.get("birthdate") else None,
+        )
+        db.session.add(profile)
+        db.session.commit()
+        return redirect(url_for("dashboard.settings_profiles"))
+
+    return render_template("settings_profile_add.html", active_profile=active_profile, colors=colors, page_title="Add Profile", back_url=url_for("dashboard.settings_profiles"))
+
+
+@dashboard_bp.route("/settings/profiles/<int:profile_id>/edit", methods=["GET", "POST"])
+def settings_profiles_edit(profile_id: int):
+    active_profile = Profile.query.get_or_404(session["active_profile_id"])
+    if active_profile.role != "parent":
+        return redirect(url_for("dashboard.dashboard_home"))
+
+    profile = Profile.query.get_or_404(profile_id)
+    colors = ["#5C2E00", "#1A3A5C", "#2D5A1B", "#6B2D6B", "#1A4A4A", "#8B4513"]
+
+    if request.method == "POST":
+        profile.name = (request.form.get("name") or "").strip() or profile.name
+        profile.role = request.form.get("role", profile.role)
+        profile.color = request.form.get("color") or profile.color
+        profile.birthdate = request.form.get("birthdate", type=lambda v: datetime.strptime(v, "%Y-%m-%d").date()) if request.form.get("birthdate") else None
+
+        if request.form.get("remove_pin") == "1" and profile.role == "kid":
+            profile.pin_hash = None
+
+        new_pin = (request.form.get("new_pin") or "").strip()
+        new_pin_confirm = (request.form.get("new_pin_confirm") or "").strip()
+        if new_pin:
+            if new_pin != new_pin_confirm:
+                return render_template("settings_profile_edit.html", active_profile=active_profile, profile=profile, colors=colors, error="PINs do not match", page_title="Edit Profile", back_url=url_for("dashboard.settings_profiles"))
+            profile.pin_hash = bcrypt.hashpw(new_pin.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+        db.session.commit()
+        return redirect(url_for("dashboard.settings_profiles"))
+
+    return render_template("settings_profile_edit.html", active_profile=active_profile, profile=profile, colors=colors, page_title="Edit Profile", back_url=url_for("dashboard.settings_profiles"))
+
+
+@dashboard_bp.post("/settings/profiles/<int:profile_id>/archive")
+def settings_profiles_archive(profile_id: int):
+    active_profile = Profile.query.get_or_404(session["active_profile_id"])
+    if active_profile.role != "parent":
+        return redirect(url_for("dashboard.dashboard_home"))
+    profile = Profile.query.get_or_404(profile_id)
+    profile.archived = not profile.archived
+    db.session.commit()
+    return redirect(url_for("dashboard.settings_profiles"))
+
+
+@dashboard_bp.post("/settings/profiles/<int:profile_id>/restore")
+def settings_profiles_restore(profile_id: int):
+    active_profile = Profile.query.get_or_404(session["active_profile_id"])
+    if active_profile.role != "parent":
+        return redirect(url_for("dashboard.dashboard_home"))
+    profile = Profile.query.get_or_404(profile_id)
+    profile.archived = False
+    db.session.commit()
+    return redirect(url_for("dashboard.settings_profiles"))
+
+
+@dashboard_bp.get("/admin")
+def admin_dashboard():
+    active_profile = Profile.query.get_or_404(session["active_profile_id"])
+    if active_profile.role != "parent":
+        return redirect(url_for("dashboard.dashboard_home"))
+
+    projects = Project.query.order_by(Project.name.asc()).all()
+    profiles = {profile.id: profile for profile in Profile.query.order_by(Profile.name.asc()).all()}
+    first_of_month = date.today().replace(day=1)
+    monthly_expenses = Expense.query.filter(Expense.date >= first_of_month).all()
+    monthly_total = sum(expense.amount for expense in monthly_expenses)
+    monthly_by_project = defaultdict(float)
+    for expense in monthly_expenses:
+        monthly_by_project[expense.project_id] += expense.amount
+    projects_by_id = {project.id: project for project in projects}
+    monthly_by_project_rows = [
+        {"project": projects_by_id.get(project_id), "amount": amount}
+        for project_id, amount in monthly_by_project.items()
+        if projects_by_id.get(project_id)
+    ]
+
+    recent_ribbons = ShowEntry.query.filter(ShowEntry.ribbon_color.isnot(None)).order_by(ShowEntry.id.desc()).limit(10).all()
+    ribbon_total = ShowEntry.query.filter(ShowEntry.ribbon_color.isnot(None)).count()
+    shows = {show.id: show for show in Show.query.filter(Show.id.in_([entry.show_id for entry in recent_ribbons])).all()} if recent_ribbons else {}
+
+    week_start = date.today() - timedelta(days=date.today().weekday())
+    all_profiles = Profile.query.filter_by(archived=False).order_by(Profile.name.asc()).all()
+    weekly_task_counts = defaultdict(int)
+    for task in Task.query.filter(Task.logged_at.isnot(None)).all():
+        if task.logged_at.date() >= week_start:
+            weekly_task_counts[task.logged_by_id] += 1
+
+    return render_template(
+        "admin_dashboard.html",
+        active_profile=active_profile,
+        all_projects=projects,
+        profiles=profiles,
+        monthly_total=monthly_total,
+        monthly_by_project=monthly_by_project,
+        monthly_by_project_rows=monthly_by_project_rows,
+        recent_ribbons=recent_ribbons,
+        all_profiles=all_profiles,
+        weekly_task_counts=weekly_task_counts,
+        ribbon_total=ribbon_total,
+        shows=shows,
+        page_title="Admin",
+        back_url=url_for("dashboard.dashboard_home"),
+    )
+
+
+@dashboard_bp.post("/profiles/<int:profile_id>/avatar/remove")
+def remove_avatar(profile_id: int):
+    profile = Profile.query.get_or_404(profile_id)
+    profile.avatar_path = None
     db.session.commit()
     return jsonify({"success": True})

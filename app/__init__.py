@@ -57,6 +57,10 @@ def run_migrations() -> None:
         "ALTER TABLE goal ADD COLUMN completed_at DATETIME",
         "ALTER TABLE goal ADD COLUMN completed_by_id INTEGER",
         "ALTER TABLE notification ADD COLUMN link TEXT",
+        "ALTER TABLE profile ADD COLUMN archived BOOLEAN DEFAULT 0",
+        "ALTER TABLE profile ADD COLUMN birthdate DATE",
+        "ALTER TABLE project ADD COLUMN start_date DATE",
+        "ALTER TABLE project ADD COLUMN purchase_date DATE",
     ]
 
     with db.engine.connect() as conn:

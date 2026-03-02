@@ -71,11 +71,37 @@
     profileTiles.forEach((tile) => {
       const avatarRound = tile.querySelector('.avatar-round');
       const avatarInput = tile.querySelector('.avatar-upload-input');
+      const camBtn = tile.querySelector('.avatar-cam-btn');
+      const camMenu = tile.querySelector('.avatar-cam-menu');
+      const changeBtn = tile.querySelector('.change-btn');
+      const removeBtn = tile.querySelector('.remove-btn');
 
-      if (avatarRound && avatarInput) {
-        avatarRound.addEventListener('click', (event) => {
+      const closeMenus = () => document.querySelectorAll('.avatar-cam-menu.open').forEach((menu) => menu.classList.remove('open'));
+
+      if (avatarRound && avatarInput && camBtn) {
+        camBtn.addEventListener('click', (event) => {
           event.stopPropagation();
+          const hasPhoto = !!avatarRound.querySelector('img');
+          if (!hasPhoto) {
+            avatarInput.click();
+            return;
+          }
+          camMenu.classList.toggle('open');
+        });
+
+        changeBtn?.addEventListener('click', (event) => {
+          event.stopPropagation();
+          camMenu.classList.remove('open');
           avatarInput.click();
+        });
+
+        removeBtn?.addEventListener('click', async (event) => {
+          event.stopPropagation();
+          camMenu.classList.remove('open');
+          const resp = await fetch(`/profiles/${tile.dataset.profileId}/avatar/remove`, { method: 'POST' });
+          const data = await resp.json();
+          if (!data.success) return;
+          avatarRound.innerHTML = tile.dataset.profileName?.[0]?.toUpperCase() || '?';
         });
 
         avatarInput.addEventListener('change', async () => {
@@ -90,10 +116,15 @@
 
           const existingImg = avatarRound.querySelector('img');
           if (existingImg) {
-            existingImg.src = `/uploads/${data.filename}`;
+            existingImg.src = `/uploads/${data.filename}?v=${Date.now()}`;
           } else {
-            avatarRound.innerHTML = `<img src="/uploads/${data.filename}" alt="${tile.dataset.profileName}" class="profile-avatar-img">`;
+            avatarRound.innerHTML = `<img src="/uploads/${data.filename}?v=${Date.now()}" alt="${tile.dataset.profileName}" class="profile-avatar-img">`;
           }
+          avatarInput.value = '';
+        });
+
+        document.addEventListener('click', (event) => {
+          if (!tile.contains(event.target)) closeMenus();
         });
       }
 
