@@ -50,6 +50,8 @@ SHOW_CHECK_ITEMS = [
     "Notes",
 ]
 
+VIDEO_EXTS = {'.mp4', '.mov', '.avi', '.webm'}
+
 EXPENSE_CATEGORIES = {
     "feed": "Feed",
     "bedding": "Bedding",
@@ -264,6 +266,18 @@ def project_detail(project_id: int):
     entries = ShowEntry.query.filter_by(project_id=project.id).order_by(ShowEntry.id.desc()).all()
     show_ids = [entry.show_id for entry in entries]
     shows = {show.id: show for show in Show.query.filter(Show.id.in_(show_ids)).all()} if show_ids else {}
+    ribbon_count = sum(1 for entry in entries if entry.ribbon_color)
+    ribbon_dates = set()
+    for entry in entries:
+        if not entry.ribbon_color:
+            continue
+        show_obj = shows.get(entry.show_id)
+        if not show_obj:
+            continue
+        if entry.day_number and entry.day_number > 0:
+            ribbon_dates.add(show_obj.start_date + timedelta(days=entry.day_number - 1))
+        else:
+            ribbon_dates.add(show_obj.start_date)
     total_spent = sum(expense.amount for expense in expenses)
     tab = request.args.get("tab", "timeline")
     photos = Photo.query.filter_by(project_id=project.id).order_by(Photo.uploaded_at.desc()).all()
@@ -287,6 +301,8 @@ def project_detail(project_id: int):
         hide_top_bar=True,
         expense_categories=EXPENSE_CATEGORIES,
         goals=goals,
+        ribbon_count=ribbon_count,
+        ribbon_dates=ribbon_dates,
     )
 
 
@@ -330,6 +346,7 @@ def project_task_log(project_id: int):
         task_type=payload.get("task_type", "other"),
         notes=(payload.get("notes") or "").strip() or None,
         weight_lbs=payload.get("weight_lbs"),
+        duration_minutes=payload.get("duration_minutes"),
         logged_at=datetime.now(),
     )
     db.session.add(task)
@@ -524,10 +541,16 @@ def save_show_entry_result(show_id: int, entry_id: int):
     placing = (request.form.get("placing") or "").strip() or None
     ribbon_color = (request.form.get("ribbon_color") or "").strip() or None
     day_number = request.form.get("day_number", type=int)
+    class_name = (request.form.get("class_name") or "").strip() or None
+    ring = (request.form.get("ring") or "").strip() or None
+    judge_notes = (request.form.get("judge_notes") or "").strip() or None
 
     entry.placing = placing
     entry.ribbon_color = ribbon_color
     entry.day_number = day_number
+    entry.class_name = class_name
+    entry.ring = ring
+    entry.judge_notes = judge_notes
 
     task_note = f"{show.name}: {placing or 'Result saved'}"
     if ribbon_color:
@@ -545,6 +568,54 @@ def save_show_entry_result(show_id: int, entry_id: int):
     db.session.commit()
 
     return redirect(url_for("dashboard.show_day", show_id=show.id, day_num=day_number or 1))
+
+
+
+
+@dashboard_bp.get("/timeline")
+def family_timeline():
+    active_profile = Profile.query.get_or_404(session["active_profile_id"])
+    filter_profile_id = request.args.get("profile", type=int)
+    filter_project_id = request.args.get("project", type=int)
+    filter_type = request.args.get("type")
+    page = request.args.get("page", type=int) or 1
+    page = 1 if page < 1 else page
+    per_page = 50
+
+    query = Task.query.filter(Task.logged_at.isnot(None))
+    if filter_profile_id:
+        query = query.filter(Task.logged_by_id == filter_profile_id)
+    if filter_project_id:
+        query = query.filter(Task.project_id == filter_project_id)
+    if filter_type:
+        query = query.filter(Task.task_type == filter_type)
+
+    events = query.order_by(Task.logged_at.desc(), Task.id.desc()).limit(per_page).offset((page - 1) * per_page).all()
+
+    profiles = {profile.id: profile for profile in Profile.query.all()}
+    project_map = {project.id: project for project in Project.query.all()}
+    all_profiles = Profile.query.filter_by(archived=False).order_by(Profile.name.asc()).all()
+    all_projects = Project.query.order_by(Project.name.asc()).all()
+
+    next_page_events = query.order_by(Task.logged_at.desc(), Task.id.desc()).limit(per_page).offset(page * per_page).all()
+
+    return render_template(
+        "timeline.html",
+        active_profile=active_profile,
+        events=events,
+        profiles=profiles,
+        project_map=project_map,
+        filter_profile_id=filter_profile_id,
+        filter_project_id=filter_project_id,
+        filter_type=filter_type,
+        all_profiles=all_profiles,
+        all_projects=all_projects,
+        page=page,
+        has_next=bool(next_page_events),
+        task_icons=TASK_ICONS,
+        page_title="Family Timeline",
+        back_url=url_for("dashboard.dashboard_home"),
+    )
 
 
 @dashboard_bp.get("/expenses")
@@ -789,11 +860,14 @@ def upload_project_photo(project_id: int):
     except ValueError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
 
+    extension = f".{filename.rsplit('.', 1)[1].lower()}" if "." in filename else ""
+    photo_type = "video" if extension in VIDEO_EXTS else "photo"
+
     photo = Photo(
         project_id=project.id,
         filename=filename,
         caption=(request.form.get("caption") or "").strip() or None,
-        photo_type="photo",
+        photo_type=photo_type,
         uploaded_by_id=session["active_profile_id"],
     )
     db.session.add(photo)
@@ -812,11 +886,14 @@ def upload_show_day_photo(show_id: int, day_num: int):
     except ValueError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
 
+    extension = f".{filename.rsplit('.', 1)[1].lower()}" if "." in filename else ""
+    photo_type = "video" if extension in VIDEO_EXTS else "photo"
+
     photo = Photo(
         show_id=show.id,
         show_day_id=show_day_record.id,
         filename=filename,
-        photo_type="photo",
+        photo_type=photo_type,
         uploaded_by_id=session["active_profile_id"],
     )
     db.session.add(photo)

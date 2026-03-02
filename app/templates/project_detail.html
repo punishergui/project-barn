@@ -17,10 +17,13 @@
   </div>
 
   <div class="chips-row">
-    <article class="chip"><strong>{{ entries|length }}</strong><span>RIBBONS</span></article>
+    <article class="chip"><strong>{{ ribbon_count }}</strong><span>RIBBONS</span></article>
     <article class="chip"><strong>${{ '%.2f'|format(total_spent) }}</strong><span>SPENT</span></article>
     <article class="chip"><strong>{{ tasks|length }}</strong><span>TASKS</span></article>
   </div>
+  {% if project.purchase_price and project.purchase_price > 0 %}
+  <div class="chips-row"><article class="chip"><strong>${{ '%.2f'|format(project.purchase_price) }}</strong><span>COST BASIS</span></article></div>
+  {% endif %}
   <p class="project-date-meta">
     {% if project.start_date %}<span>Started {{ project.start_date.strftime('%b %-d, %Y') }}</span>{% endif %}
     {% if project.purchase_date and project.purchase_price %}<span>Purchased {{ project.purchase_date.strftime('%b %-d, %Y') }} · ${{ '%.2f'|format(project.purchase_price) }}</span>{% endif %}
@@ -40,6 +43,7 @@
       <span class="task-emoji">{{ task_icons.get(task.task_type, '📝') }}</span>
       <div class="task-info"><strong>{{ task.notes or task.task_type|capitalize }}</strong><span>by {{ profiles[task.logged_by_id].name }}</span></div>
       <span class="task-time">{{ task.logged_at.strftime('%-m/%-d %-I:%M %p') if task.logged_at else 'Pending' }}</span>
+      {% if task.duration_minutes %}<span class="mini-chip">{{ task.duration_minutes }} min</span>{% endif %}
     </article>
     {% else %}<p class="empty-state">No activity yet</p>{% endfor %}
   </div>
@@ -63,23 +67,33 @@
         <strong>{{ show.name if show else 'Show' }}</strong>
         <span>{{ show.start_date.strftime('%b %-d, %Y') if show else '' }}</span>
       </div>
-      <span class="task-time">{{ entry.placing or '—' }}</span>
+      <div class="task-info">
+        <span>{{ entry.placing or '—' }}{% if entry.ribbon_color %} · {{ ribbon_labels.get(entry.ribbon_color, entry.ribbon_color|capitalize) }}{% endif %}</span>
+        {% if entry.class_name or entry.ring %}<span>Class: {{ entry.class_name or '—' }}{% if entry.ring %} · Ring {{ entry.ring }}{% endif %}</span>{% endif %}
+        {% if entry.judge_notes %}<span><em>{{ entry.judge_notes }}</em></span>{% endif %}
+      </div>
     </a>
     {% else %}<p class="empty-state">No shows yet — enter this project in a show</p>{% endfor %}
   </div>
 
   <div class="tab-panel" data-tab-content="gallery" id="projectGallerySection">
+    <div class="gallery-filter-tabs">
+      <button type="button" class="gallery-filter-tab active" data-gallery-filter="all">All</button>
+      <button type="button" class="gallery-filter-tab" data-gallery-filter="photo">Photos</button>
+      <button type="button" class="gallery-filter-tab" data-gallery-filter="video">Videos</button>
+      <button type="button" class="gallery-filter-tab" data-gallery-filter="ribbon">Ribbons</button>
+    </div>
     <div class="photo-grid">
       {% for photo in photos %}
-      <button type="button" class="photo-cell js-lightbox-trigger" data-src="/uploads/{{ photo.filename }}" data-caption="{{ photo.caption or '' }}">
-        <img src="/uploads/{{ photo.filename }}" loading="lazy" alt="{{ photo.caption or project.name }}">
+      <button type="button" class="photo-cell js-lightbox-trigger" data-type="{{ photo.photo_type }}" data-ribbon="{{ 'true' if (photo.caption and 'ribbon' in photo.caption|lower) or (photo.uploaded_at and photo.uploaded_at.date() in ribbon_dates) else 'false' }}" data-src="/uploads/{{ photo.filename }}" data-caption="{{ photo.caption or '' }}">
+        {% if photo.photo_type == 'video' %}<video src="/uploads/{{ photo.filename }}" class="gallery-video" preload="metadata" playsinline webkit-playsinline></video><span class="video-play-badge">▶</span>{% else %}<img src="/uploads/{{ photo.filename }}" loading="lazy" alt="{{ photo.caption or project.name }}">{% endif %}
       </button>
       {% else %}
       <p class="empty-state">No photos yet</p>
       {% endfor %}
     </div>
     <form class="photo-upload-form" data-upload-url="/projects/{{ project.id }}/photos/upload" data-reload-tab="gallery">
-      <input class="photo-upload-input" type="file" name="photo" accept="image/*" capture="environment">
+      <input class="photo-upload-input" type="file" name="photo" accept="image/*,video/*" capture="environment">
       <button type="button" class="inline-link-btn js-photo-upload-btn">📷 Add Photo</button>
     </form>
   </div>
@@ -121,6 +135,10 @@
       {% endfor %}
     </div>
     <label class="field"><span>Notes (optional)</span><input type="text" id="quickLogNotes"></label>
+    <label class="field">
+      <span>Time spent (minutes, optional)</span>
+      <input type="number" id="quickLogMinutes" min="0" step="5" placeholder="e.g. 30">
+    </label>
     <button type="button" class="pin-cancel" id="closeLogSheet">Cancel</button>
   </div>
 </section>

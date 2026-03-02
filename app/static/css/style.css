@@ -298,3 +298,34 @@ body { animation: pageIn .15s ease; }
 .is-archived { opacity:.55; }
 .summary-avatar { width:80px; height:80px; font-size:28px; }
 .summary-head { text-align:center; margin-bottom:14px; }
+
+
+.timeline-link-card { display:block; margin: 10px 0 14px; padding: 13px 14px; border-radius: var(--radius-sm); background: var(--dark-card-2); color: var(--light-text); text-decoration:none; font-weight:700; }
+.mini-chip { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:999px; font-size:11px; background:rgba(232,160,32,.2); color:var(--gold-light); }
+.timeline-filter-row { display:flex; gap:6px; overflow-x:auto; padding-bottom:8px; margin-bottom:10px; }
+.timeline-filter-chip { border:0; background:var(--dark-card-2); color:var(--muted); border-radius:20px; padding:6px 12px; font-size:12px; text-decoration:none; white-space:nowrap; }
+.timeline-filter-chip.active { background:var(--barn-red); color:var(--light-text); }
+.timeline-entry { background:var(--dark-card-2); border-radius:var(--radius); padding:13px 14px; display:grid; grid-template-columns:48px 1fr auto; gap:10px; align-items:start; margin-bottom:8px; }
+.timeline-entry-icon { width:40px; height:40px; border-radius:50%; display:grid; place-items:center; background:var(--dark-card); }
+.timeline-entry-icon.show { background:var(--gold); color:#1C0E05; }
+.timeline-entry-time { font-size:12px; color:var(--muted); text-align:right; }
+.gallery-video {
+  width: 100%; aspect-ratio: 1/1; object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255,255,255,.08);
+}
+.photo-cell { position: relative; }
+.video-play-badge {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font-size: 28px; pointer-events: none;
+}
+.gallery-filter-tabs { display:flex; gap:6px; margin-bottom:10px; }
+.gallery-filter-tab {
+  padding: 6px 12px; border-radius: 20px; border: 0;
+  background: var(--dark-card-2); color: var(--muted);
+  font-size: 12px; cursor: pointer;
+}
+.gallery-filter-tab.active {
+  background: var(--barn-red); color: var(--light-text);
+}
+.lightbox-video { max-width: 100%; max-height: 78vh; border-radius: var(--radius-sm); display:none; }

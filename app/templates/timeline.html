@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Family Timeline · Project Barn{% endblock %}
+{% block content %}
+<section class="dashboard-wrap">
+  <div class="timeline-filter-row">
+    <a class="timeline-filter-chip {% if not filter_profile_id and not filter_project_id %}active{% endif %}" href="/timeline{% if filter_type %}?type={{ filter_type }}{% endif %}">All</a>
+    {% for profile in all_profiles %}
+    <a class="timeline-filter-chip {% if filter_profile_id == profile.id %}active{% endif %}" href="/timeline?profile={{ profile.id }}{% if filter_type %}&type={{ filter_type }}{% endif %}">{{ profile.name }}</a>
+    {% endfor %}
+    {% for project in all_projects %}
+    <a class="timeline-filter-chip {% if filter_project_id == project.id %}active{% endif %}" href="/timeline?project={{ project.id }}{% if filter_type %}&type={{ filter_type }}{% endif %}">{{ project.name }}</a>
+    {% endfor %}
+  </div>
+
+  <div class="timeline-filter-row">
+    {% for type_key,label in [('','All'),('feed','Feed'),('walk','Walk'),('weigh','Weigh'),('show','Show'),('note','Note')] %}
+    <a class="timeline-filter-chip {% if (not filter_type and not type_key) or filter_type == type_key %}active{% endif %}" href="/timeline?{% if filter_profile_id %}profile={{ filter_profile_id }}&{% endif %}{% if filter_project_id %}project={{ filter_project_id }}&{% endif %}{% if type_key %}type={{ type_key }}{% endif %}">{{ label }}</a>
+    {% endfor %}
+  </div>
+
+  <div>
+    {% for task in events %}
+    <article class="timeline-entry">
+      <div class="timeline-entry-icon {% if task.task_type == 'show' %}show{% endif %}">{{ task_icons.get(task.task_type, '📝') }}</div>
+      <div>
+        <strong>{{ profiles.get(task.logged_by_id).name if profiles.get(task.logged_by_id) else 'Someone' }} logged {{ task.task_type }} for {{ project_map.get(task.project_id).name if project_map.get(task.project_id) else 'Project' }}</strong>
+        {% if task.notes %}<p class="muted-copy">{{ task.notes }}</p>{% endif %}
+        {% if task.weight_lbs %}<span class="mini-chip">⚖️ {{ task.weight_lbs }} lbs</span>{% endif %}
+        {% if task.duration_minutes %}<span class="mini-chip">{{ task.duration_minutes }} min</span>{% endif %}
+      </div>
+      <div class="timeline-entry-time">{{ task.logged_at.strftime('%b %-d') }}<br>{{ task.logged_at.strftime('%-I:%M %p') }}</div>
+    </article>
+    {% else %}
+    <p class="empty-state">📋 No activity yet</p>
+    {% endfor %}
+  </div>
+
+  {% if has_next %}
+  <a class="timeline-link-card" href="/timeline?page={{ page + 1 }}{% if filter_profile_id %}&profile={{ filter_profile_id }}{% endif %}{% if filter_project_id %}&project={{ filter_project_id }}{% endif %}{% if filter_type %}&type={{ filter_type }}{% endif %}">Load more</a>
+  {% endif %}
+</section>
+{% endblock %}

@@ -35,6 +35,8 @@
     <form method="post" action="/shows/{{ show.id }}/entries/{{ entry.id }}/result" class="result-card">
       <input type="hidden" name="day_number" value="{{ day_num }}">
       <p><span class="task-emoji">{{ project_emoji.get(project.type, '📋') if project else '📋' }}</span> <strong>{{ project.name if project else 'Project' }}</strong></p>
+      <label class="field"><span>Class</span><input type="text" name="class_name" value="{{ entry.class_name or '' }}" placeholder="Market, Showmanship, etc"></label>
+      <label class="field"><span>Ring #</span><input type="text" name="ring" value="{{ entry.ring or '' }}" placeholder="Ring A"></label>
       <label class="field"><span>Placing</span><input type="text" name="placing" value="{{ entry.placing or '' }}" placeholder="1st, 2nd, 3rd"></label>
       <label class="field"><span>Ribbon</span>
         <select name="ribbon_color">
@@ -44,6 +46,7 @@
           {% endfor %}
         </select>
       </label>
+      <label class="field"><span>Judge Notes</span><textarea name="judge_notes" rows="3" placeholder="Judge feedback">{{ entry.judge_notes or '' }}</textarea></label>
       <button type="submit" class="submit-btn">Save Result</button>
     </form>
     {% endfor %}
@@ -53,14 +56,14 @@
   <div class="photo-grid">
     {% for photo in day_photos %}
     <button type="button" class="photo-cell js-lightbox-trigger" data-src="/uploads/{{ photo.filename }}" data-caption="{{ photo.caption or '' }}">
-      <img src="/uploads/{{ photo.filename }}" loading="lazy" alt="Show day photo">
+      {% if photo.photo_type == 'video' %}<video src="/uploads/{{ photo.filename }}" class="gallery-video" preload="metadata" playsinline webkit-playsinline></video><span class="video-play-badge">▶</span>{% else %}<img src="/uploads/{{ photo.filename }}" loading="lazy" alt="Show day photo">{% endif %}
     </button>
     {% else %}
     <p class="empty-state">No photos yet</p>
     {% endfor %}
   </div>
   <form class="photo-upload-form" data-upload-url="/shows/{{ show.id }}/day/{{ day_num }}/photos/upload">
-    <input class="photo-upload-input" type="file" name="photo" accept="image/*" capture="environment">
+    <input class="photo-upload-input" type="file" name="photo" accept="image/*,video/*" capture="environment">
     <button type="button" class="inline-link-btn js-photo-upload-btn">📷 Add Photo</button>
   </form>
 

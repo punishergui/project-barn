@@ -76,6 +76,7 @@ class ShowEntry(db.Model):
     ribbon_color = db.Column(db.String(40), nullable=True)
     day_number = db.Column(db.Integer, nullable=True)
     notes = db.Column(db.Text, nullable=True)
+    judge_notes = db.Column(db.Text, nullable=True)
 
 
 class ShowDay(db.Model):
