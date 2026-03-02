@@ -1,0 +1,28 @@
+services:
+  project-barn:
+    image: ghcr.io/punishergui/project-barn:main
+    container_name: project-barn
+    restart: unless-stopped
+    networks:
+      - proxy
+    ports:
+      - "4030:5000"
+    environment:
+      TZ: America/Chicago
+      SECRET_KEY: ${SECRET_KEY}
+      BARN_DB_PATH: /data/barn.db
+      BARN_UPLOAD_DIR: /data/uploads
+      BARN_BASE_URL: https://barn.white-house.cc
+      PARENT_PIN: ${PARENT_PIN:-1234}
+    volumes:
+      - ./data:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.barn.rule=Host(`barn.white-house.cc`)"
+      - "traefik.http.routers.barn.entrypoints=websecure"
+      - "traefik.http.routers.barn.tls=true"
+      - "traefik.http.services.barn.loadbalancer.server.port=5000"
+networks:
+  proxy:
+    external: true

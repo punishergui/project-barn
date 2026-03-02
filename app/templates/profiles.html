@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Profiles · Project Barn{% endblock %}
+{% block content %}
+<section class="profiles-page">
+  <svg class="profiles-logo" viewBox="0 0 120 120" aria-hidden="true">
+    <path d="M20 52 60 22l40 30" fill="none" stroke="#E8A020" stroke-width="5" stroke-linecap="round"/>
+    <rect x="28" y="52" width="64" height="44" rx="8" fill="none" stroke="#FAF0E0" stroke-width="5"/>
+    <path d="M54 96V68h12v28" fill="none" stroke="#FAF0E0" stroke-width="5"/>
+  </svg>
+  <h1>PROJECT BARN</h1>
+  <p class="profiles-sub">Who's working today?</p>
+
+  <div class="profiles-grid">
+    {% for profile in profiles %}
+    <button class="profile-tile" type="button" data-profile-id="{{ profile.id }}" data-profile-name="{{ profile.name }}" data-requires-pin="{{ 'true' if (profile.role == 'parent' or profile.pin_hash) else 'false' }}" style="--avatar-color: {{ profile.color }}">
+      <span class="avatar-round">{{ profile.name[0] }}</span>
+      <span class="profile-name">{{ profile.name }}</span>
+      <span class="profile-role">{{ profile.role }}</span>
+    </button>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="pin-backdrop" id="pinBackdrop" aria-hidden="true">
+  <div class="pin-sheet" id="pinSheet">
+    <p class="pin-title" id="pinTitle">Enter PIN</p>
+    <div class="pin-dots" id="pinDots"><span></span><span></span><span></span><span></span></div>
+    <div class="pin-pad">
+      {% for key in ['1','2','3','4','5','6','7','8','9','','0','⌫'] %}
+      <button class="pin-key {% if not key %}blank{% endif %}" type="button" data-key="{{ key }}" {% if not key %}disabled{% endif %}>{{ key }}</button>
+      {% endfor %}
+    </div>
+    <button class="pin-cancel" type="button" id="pinCancel">Cancel</button>
+    <p class="pin-error" id="pinError"></p>
+  </div>
+</section>
+{% endblock %}
