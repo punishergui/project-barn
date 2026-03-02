@@ -209,3 +209,59 @@
     applyFilter('all');
   }
 })();
+
+(() => {
+  const expenseFilters = document.querySelector('[data-expense-filters]');
+  if (expenseFilters) {
+    const filterButtons = [...expenseFilters.querySelectorAll('[data-project-filter]')];
+    const cards = [...document.querySelectorAll('.expense-card[data-project-id]')];
+    const months = [...document.querySelectorAll('[data-expense-month]')];
+
+    const applyFilter = (projectId) => {
+      cards.forEach((card) => {
+        const matches = projectId === 'all' || card.dataset.projectId === projectId;
+        card.hidden = !matches;
+      });
+      months.forEach((month) => {
+        const visible = month.querySelector('.expense-card:not([hidden])');
+        month.hidden = !visible;
+      });
+      filterButtons.forEach((btn) => btn.classList.toggle('active', btn.dataset.projectFilter === projectId));
+    };
+
+    filterButtons.forEach((btn) => btn.addEventListener('click', () => applyFilter(btn.dataset.projectFilter)));
+    applyFilter('all');
+  }
+
+  const reportToggle = document.querySelector('[data-report-toggle="expense-summary"]');
+  const reportBody = document.querySelector('[data-report-body="expense-summary"]');
+  if (reportToggle && reportBody) {
+    reportToggle.addEventListener('click', () => {
+      reportBody.hidden = !reportBody.hidden;
+    });
+  }
+
+  const openExport = document.getElementById('openExportSheet');
+  const closeExport = document.getElementById('closeExportSheet');
+  const exportBackdrop = document.getElementById('exportBackdrop');
+  const exportForm = document.getElementById('exportProjectForm');
+
+  if (openExport && closeExport && exportBackdrop && exportForm) {
+    openExport.addEventListener('click', () => {
+      exportBackdrop.classList.add('open');
+      exportBackdrop.setAttribute('aria-hidden', 'false');
+    });
+
+    closeExport.addEventListener('click', () => {
+      exportBackdrop.classList.remove('open');
+      exportBackdrop.setAttribute('aria-hidden', 'true');
+    });
+
+    exportForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const selected = exportForm.querySelector('input[name="project_id"]:checked');
+      if (!selected) return;
+      window.location.href = `/reports/export/${selected.value}`;
+    });
+  }
+})();

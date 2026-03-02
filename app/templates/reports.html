@@ -1,3 +1,63 @@
 {% extends "base.html" %}
 {% block title %}Reports · Project Barn{% endblock %}
-{% block content %}<section class="stub-page"><h1>Reports coming in Phase 5</h1></section>{% endblock %}
+{% block content %}
+<section class="reports-page">
+  <article class="report-card" data-report-toggle="expense-summary">
+    <div class="report-head">
+      <h2>Expense Summary</h2>
+      <span>Tap to expand</span>
+    </div>
+    <div class="report-body" data-report-body="expense-summary" hidden>
+      {% for section in expense_summary %}
+      <div class="report-project-section">
+        <h3>{{ section.project.name }}</h3>
+        <table class="report-table">
+          <thead><tr><th>Category</th><th>Amount</th></tr></thead>
+          <tbody>
+            {% for category, amount in section.category_totals.items() %}
+            <tr><td>{{ expense_categories.get(category, category) }}</td><td>${{ '%.2f'|format(amount) }}</td></tr>
+            {% else %}
+            <tr><td colspan="2">No expenses</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endfor %}
+      <div class="report-grand-total"><strong>Grand Total</strong><strong>${{ '%.2f'|format(grand_total) }}</strong></div>
+    </div>
+  </article>
+
+  <article class="report-card">
+    <div class="report-head"><h2>Helper Leaderboard</h2></div>
+    <div class="leaderboard">
+      {% for row in leaderboard_rows %}
+      <div class="leader-row">
+        <span class="leader-name">{{ row.profile.name }}</span>
+        <div class="leader-bar-wrap"><div class="leader-bar" style="width: {{ row.width_pct }}%; background: {{ row.profile.color }}"></div></div>
+        <span class="leader-count">{{ row.count }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="report-card report-export" id="openExportSheet">
+    <h2>Export Project Book</h2>
+    <p>PDF with cover, financials, timeline &amp; results</p>
+  </article>
+</section>
+
+<section class="pin-backdrop" id="exportBackdrop" aria-hidden="true">
+  <div class="pin-sheet">
+    <p class="pin-title">Select Project</p>
+    <form id="exportProjectForm">
+      <div class="project-radio-list">
+        {% for project in projects %}
+        <label class="project-radio-item"><input type="radio" name="project_id" value="{{ project.id }}" {% if loop.first %}checked{% endif %}><span>{{ project.name }}</span></label>
+        {% endfor %}
+      </div>
+      <button class="submit-btn" type="submit">Export PDF</button>
+      <button class="pin-cancel" type="button" id="closeExportSheet">Cancel</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

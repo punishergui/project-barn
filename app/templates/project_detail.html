@@ -42,7 +42,7 @@
     <a class="inline-link-btn" href="/projects/{{ project.id }}/expenses/add">+ Add Expense</a>
     {% for expense in expenses %}
     <article class="task-card">
-      <div class="task-info"><span class="section-label">{{ expense.category|replace('_',' ') }}</span><strong>{{ expense.notes or 'Expense' }}</strong><span>{{ expense.date.strftime('%b %-d, %Y') }}</span></div>
+      <div class="task-info"><span class="section-label">{{ expense_categories.get(expense.category, expense.category) }}</span><strong>{{ expense.notes or 'Expense' }}</strong><span>{{ expense.date.strftime('%b %-d, %Y') }}</span></div>
       <span class="task-time">${{ '%.2f'|format(expense.amount) }}</span>
     </article>
     {% else %}<p class="empty-state">No expenses yet</p>{% endfor %}

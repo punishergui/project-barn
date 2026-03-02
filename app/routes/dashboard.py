@@ -1,6 +1,8 @@
+from collections import defaultdict
 from datetime import date, datetime, timedelta
+from io import BytesIO
 
-from flask import Blueprint, current_app, jsonify, redirect, render_template, request, send_from_directory, session, url_for
+from flask import Blueprint, current_app, jsonify, redirect, render_template, request, send_file, send_from_directory, session, url_for
 
 from app import save_upload
 from app.models import Expense, Photo, Profile, Project, Show, ShowDay, ShowDayCheck, ShowEntry, Task, db
@@ -46,6 +48,15 @@ SHOW_CHECK_ITEMS = [
     "Notes",
 ]
 
+EXPENSE_CATEGORIES = {
+    "feed": "Feed",
+    "bedding": "Bedding",
+    "vet": "Vet",
+    "entry_fee": "Entry Fee",
+    "supplies": "Supplies",
+    "other": "Other",
+}
+
 
 @dashboard_bp.before_app_request
 def require_session():
@@ -87,6 +98,7 @@ def dashboard_home():
     upcoming_preview = shows_upcoming[:3]
     tasks_today = Task.query.order_by(Task.id.asc()).all()
     recent_activity = Task.query.filter(Task.logged_at.isnot(None)).order_by(Task.logged_at.desc()).limit(5).all()
+    recent_expenses = Expense.query.order_by(Expense.date.desc(), Expense.id.desc()).limit(3).all()
 
     hour = datetime.now().hour
     greeting = "Good morning" if hour < 12 else ("Good afternoon" if hour < 18 else "Good evening")
@@ -111,6 +123,8 @@ def dashboard_home():
         project_map=project_map,
         project_photos=project_photos,
         today=date.today(),
+        recent_expenses=recent_expenses,
+        expense_categories=EXPENSE_CATEGORIES,
     )
 
 
@@ -216,6 +230,7 @@ def project_detail(project_id: int):
         photos=photos,
         tab=tab,
         hide_top_bar=True,
+        expense_categories=EXPENSE_CATEGORIES,
     )
 
 
@@ -242,6 +257,7 @@ def expense_add(project_id: int):
         active_profile=active_profile,
         project=project,
         today=date.today().isoformat(),
+        expense_categories=EXPENSE_CATEGORIES,
         page_title="Add Expense",
         back_url=url_for("dashboard.project_detail", project_id=project.id),
     )
@@ -476,15 +492,230 @@ def save_show_entry_result(show_id: int, entry_id: int):
 
 
 @dashboard_bp.get("/expenses")
-def expenses_stub():
+def expenses_list():
     active_profile = Profile.query.get_or_404(session["active_profile_id"])
-    return render_template("expenses.html", active_profile=active_profile, page_title="Expenses")
+    expenses = Expense.query.order_by(Expense.date.desc(), Expense.id.desc()).all()
+    projects = {project.id: project for project in Project.query.order_by(Project.name.asc()).all()}
+    profiles = {profile.id: profile for profile in Profile.query.all()}
+
+    grouped_expenses = defaultdict(list)
+    project_totals = defaultdict(float)
+    grand_total = 0.0
+
+    for expense in expenses:
+        month_key = expense.date.strftime("%B %Y")
+        grouped_expenses[month_key].append(expense)
+        project_totals[expense.project_id] += expense.amount
+        grand_total += expense.amount
+
+    month_sections = [{"label": label, "expenses": values} for label, values in grouped_expenses.items()]
+    summary_rows = [
+        {"project": projects[project_id], "total": total}
+        for project_id, total in sorted(project_totals.items(), key=lambda item: projects[item[0]].name.lower())
+        if project_id in projects
+    ]
+
+    return render_template(
+        "expenses.html",
+        active_profile=active_profile,
+        page_title="Expenses",
+        back_url=url_for("dashboard.dashboard_home"),
+        top_action_url=url_for("dashboard.expense_add_global"),
+        top_action_label="+ Add",
+        month_sections=month_sections,
+        projects=projects,
+        profiles=profiles,
+        summary_rows=summary_rows,
+        grand_total=grand_total,
+        expense_categories=EXPENSE_CATEGORIES,
+    )
+
+
+@dashboard_bp.route("/expenses/add", methods=["GET", "POST"])
+def expense_add_global():
+    active_profile = Profile.query.get_or_404(session["active_profile_id"])
+    projects = Project.query.order_by(Project.name.asc()).all()
+    profiles = {profile.id: profile for profile in Profile.query.order_by(Profile.name.asc()).all()}
+
+    if request.method == "POST":
+        project_id = request.form.get("project_id", type=int)
+        if not project_id:
+            return render_template(
+                "expense_add_global.html",
+                active_profile=active_profile,
+                projects=projects,
+                profiles=profiles,
+                expense_categories=EXPENSE_CATEGORIES,
+                today=date.today().isoformat(),
+                page_title="Add Expense",
+                back_url=url_for("dashboard.expenses_list"),
+                error="Project is required.",
+            )
+
+        expense = Expense(
+            project_id=project_id,
+            logged_by_id=active_profile.id,
+            amount=request.form.get("amount", type=float) or 0,
+            category=request.form.get("category", "other"),
+            date=request.form.get("date", type=lambda v: datetime.strptime(v, "%Y-%m-%d").date()) or date.today(),
+            notes=(request.form.get("notes") or "").strip() or None,
+        )
+        db.session.add(expense)
+        db.session.commit()
+        return redirect(url_for("dashboard.expenses_list"))
+
+    return render_template(
+        "expense_add_global.html",
+        active_profile=active_profile,
+        projects=projects,
+        profiles=profiles,
+        expense_categories=EXPENSE_CATEGORIES,
+        today=date.today().isoformat(),
+        page_title="Add Expense",
+        back_url=url_for("dashboard.expenses_list"),
+    )
 
 
 @dashboard_bp.get("/reports")
-def reports_stub():
+def reports_page():
     active_profile = Profile.query.get_or_404(session["active_profile_id"])
-    return render_template("reports.html", active_profile=active_profile, page_title="Reports")
+    projects = Project.query.order_by(Project.name.asc()).all()
+    profiles = {profile.id: profile for profile in Profile.query.order_by(Profile.name.asc()).all()}
+
+    expense_summary = []
+    grand_total = 0.0
+    for project in projects:
+        expenses = Expense.query.filter_by(project_id=project.id).order_by(Expense.date.desc(), Expense.id.desc()).all()
+        category_totals = defaultdict(float)
+        for expense in expenses:
+            category_totals[expense.category] += expense.amount
+            grand_total += expense.amount
+        expense_summary.append({"project": project, "category_totals": dict(category_totals), "total": sum(category_totals.values())})
+
+    leaderboard_counts = defaultdict(int)
+    for task in Task.query.all():
+        leaderboard_counts[task.logged_by_id] += 1
+    max_count = max(leaderboard_counts.values(), default=0)
+    leaderboard_rows = []
+    for profile in profiles.values():
+        count = leaderboard_counts.get(profile.id, 0)
+        width_pct = int((count / max_count) * 100) if max_count else 0
+        leaderboard_rows.append({"profile": profile, "count": count, "width_pct": width_pct})
+    leaderboard_rows.sort(key=lambda row: (-row["count"], row["profile"].name.lower()))
+
+    return render_template(
+        "reports.html",
+        active_profile=active_profile,
+        page_title="Reports",
+        back_url=url_for("dashboard.dashboard_home"),
+        projects=projects,
+        expense_summary=expense_summary,
+        expense_categories=EXPENSE_CATEGORIES,
+        leaderboard_rows=leaderboard_rows,
+        grand_total=grand_total,
+    )
+
+
+@dashboard_bp.get("/reports/export/<int:project_id>")
+def export_project_book(project_id: int):
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+    project = Project.query.get_or_404(project_id)
+    profiles = {profile.id: profile for profile in Profile.query.all()}
+    owner = profiles.get(project.owner_id)
+
+    expenses = Expense.query.filter_by(project_id=project.id).order_by(Expense.date.asc(), Expense.id.asc()).all()
+    tasks = Task.query.filter_by(project_id=project.id).order_by(Task.logged_at.asc().nullslast(), Task.id.asc()).all()
+    entries = ShowEntry.query.filter_by(project_id=project.id).order_by(ShowEntry.id.asc()).all()
+    shows = {show.id: show for show in Show.query.filter(Show.id.in_([entry.show_id for entry in entries])).all()} if entries else {}
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, title=f"{project.name} Project Book")
+    styles = getSampleStyleSheet()
+    story = []
+
+    story.append(Paragraph(f"<b>{project.name} Project Book</b>", styles["Title"]))
+    story.append(Spacer(1, 12))
+    story.append(Paragraph(f"Owner: {owner.name if owner else 'Unknown'}", styles["Normal"]))
+    story.append(Paragraph(f"Type/Breed: {project.type.capitalize()}{' / ' + project.breed if project.breed else ''}", styles["Normal"]))
+    story.append(Paragraph(f"Date: {date.today().strftime('%B %d, %Y')}", styles["Normal"]))
+    story.append(Spacer(1, 14))
+
+    story.append(Paragraph("<b>Goals</b>", styles["Heading2"]))
+    story.append(Paragraph(project.notes or "No goals recorded.", styles["Normal"]))
+    story.append(Spacer(1, 14))
+
+    story.append(Paragraph("<b>Financial Summary</b>", styles["Heading2"]))
+    exp_table_data = [["Date", "Category", "Notes", "Amount"]]
+    expenses_total = 0.0
+    for expense in expenses:
+        exp_table_data.append([
+            expense.date.strftime("%Y-%m-%d"),
+            EXPENSE_CATEGORIES.get(expense.category, expense.category),
+            expense.notes or "Expense",
+            f"${expense.amount:.2f}",
+        ])
+        expenses_total += expense.amount
+    exp_table_data.append(["", "", "Total", f"${expenses_total:.2f}"])
+    exp_table = Table(exp_table_data, colWidths=[80, 100, 230, 80])
+    exp_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#341A08")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME", (2, -1), (3, -1), "Helvetica-Bold"),
+    ]))
+    story.append(exp_table)
+    story.append(Spacer(1, 14))
+
+    story.append(Paragraph("<b>Activity Log</b>", styles["Heading2"]))
+    task_table_data = [["Date/Time", "Who", "Type", "Notes"]]
+    for task in tasks:
+        who = profiles.get(task.logged_by_id)
+        task_table_data.append([
+            task.logged_at.strftime("%Y-%m-%d %I:%M %p") if task.logged_at else "Pending",
+            who.name if who else "Unknown",
+            task.task_type.capitalize(),
+            task.notes or "",
+        ])
+    if len(task_table_data) == 1:
+        task_table_data.append(["-", "-", "-", "No activity logged."])
+    task_table = Table(task_table_data, colWidths=[120, 80, 70, 220])
+    task_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#341A08")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+    ]))
+    story.append(task_table)
+    story.append(Spacer(1, 14))
+
+    story.append(Paragraph("<b>Show Results</b>", styles["Heading2"]))
+    show_table_data = [["Show", "Placing", "Ribbon"]]
+    for entry in entries:
+        show = shows.get(entry.show_id)
+        show_table_data.append([
+            show.name if show else "Show",
+            entry.placing or "-",
+            RIBBON_LABELS.get(entry.ribbon_color, (entry.ribbon_color or "-").title()),
+        ])
+    if len(show_table_data) == 1:
+        show_table_data.append(["-", "-", "No show results."])
+    show_table = Table(show_table_data, colWidths=[280, 120, 90])
+    show_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#341A08")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+    ]))
+    story.append(show_table)
+
+    doc.build(story)
+    buffer.seek(0)
+    return send_file(buffer, mimetype="application/pdf", as_attachment=True, download_name=f"{project.name.lower().replace(' ', '-')}-project-book.pdf")
 
 
 @dashboard_bp.get("/uploads/<path:filename>")
