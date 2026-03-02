@@ -49,7 +49,7 @@ class Task(db.Model):
     duration_minutes = db.Column(db.Integer, nullable=True)
 
     __table_args__ = (
-        CheckConstraint("task_type IN ('feed','walk','groom','weigh','show','note','other')", name="ck_task_type"),
+        CheckConstraint("task_type IN ('feed','water','walk','groom','weigh','show','note','other')", name="ck_task_type"),
     )
 
 
