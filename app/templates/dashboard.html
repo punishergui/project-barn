@@ -20,7 +20,7 @@
     {% set emoji = {'cow':'🐄','pig':'🐖','goat':'🐐','sheep':'🐑','chicken':'🐔','rabbit':'🐇','baking':'🧁','welding':'🔧','other':'📋'} %}
     {% for project in projects %}
     <a class="project-card" href="/projects/{{ project.id }}">
-      <div class="project-hero">{{ emoji.get(project.type, '📋') }}</div>
+      <div class="project-hero">{% if project_photos.get(project.id) %}<img src="/uploads/{{ project_photos[project.id].filename }}" alt="{{ project.name }}" class="project-thumb">{% else %}{{ emoji.get(project.type, '📋') }}{% endif %}</div>
       <div class="project-meta">
         <strong>{{ project.name }}</strong>
         <span>{{ profiles[project.owner_id].name }}</span>
@@ -40,7 +40,13 @@
     <form method="post" action="/tasks/log" class="task-card {% if done %}done{% endif %}">
       <input type="hidden" name="task_id" value="{{ task.id }}">
       <button type="submit" class="check">{% if done %}✓{% endif %}</button>
-      <span class="task-emoji">{{ task_icons.get(task.task_type, '📝') }}</span>
+      <span class="task-icon" aria-hidden="true">
+        {% if task.task_type == 'feed' %}<svg viewBox="0 0 24 24"><path d="M12 3v18M7 8h10M6 13h12M8 18h8"/></svg>
+        {% elif task.task_type == 'water' %}<svg viewBox="0 0 24 24"><path d="M12 3s6 6 6 10a6 6 0 1 1-12 0c0-4 6-10 6-10z"/></svg>
+        {% elif task.task_type == 'walk' %}<svg viewBox="0 0 24 24"><path d="M13 5a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm-1 4-2 4 2 3m2-7 3 2 2 5M8 20l2-4"/></svg>
+        {% elif task.task_type == 'weigh' %}<svg viewBox="0 0 24 24"><path d="M5 7h14l-1 10H6L5 7zm7 4v3m-2-8 2 2 2-2"/></svg>
+        {% else %}<svg viewBox="0 0 24 24"><path d="M7 4h10v16H7zM9 8h6M9 12h6M9 16h4"/></svg>{% endif %}
+      </span>
       <div class="task-info">
         <strong>{{ task.notes or task.task_type|capitalize }}</strong>
         <span>by {{ profiles[task.logged_by_id].name }}</span>
@@ -54,7 +60,13 @@
   <div class="task-list">
     {% for task in recent_activity %}
     <article class="task-card">
-      <span class="task-emoji">{{ task_icons.get(task.task_type, '📝') }}</span>
+      <span class="task-icon" aria-hidden="true">
+        {% if task.task_type == 'feed' %}<svg viewBox="0 0 24 24"><path d="M12 3v18M7 8h10M6 13h12M8 18h8"/></svg>
+        {% elif task.task_type == 'water' %}<svg viewBox="0 0 24 24"><path d="M12 3s6 6 6 10a6 6 0 1 1-12 0c0-4 6-10 6-10z"/></svg>
+        {% elif task.task_type == 'walk' %}<svg viewBox="0 0 24 24"><path d="M13 5a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm-1 4-2 4 2 3m2-7 3 2 2 5M8 20l2-4"/></svg>
+        {% elif task.task_type == 'weigh' %}<svg viewBox="0 0 24 24"><path d="M5 7h14l-1 10H6L5 7zm7 4v3m-2-8 2 2 2-2"/></svg>
+        {% else %}<svg viewBox="0 0 24 24"><path d="M7 4h10v16H7zM9 8h6M9 12h6M9 16h4"/></svg>{% endif %}
+      </span>
       <div class="task-info">
         <strong>{{ profiles[task.logged_by_id].name }} logged {{ task.task_type }} for {{ project_map[task.project_id].name }}</strong>
       </div>

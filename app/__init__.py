@@ -1,11 +1,12 @@
 import os
+import uuid
 from datetime import date, datetime, timedelta
 
 import bcrypt
 from flask import Flask
 from sqlalchemy import text
 
-from app.models import Expense, Profile, Project, Show, ShowDay, ShowDayCheck, ShowEntry, Task, db
+from app.models import Expense, Photo, Profile, Project, Show, ShowDay, ShowDayCheck, ShowEntry, Task, db
 
 
 def create_app() -> Flask:
@@ -18,6 +19,7 @@ def create_app() -> Flask:
     app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["BARN_UPLOAD_DIR"] = upload_dir
+    app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
 
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     os.makedirs(upload_dir, exist_ok=True)
@@ -45,6 +47,13 @@ def run_migrations() -> None:
         "ALTER TABLE show_entry ADD COLUMN class_name TEXT",
         "ALTER TABLE show_day ADD COLUMN date DATE",
         "ALTER TABLE show_day ADD COLUMN notes TEXT",
+        "ALTER TABLE photo ADD COLUMN caption TEXT",
+        "ALTER TABLE photo ADD COLUMN photo_type TEXT DEFAULT 'photo'",
+        "ALTER TABLE photo ADD COLUMN show_day_id INTEGER",
+        "ALTER TABLE photo ADD COLUMN show_id INTEGER",
+        "ALTER TABLE photo ADD COLUMN project_id INTEGER",
+        "ALTER TABLE photo ADD COLUMN uploaded_by_id INTEGER",
+        "ALTER TABLE photo ADD COLUMN uploaded_at DATETIME",
     ]
 
     with db.engine.connect() as conn:
@@ -91,3 +100,23 @@ def seed_if_empty() -> None:
     db.session.add(show)
 
     db.session.commit()
+
+
+ALLOWED_UPLOAD_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "webp", "mp4", "mov"}
+
+
+def save_upload(file_storage, upload_dir: str) -> str:
+    if not file_storage or not file_storage.filename:
+        raise ValueError("No file uploaded")
+
+    original_name = file_storage.filename.rsplit("/", 1)[-1]
+    if "." not in original_name:
+        raise ValueError("Invalid file type")
+
+    extension = original_name.rsplit(".", 1)[1].lower()
+    if extension not in ALLOWED_UPLOAD_EXTENSIONS:
+        raise ValueError("Invalid file type")
+
+    filename = f"{uuid.uuid4().hex}.{extension}"
+    file_storage.save(os.path.join(upload_dir, filename))
+    return filename

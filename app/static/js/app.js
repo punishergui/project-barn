@@ -1,4 +1,36 @@
 (() => {
+  const ensureLightbox = () => {
+    let overlay = document.getElementById('lightboxOverlay');
+    if (overlay) return overlay;
+
+    overlay = document.createElement('div');
+    overlay.id = 'lightboxOverlay';
+    overlay.className = 'lightbox-overlay';
+    overlay.innerHTML = `
+      <button type="button" class="lightbox-close" aria-label="Close">×</button>
+      <img class="lightbox-image" alt="Photo preview">
+      <p class="lightbox-caption"></p>
+    `;
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.classList.remove('open');
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay || event.target.classList.contains('lightbox-close')) close();
+    });
+    return overlay;
+  };
+
+  window.openLightbox = (src, caption = '') => {
+    const overlay = ensureLightbox();
+    overlay.querySelector('.lightbox-image').src = src;
+    overlay.querySelector('.lightbox-caption').textContent = caption;
+    overlay.classList.add('open');
+  };
+
+  document.querySelectorAll('.js-lightbox-trigger').forEach((trigger) => {
+    trigger.addEventListener('click', () => window.openLightbox(trigger.dataset.src, trigger.dataset.caption || ''));
+  });
+
   const profileTiles = document.querySelectorAll('.profile-tile');
   const pinBackdrop = document.getElementById('pinBackdrop');
 
@@ -37,6 +69,34 @@
     };
 
     profileTiles.forEach((tile) => {
+      const avatarRound = tile.querySelector('.avatar-round');
+      const avatarInput = tile.querySelector('.avatar-upload-input');
+
+      if (avatarRound && avatarInput) {
+        avatarRound.addEventListener('click', (event) => {
+          event.stopPropagation();
+          avatarInput.click();
+        });
+
+        avatarInput.addEventListener('change', async () => {
+          const file = avatarInput.files?.[0];
+          if (!file) return;
+
+          const form = new FormData();
+          form.append('avatar', file);
+          const resp = await fetch(`/profiles/${tile.dataset.profileId}/avatar`, { method: 'POST', body: form });
+          const data = await resp.json();
+          if (!data.success) return;
+
+          const existingImg = avatarRound.querySelector('img');
+          if (existingImg) {
+            existingImg.src = `/uploads/${data.filename}`;
+          } else {
+            avatarRound.innerHTML = `<img src="/uploads/${data.filename}" alt="${tile.dataset.profileName}" class="profile-avatar-img">`;
+          }
+        });
+      }
+
       tile.addEventListener('click', () => {
         selectedProfileId = tile.dataset.profileId;
         pinTitle.textContent = `Enter PIN — ${tile.dataset.profileName}`;
@@ -70,6 +130,29 @@
       });
     });
   }
+
+  document.querySelectorAll('.photo-upload-form').forEach((form) => {
+    const input = form.querySelector('.photo-upload-input');
+    const button = form.querySelector('.js-photo-upload-btn');
+    if (!input || !button) return;
+
+    button.addEventListener('click', () => input.click());
+    input.addEventListener('change', async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      const body = new FormData();
+      body.append('photo', file);
+
+      const resp = await fetch(form.dataset.uploadUrl, { method: 'POST', body });
+      const data = await resp.json();
+      if (data.success) {
+        const url = new URL(window.location.href);
+        if (form.dataset.reloadTab) url.searchParams.set('tab', form.dataset.reloadTab);
+        window.location.href = url.toString();
+      }
+    });
+  });
 
   const detail = document.querySelector('.project-detail');
   if (detail) {
