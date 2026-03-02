@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ show.name }} · Show · Project Barn{% endblock %}
+{% block content %}
+<section class="show-detail-page">
+  <h1 class="show-title">{{ show.name }}</h1>
+  <p class="show-subtitle">{{ show.start_date.strftime('%b %-d, %Y') }}{% if show.end_date %} - {{ show.end_date.strftime('%b %-d, %Y') }}{% endif %} · {{ show.location }}</p>
+
+  <p class="section-label">ENTERED ANIMALS</p>
+  <div class="task-list">
+    {% for entry in entries %}
+    {% set project = projects.get(entry.project_id) %}
+    <a class="task-card" href="/shows/{{ show.id }}/day/1">
+      <span class="task-emoji">{{ project_emoji.get(project.type, '📋') if project else '📋' }}</span>
+      <div class="task-info">
+        <strong>{{ project.name if project else 'Project' }}</strong>
+        <span>{{ profiles[project.owner_id].name if project else '' }}</span>
+      </div>
+      <span class="task-time">
+        {% if entry.placing %}{{ entry.placing }}{% endif %}
+        {% if entry.ribbon_color %}{{ ribbon_labels.get(entry.ribbon_color, entry.ribbon_color|capitalize) }}{% endif %}
+      </span>
+    </a>
+    {% else %}
+    <p class="empty-state">No entries yet</p>
+    {% endfor %}
+  </div>
+
+  <a class="submit-btn show-day-btn" href="/shows/{{ show.id }}/day/1">Show Day</a>
+
+  {% if has_results %}
+  <p class="section-label">PLACINGS SUMMARY</p>
+  <div class="task-list">
+    {% for entry in entries if entry.placing or entry.ribbon_color %}
+    {% set project = projects.get(entry.project_id) %}
+    <article class="task-card">
+      <div class="task-info">
+        <strong>{{ project.name if project else 'Project' }}</strong>
+        <span>{{ entry.placing or 'Placed' }} {% if entry.ribbon_color %}· {{ ribbon_labels.get(entry.ribbon_color, entry.ribbon_color|capitalize) }}{% endif %}</span>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

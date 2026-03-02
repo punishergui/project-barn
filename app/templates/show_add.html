@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Add Show · Project Barn{% endblock %}
+{% block content %}
+<section class="form-page">
+  <form method="post" class="stack-form">
+    {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
+    <label class="field"><span>Name</span><input type="text" name="name" required></label>
+    <label class="field"><span>Location</span><input type="text" name="location" required></label>
+    <label class="field"><span>Start Date</span><input type="date" name="start_date" required></label>
+    <label class="field"><span>End Date</span><input type="date" name="end_date"></label>
+    <label class="field"><span>Notes</span><textarea name="notes" rows="3"></textarea></label>
+
+    <div class="field">
+      <span>Animals Entering</span>
+      <div class="entry-checklist">
+        {% for project in projects %}
+        <label class="entry-check-item">
+          <input type="checkbox" name="project_ids" value="{{ project.id }}">
+          <span class="entry-emoji">{{ project_emoji.get(project.type, '📋') }}</span>
+          <span><strong>{{ project.name }}</strong><small>{{ profiles[project.owner_id].name }}</small></span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <button type="submit" class="submit-btn">Create Show</button>
+  </form>
+</section>
+{% endblock %}
