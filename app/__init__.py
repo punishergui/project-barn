@@ -61,6 +61,7 @@ def run_migrations() -> None:
         "ALTER TABLE profile ADD COLUMN birthdate DATE",
         "ALTER TABLE project ADD COLUMN start_date DATE",
         "ALTER TABLE project ADD COLUMN purchase_date DATE",
+        "ALTER TABLE show_entry ADD COLUMN judge_notes TEXT",
     ]
 
     with db.engine.connect() as conn:

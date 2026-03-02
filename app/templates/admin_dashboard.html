@@ -13,6 +13,6 @@
   <p class="section-label">FAMILY OVERVIEW</p>
   <div class="task-list">{% for p in all_profiles %}<a class="task-card" href="/profiles/{{ p.id }}/summary"><div class="task-info"><strong>{{ p.name }}</strong><span>{{ weekly_task_counts.get(p.id,0) }} tasks this week</span></div></a>{% endfor %}</div>
   <p class="section-label">QUICK LINKS</p>
-  <div class="task-list"><a class="task-card" href="/settings/profiles"><div class="task-info"><strong>Manage Profiles</strong></div></a><a class="task-card" href="/shows/add"><div class="task-info"><strong>Add Show</strong></div></a><a class="task-card" href="/reports"><div class="task-info"><strong>View Reports</strong></div></a></div>
+  <div class="task-list"><a class="task-card" href="/settings/profiles"><div class="task-info"><strong>Manage Profiles</strong></div></a><a class="task-card" href="/shows/add"><div class="task-info"><strong>Add Show</strong></div></a><a class="task-card" href="/reports"><div class="task-info"><strong>View Reports</strong></div></a><a class="task-card" href="/timeline"><div class="task-info"><strong>Family Timeline</strong></div></a></div>
 </section>
 {% endblock %}

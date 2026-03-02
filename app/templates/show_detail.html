@@ -36,6 +36,8 @@
       <div class="task-info">
         <strong>{{ project.name if project else 'Project' }}</strong>
         <span>{{ entry.placing or 'Placed' }} {% if entry.ribbon_color %}· {{ ribbon_labels.get(entry.ribbon_color, entry.ribbon_color|capitalize) }}{% endif %}</span>
+        {% if entry.class_name or entry.ring %}<span>Class: {{ entry.class_name or '—' }}{% if entry.ring %} · Ring {{ entry.ring }}{% endif %}</span>{% endif %}
+        {% if entry.judge_notes %}<span><em>{{ entry.judge_notes }}</em></span>{% endif %}
       </div>
     </article>
     {% endfor %}

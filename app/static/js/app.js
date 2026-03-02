@@ -9,6 +9,7 @@
     overlay.innerHTML = `
       <button type="button" class="lightbox-close" aria-label="Close">×</button>
       <img class="lightbox-image" alt="Photo preview">
+      <video class="lightbox-video" controls autoplay playsinline></video>
       <p class="lightbox-caption"></p>
     `;
     document.body.appendChild(overlay);
@@ -22,7 +23,21 @@
 
   window.openLightbox = (src, caption = '') => {
     const overlay = ensureLightbox();
-    overlay.querySelector('.lightbox-image').src = src;
+    const image = overlay.querySelector('.lightbox-image');
+    const video = overlay.querySelector('.lightbox-video');
+    const isVideo = /\.(mp4|mov|avi|webm)(\?|$)/i.test(src);
+    if (isVideo) {
+      image.style.display = 'none';
+      image.removeAttribute('src');
+      video.style.display = 'block';
+      video.src = src;
+    } else {
+      video.style.display = 'none';
+      video.pause();
+      video.removeAttribute('src');
+      image.style.display = 'block';
+      image.src = src;
+    }
     overlay.querySelector('.lightbox-caption').textContent = caption;
     overlay.classList.add('open');
   };
@@ -200,6 +215,7 @@
     const openLog = document.getElementById('openLogSheet');
     const closeLog = document.getElementById('closeLogSheet');
     const notesInput = document.getElementById('quickLogNotes');
+    const minutesInput = document.getElementById('quickLogMinutes');
 
     if (logBackdrop && openLog && closeLog) {
       openLog.addEventListener('click', () => logBackdrop.classList.add('open'));
@@ -210,7 +226,7 @@
           await fetch(`/projects/${detail.dataset.projectId}/tasks/log`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ task_type: btn.dataset.taskType, notes: notesInput.value })
+            body: JSON.stringify({ task_type: btn.dataset.taskType, notes: notesInput.value, duration_minutes: parseInt(minutesInput?.value, 10) || null })
           });
           window.location.reload();
         });
@@ -319,6 +335,26 @@
 
     buttons.forEach((btn) => btn.addEventListener('click', () => applyFilter(btn.dataset.filter)));
     applyFilter('all');
+  }
+
+  const gallerySection = document.getElementById('projectGallerySection');
+  if (gallerySection) {
+    const tabs = [...gallerySection.querySelectorAll('[data-gallery-filter]')];
+    const cells = [...gallerySection.querySelectorAll('.photo-cell')];
+    const applyGallery = (filter) => {
+      cells.forEach((cell) => {
+        const type = cell.dataset.type || 'photo';
+        const isRibbon = cell.dataset.ribbon === 'true';
+        let show = filter === 'all';
+        if (filter === 'photo') show = type === 'photo' || type === 'ribbon';
+        if (filter === 'video') show = type === 'video';
+        if (filter === 'ribbon') show = isRibbon;
+        cell.hidden = !show;
+      });
+      tabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.galleryFilter === filter));
+    };
+    tabs.forEach((tab) => tab.addEventListener('click', () => applyGallery(tab.dataset.galleryFilter)));
+    applyGallery('all');
   }
 })();
 
