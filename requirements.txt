@@ -3,4 +3,5 @@ flask-sqlalchemy
 bcrypt
 python-dotenv
 gunicorn
+
 reportlab

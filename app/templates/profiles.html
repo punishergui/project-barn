@@ -12,18 +12,30 @@
 
   <div class="profiles-grid">
     {% for profile in profiles %}
-    <button class="profile-tile" type="button" data-profile-id="{{ profile.id }}" data-profile-name="{{ profile.name }}" data-requires-pin="{{ 'true' if (profile.role == 'parent' or profile.pin_hash) else 'false' }}" style="--avatar-color: {{ profile.color }}">
-      <span class="avatar-round">
-        {% if profile.avatar_path %}
-        <img src="/uploads/{{ profile.avatar_path }}" alt="{{ profile.name }}" class="profile-avatar-img">
-        {% else %}
-        {{ profile.name[0] }}
-        {% endif %}
-      </span>
+    <div class="profile-tile" data-profile-id="{{ profile.id }}" data-profile-name="{{ profile.name }}" data-requires-pin="{{ 'true' if profile.pin_hash or profile.role in ['parent','grandparent'] else 'false' }}">
+      <div class="avatar-wrap">
+        <div class="avatar-round" style="background:{{ profile.color }}">
+          {% if profile.avatar_path %}
+          <img src="/uploads/{{ profile.avatar_path }}" class="profile-avatar-img" alt="{{ profile.name }}">
+          {% else %}
+          {{ profile.name[0].upper() }}
+          {% endif %}
+        </div>
+        <button type="button" class="avatar-cam-btn" title="Change photo" aria-label="Change photo">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="white">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M20 7h-3.2L15 5H9L7.2 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+          </svg>
+        </button>
+        <div class="avatar-cam-menu">
+          <button type="button" class="change-btn">Change Photo</button>
+          <button type="button" class="remove-btn">Remove Photo</button>
+        </div>
+        <input class="avatar-upload-input" type="file" accept="image/*" style="display:none">
+      </div>
       <span class="profile-name">{{ profile.name }}</span>
-      <span class="profile-role">{{ profile.role }}</span>
-      <input type="file" class="avatar-upload-input" accept="image/*" capture="environment" hidden>
-    </button>
+      <span class="profile-role">{{ profile.role|capitalize }}</span>
+    </div>
     {% endfor %}
   </div>
 </section>

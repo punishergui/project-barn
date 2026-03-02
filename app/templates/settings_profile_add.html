@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Add Profile · Project Barn{% endblock %}
+{% block content %}
+<section class="form-page">
+  <form method="post" class="stack-form">
+    {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
+    <label class="field"><span>Name</span><input name="name" required></label>
+    <label class="field"><span>Role</span><select name="role"><option value="parent">Parent</option><option value="kid">Kid</option><option value="grandparent">Grandparent</option></select></label>
+    <label class="field"><span>PIN</span><input name="pin" maxlength="4"></label>
+    <label class="field"><span>Confirm PIN</span><input name="pin_confirm" maxlength="4"></label>
+    <div class="field"><span>Color</span><div class="color-swatches">{% for color in colors %}<label><input type="radio" name="color" value="{{ color }}" {% if loop.first %}checked{% endif %}><span class="swatch" style="background:{{ color }}"></span></label>{% endfor %}</div></div>
+    <label class="field"><span>Birthdate</span><input type="date" name="birthdate"></label>
+    <button class="submit-btn" type="submit">Create Profile</button>
+  </form>
+</section>
+{% endblock %}

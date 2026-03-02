@@ -10,6 +10,7 @@
     <div class="project-hero-large">{{ project_emoji.get(project.type, '📋') }}</div>
     {% endif %}
     <div class="hero-overlay">
+      {% if active_profile.role == "parent" or active_profile.id == project.owner_id %}<a class="hero-edit-link" href="/projects/{{ project.id }}/edit">Edit</a>{% endif %}
       <h1>{{ project.name }}</h1>
       <p>{{ profiles[project.owner_id].name }} · {{ project.type|capitalize }}{% if project.breed %} / {{ project.breed }}{% endif %}</p>
     </div>
@@ -20,6 +21,10 @@
     <article class="chip"><strong>${{ '%.2f'|format(total_spent) }}</strong><span>SPENT</span></article>
     <article class="chip"><strong>{{ tasks|length }}</strong><span>TASKS</span></article>
   </div>
+  <p class="project-date-meta">
+    {% if project.start_date %}<span>Started {{ project.start_date.strftime('%b %-d, %Y') }}</span>{% endif %}
+    {% if project.purchase_date and project.purchase_price %}<span>Purchased {{ project.purchase_date.strftime('%b %-d, %Y') }} · ${{ '%.2f'|format(project.purchase_price) }}</span>{% endif %}
+  </p>
 
   <div class="tabs-row">
     <button type="button" class="tab-btn" data-tab="timeline">Timeline</button>

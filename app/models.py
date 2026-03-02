@@ -15,8 +15,10 @@ class Profile(db.Model):
     avatar_path = db.Column(db.String(255), nullable=True)
     color = db.Column(db.String(20), nullable=False, default="#A08060")
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    archived = db.Column(db.Boolean, default=False, nullable=False)
+    birthdate = db.Column(db.Date, nullable=True)
 
-    __table_args__ = (CheckConstraint("role IN ('parent','kid')", name="ck_profile_role"),)
+    __table_args__ = (CheckConstraint("role IN ('parent','kid','grandparent')", name="ck_profile_role"),)
 
 
 class Project(db.Model):
@@ -26,6 +28,8 @@ class Project(db.Model):
     owner_id = db.Column(db.Integer, db.ForeignKey("profile.id"), nullable=False)
     photo_path = db.Column(db.String(255), nullable=True)
     breed = db.Column(db.String(120), nullable=True)
+    start_date = db.Column(db.Date, nullable=True)
+    purchase_date = db.Column(db.Date, nullable=True)
     purchase_price = db.Column(db.Float, nullable=False, default=0)
     notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)

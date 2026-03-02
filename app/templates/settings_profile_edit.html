@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Edit Profile · Project Barn{% endblock %}
+{% block content %}
+<section class="form-page">
+  <form method="post" class="stack-form">
+    {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
+    <label class="field"><span>Name</span><input name="name" value="{{ profile.name }}" required></label>
+    <label class="field"><span>Role</span><select name="role"><option value="parent" {% if profile.role=='parent' %}selected{% endif %}>Parent</option><option value="kid" {% if profile.role=='kid' %}selected{% endif %}>Kid</option><option value="grandparent" {% if profile.role=='grandparent' %}selected{% endif %}>Grandparent</option></select></label>
+    <label class="field"><span>New PIN</span><input name="new_pin" maxlength="4"></label>
+    <label class="field"><span>Confirm New PIN</span><input name="new_pin_confirm" maxlength="4"></label>
+    {% if profile.role == 'kid' and profile.pin_hash %}<button type="submit" class="inline-link-btn" name="remove_pin" value="1">Remove PIN</button>{% endif %}
+    <div class="field"><span>Color</span><div class="color-swatches">{% for color in colors %}<label><input type="radio" name="color" value="{{ color }}" {% if profile.color==color %}checked{% endif %}><span class="swatch" style="background:{{ color }}"></span></label>{% endfor %}</div></div>
+    <label class="field"><span>Birthdate</span><input type="date" name="birthdate" value="{{ profile.birthdate.isoformat() if profile.birthdate else '' }}"></label>
+    <button class="submit-btn" type="submit">Save Profile</button>
+  </form>
+</section>
+{% endblock %}

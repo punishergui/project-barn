@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Manage Profiles · Project Barn{% endblock %}
+{% block content %}
+<section class="form-page">
+  <div class="stack-form">
+    <a class="inline-link-btn" href="/settings/profiles/add">+ Add Profile</a>
+    {% for profile in profiles %}
+    {% set age = ((today - profile.birthdate).days // 365) if profile.birthdate else None %}
+    <article class="task-card {% if profile.archived %}is-archived{% endif %}">
+      <span class="avatar-round" style="background:{{ profile.color }}">{% if profile.avatar_path %}<img src="/uploads/{{ profile.avatar_path }}" class="profile-avatar-img" alt="{{ profile.name }}">{% else %}{{ profile.name[0].upper() }}{% endif %}</span>
+      <div class="task-info"><strong>{{ profile.name }}</strong><span>{{ profile.role|capitalize }}{% if age is not none %} · {{ age }}y{% endif %}</span></div>
+      <a class="inline-link-btn" href="/settings/profiles/{{ profile.id }}/edit">Edit</a>
+      {% if profile.archived %}
+      <form method="post" action="/settings/profiles/{{ profile.id }}/restore"><button class="inline-link-btn" type="submit">Restore</button></form>
+      {% elif active_profile.id != profile.id %}
+      <form method="post" action="/settings/profiles/{{ profile.id }}/archive"><button class="inline-link-btn" type="submit">Archive</button></form>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

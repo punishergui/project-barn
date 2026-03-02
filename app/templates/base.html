@@ -43,7 +43,9 @@
         <span class="notif-badge">{{ unread_count }}</span>
         {% endif %}
       </button>
-      <a class="avatar-link" href="/profiles">{% if active_profile and active_profile.avatar_path %}<img src="/uploads/{{ active_profile.avatar_path }}" alt="{{ active_profile.name }}" class="top-avatar-img">{% else %}{{ active_profile.name[0] if active_profile else "?" }}{% endif %}</a>
+      <a class="switch-link" href="/profiles" aria-label="Switch profile"><svg viewBox="0 0 24 24"><path d="M7 7h10v4M17 17H7v-4M15 5l2 2-2 2M9 19l-2-2 2-2"/></svg></a>
+      <a class="avatar-link" href="/profiles">{% if active_profile and active_profile.avatar_path %}<img src="/uploads/{{ active_profile.avatar_path }}" alt="{{ active_profile.name }}" class="top-avatar-img">{% else %}{{ active_profile.name[0] if active_profile else "?" }}{% endif %}{% if active_profile and active_profile.role == 'parent' %}<span class="avatar-gear-badge"><svg viewBox="0 0 24 24"><path d="M12 8.8A3.2 3.2 0 1 0 12 15.2 3.2 3.2 0 0 0 12 8.8Zm9 3.2-2.05-.74c-.08-.27-.18-.53-.32-.78l.93-1.97-2.12-2.12-1.97.93c-.25-.14-.51-.24-.78-.32L14 3h-4l-.69 2c-.27.08-.53.18-.78.32l-1.97-.93L4.44 6.5l.93 1.97c-.14.25-.24.51-.32.78L3 12l2.05.74c.08.27.18.53.32.78l-.93 1.97 2.12 2.12 1.97-.93c.25.14.51.24.78.32L10 21h4l.69-2c.27-.08.53-.18.78-.32l1.97.93 2.12-2.12-.93-1.97c.14-.25.24-.51.32-.78Z"/></svg></span>{% endif %}</a>
+      {% if active_profile and active_profile.role == 'parent' %}<a class="admin-link" href="/admin" aria-label="Admin"><svg viewBox="0 0 24 24"><path d="M12 8.8A3.2 3.2 0 1 0 12 15.2 3.2 3.2 0 0 0 12 8.8Zm9 3.2-2.05-.74c-.08-.27-.18-.53-.32-.78l.93-1.97-2.12-2.12-1.97.93c-.25-.14-.51-.24-.78-.32L14 3h-4l-.69 2c-.27.08-.53.18-.78.32l-1.97-.93L4.44 6.5l.93 1.97c-.14.25-.24.51-.32.78L3 12l2.05.74c.08.27.18.53.32.78l-.93 1.97 2.12 2.12 1.97-.93c.25.14.51.24.78.32L10 21h4l.69-2c.27-.08.53-.18.78-.32l1.97.93 2.12-2.12-.93-1.97c.14-.25.24-.51.32-.78Z"/></svg></a>{% endif %}
       {% endif %}
     {% else %}
       <div class="brand">
@@ -69,7 +71,9 @@
         <span class="notif-badge">{{ unread_count }}</span>
         {% endif %}
       </button>
-      <a class="avatar-link" href="/profiles">{% if active_profile and active_profile.avatar_path %}<img src="/uploads/{{ active_profile.avatar_path }}" alt="{{ active_profile.name }}" class="top-avatar-img">{% else %}{{ active_profile.name[0] if active_profile else "?" }}{% endif %}</a>
+      <a class="switch-link" href="/profiles" aria-label="Switch profile"><svg viewBox="0 0 24 24"><path d="M7 7h10v4M17 17H7v-4M15 5l2 2-2 2M9 19l-2-2 2-2"/></svg></a>
+      <a class="avatar-link" href="/profiles">{% if active_profile and active_profile.avatar_path %}<img src="/uploads/{{ active_profile.avatar_path }}" alt="{{ active_profile.name }}" class="top-avatar-img">{% else %}{{ active_profile.name[0] if active_profile else "?" }}{% endif %}{% if active_profile and active_profile.role == 'parent' %}<span class="avatar-gear-badge"><svg viewBox="0 0 24 24"><path d="M12 8.8A3.2 3.2 0 1 0 12 15.2 3.2 3.2 0 0 0 12 8.8Zm9 3.2-2.05-.74c-.08-.27-.18-.53-.32-.78l.93-1.97-2.12-2.12-1.97.93c-.25-.14-.51-.24-.78-.32L14 3h-4l-.69 2c-.27.08-.53.18-.78.32l-1.97-.93L4.44 6.5l.93 1.97c-.14.25-.24.51-.32.78L3 12l2.05.74c.08.27.18.53.32.78l-.93 1.97 2.12 2.12 1.97-.93c.25.14.51.24.78.32L10 21h4l.69-2c.27-.08.53-.18.78-.32l1.97.93 2.12-2.12-.93-1.97c.14-.25.24-.51.32-.78Z"/></svg></span>{% endif %}</a>
+      {% if active_profile and active_profile.role == 'parent' %}<a class="admin-link" href="/admin" aria-label="Admin"><svg viewBox="0 0 24 24"><path d="M12 8.8A3.2 3.2 0 1 0 12 15.2 3.2 3.2 0 0 0 12 8.8Zm9 3.2-2.05-.74c-.08-.27-.18-.53-.32-.78l.93-1.97-2.12-2.12-1.97.93c-.25-.14-.51-.24-.78-.32L14 3h-4l-.69 2c-.27.08-.53.18-.78.32l-1.97-.93L4.44 6.5l.93 1.97c-.14.25-.24.51-.32.78L3 12l2.05.74c.08.27.18.53.32.78l-.93 1.97 2.12 2.12 1.97-.93c.25.14.51.24.78.32L10 21h4l.69-2c.27-.08.53-.18.78-.32l1.97.93 2.12-2.12-.93-1.97c.14-.25.24-.51.32-.78Z"/></svg></a>{% endif %}
     {% endif %}
   </header>
   <div class="notif-panel" id="notifPanel" aria-hidden="true">
