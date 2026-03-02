@@ -119,3 +119,25 @@ class Photo(db.Model):
     __table_args__ = (
         CheckConstraint("photo_type IN ('photo','video','ribbon')", name="ck_photo_type"),
     )
+
+
+
+class Goal(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=False)
+    text = db.Column(db.String(255), nullable=False)
+    completed = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    completed_by_id = db.Column(db.Integer, db.ForeignKey("profile.id"), nullable=True)
+
+
+class Notification(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    profile_id = db.Column(db.Integer, db.ForeignKey("profile.id"), nullable=False)
+    title = db.Column(db.String(120), nullable=False)
+    body = db.Column(db.String(255), nullable=True)
+    type = db.Column(db.String(20), nullable=False, default="reminder")
+    read = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    link = db.Column(db.String(255), nullable=True)

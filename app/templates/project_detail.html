@@ -26,6 +26,7 @@
     <button type="button" class="tab-btn" data-tab="expenses">Expenses</button>
     <button type="button" class="tab-btn" data-tab="shows">Shows</button>
     <button type="button" class="tab-btn" data-tab="gallery">Gallery</button>
+    <button type="button" class="tab-btn" data-tab="goals">Goals</button>
   </div>
 
   <div class="tab-panel" data-tab-content="timeline">
@@ -76,6 +77,31 @@
       <input class="photo-upload-input" type="file" name="photo" accept="image/*" capture="environment">
       <button type="button" class="inline-link-btn js-photo-upload-btn">📷 Add Photo</button>
     </form>
+  </div>
+
+  <div class="tab-panel" data-tab-content="goals">
+    <div class="goals-list" id="goalsList">
+      {% for goal in goals %}
+      <div class="goal-item {% if goal.completed %}done{% endif %}" data-goal-id="{{ goal.id }}">
+        <button type="button" class="goal-check">
+          <svg viewBox="0 0 24 24" width="18" height="18">
+            {% if goal.completed %}
+            <polyline points="20 6 9 17 4 12" stroke="var(--gold-light)" stroke-width="2.5" fill="none"/>
+            {% else %}
+            <circle cx="12" cy="12" r="9" stroke="var(--muted)" stroke-width="1.5" fill="none"/>
+            {% endif %}
+          </svg>
+        </button>
+        <span>{{ goal.text }}</span>
+      </div>
+      {% else %}
+      <p class="empty-state">📋 No goals yet</p>
+      {% endfor %}
+    </div>
+    <div class="goal-add-form">
+      <input type="text" id="goalInput" placeholder="Add a goal…" class="goal-input">
+      <button type="button" id="goalAddBtn" class="inline-link-btn">Add</button>
+    </div>
   </div>
 
   <button type="button" class="fab-log" id="openLogSheet">+ Log</button>

@@ -187,6 +187,87 @@
     }
   }
 
+  // Theme toggle
+  const themeToggle = document.getElementById("themeToggle");
+  const savedTheme = localStorage.getItem("barn-theme");
+  if (savedTheme) document.documentElement.setAttribute("data-theme", savedTheme);
+  if (themeToggle) {
+    themeToggle.addEventListener("click", () => {
+      const current = document.documentElement.getAttribute("data-theme");
+      const next = current === "light" ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", next);
+      localStorage.setItem("barn-theme", next);
+    });
+  }
+
+  // Notification panel
+  const notifBell = document.getElementById("notifBell");
+  const notifPanel = document.getElementById("notifPanel");
+  const notifReadAll = document.getElementById("notifReadAll");
+  if (notifBell && notifPanel) {
+    notifBell.addEventListener("click", () => {
+      const open = notifPanel.classList.toggle("open");
+      notifPanel.setAttribute("aria-hidden", String(!open));
+    });
+    document.querySelectorAll(".notif-item").forEach((item) => {
+      item.addEventListener("click", async () => {
+        await fetch(`/notifications/read/${item.dataset.notifId}`, { method: "POST" });
+        item.classList.add("read");
+        if (item.dataset.link) window.location.href = item.dataset.link;
+      });
+    });
+    if (notifReadAll) {
+      notifReadAll.addEventListener("click", async () => {
+        await fetch("/notifications/read-all", { method: "POST" });
+        document.querySelectorAll(".notif-item").forEach((i) => i.classList.add("read"));
+        const badge = document.querySelector(".notif-badge");
+        if (badge) badge.remove();
+      });
+    }
+  }
+
+  // Goals
+  const goalAddBtn = document.getElementById("goalAddBtn");
+  const goalInput = document.getElementById("goalInput");
+  const goalsList = document.getElementById("goalsList");
+  if (goalAddBtn && goalInput && goalsList) {
+    const projectId = document.querySelector(".project-detail")?.dataset.projectId;
+    const attachGoalToggle = (item) => {
+      item.querySelector(".goal-check").addEventListener("click", async () => {
+        const resp = await fetch(`/projects/${projectId}/goals/${item.dataset.goalId}/toggle`, { method: "POST" });
+        const data = await resp.json();
+        if (data.success) item.classList.toggle("done", data.completed);
+      });
+    };
+
+    goalAddBtn.addEventListener("click", async () => {
+      const text = goalInput.value.trim();
+      if (!text) return;
+      const resp = await fetch(`/projects/${projectId}/goals/add`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text })
+      });
+      const data = await resp.json();
+      if (data.success) {
+        goalInput.value = "";
+        const empty = goalsList.querySelector(".empty-state");
+        if (empty) empty.remove();
+        const div = document.createElement("div");
+        div.className = "goal-item";
+        div.dataset.goalId = data.id;
+        div.innerHTML = `<button type="button" class="goal-check">
+          <svg viewBox="0 0 24 24" width="18" height="18">
+            <circle cx="12" cy="12" r="9" stroke="var(--muted)" stroke-width="1.5" fill="none"/>
+          </svg></button><span>${data.text}</span>`;
+        goalsList.appendChild(div);
+        attachGoalToggle(div);
+      }
+    });
+
+    document.querySelectorAll(".goal-item").forEach(attachGoalToggle);
+  }
+
   const showsFilterWrap = document.querySelector('[data-show-filters]');
   if (showsFilterWrap) {
     const buttons = [...showsFilterWrap.querySelectorAll('[data-filter]')];
