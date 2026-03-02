@@ -22,7 +22,7 @@
         <svg viewBox="0 0 24 24"><path d="M15 5 8 12l7 7"/></svg>
       </a>
       <div class="top-center-title">{{ page_title }}</div>
-      <a class="avatar-link" href="/profiles">{{ active_profile.name[0] if active_profile else '?' }}</a>
+      <a class="avatar-link" href="/profiles">{% if active_profile and active_profile.avatar_path %}<img src="/uploads/{{ active_profile.avatar_path }}" alt="{{ active_profile.name }}" class="top-avatar-img">{% else %}{{ active_profile.name[0] if active_profile else "?" }}{% endif %}</a>
     {% else %}
       <div class="brand">
         <svg class="barn-mark" viewBox="0 0 24 24" aria-hidden="true">
@@ -32,7 +32,7 @@
         </svg>
         <span>PROJECT BARN</span>
       </div>
-      <a class="avatar-link" href="/profiles">{{ active_profile.name[0] if active_profile else '?' }}</a>
+      <a class="avatar-link" href="/profiles">{% if active_profile and active_profile.avatar_path %}<img src="/uploads/{{ active_profile.avatar_path }}" alt="{{ active_profile.name }}" class="top-avatar-img">{% else %}{{ active_profile.name[0] if active_profile else "?" }}{% endif %}</a>
     {% endif %}
   </header>
 

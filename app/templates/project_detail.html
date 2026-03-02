@@ -4,7 +4,11 @@
 <section class="project-detail" data-project-id="{{ project.id }}" data-initial-tab="{{ tab }}">
   <div class="project-hero-wrap">
     <a class="hero-back" href="/" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5 8 12l7 7"/></svg></a>
+    {% if photos %}
+    <div class="project-hero-large hero-photo" style="background-image:url('/uploads/{{ photos[-1].filename }}')"></div>
+    {% else %}
     <div class="project-hero-large">{{ project_emoji.get(project.type, '📋') }}</div>
+    {% endif %}
     <div class="hero-overlay">
       <h1>{{ project.name }}</h1>
       <p>{{ profiles[project.owner_id].name }} · {{ project.type|capitalize }}{% if project.breed %} / {{ project.breed }}{% endif %}</p>
@@ -53,23 +57,25 @@
         <strong>{{ show.name if show else 'Show' }}</strong>
         <span>{{ show.start_date.strftime('%b %-d, %Y') if show else '' }}</span>
       </div>
-      <span class="task-time">
-        {% if entry.placing %}
-          {% if entry.placing.startswith('1') %}🥇{% elif entry.placing.startswith('2') %}🥈{% elif entry.placing.startswith('3') %}🥉{% else %}🎀{% endif %}
-          {{ entry.placing }}
-        {% elif entry.ribbon_color %}
-          🎀
-        {% else %}
-          —
-        {% endif %}
-      </span>
+      <span class="task-time">{{ entry.placing or '—' }}</span>
     </a>
     {% else %}<p class="empty-state">No shows yet — enter this project in a show</p>{% endfor %}
   </div>
 
-  <div class="tab-panel" data-tab-content="gallery">
-    <p class="empty-state">📷<br>No photos yet</p>
-    <button type="button" class="inline-link-btn">+ Add Photo</button>
+  <div class="tab-panel" data-tab-content="gallery" id="projectGallerySection">
+    <div class="photo-grid">
+      {% for photo in photos %}
+      <button type="button" class="photo-cell js-lightbox-trigger" data-src="/uploads/{{ photo.filename }}" data-caption="{{ photo.caption or '' }}">
+        <img src="/uploads/{{ photo.filename }}" loading="lazy" alt="{{ photo.caption or project.name }}">
+      </button>
+      {% else %}
+      <p class="empty-state">No photos yet</p>
+      {% endfor %}
+    </div>
+    <form class="photo-upload-form" data-upload-url="/projects/{{ project.id }}/photos/upload" data-reload-tab="gallery">
+      <input class="photo-upload-input" type="file" name="photo" accept="image/*" capture="environment">
+      <button type="button" class="inline-link-btn js-photo-upload-btn">📷 Add Photo</button>
+    </form>
   </div>
 
   <button type="button" class="fab-log" id="openLogSheet">+ Log</button>
