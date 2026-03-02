@@ -64,5 +64,22 @@
     <article class="task-card"><div class="task-info"><strong>No activity yet</strong></div></article>
     {% endfor %}
   </div>
+
+  <p class="section-label">UPCOMING SHOWS</p>
+  <div class="task-list">
+    {% for show in upcoming_preview %}
+    <a class="task-card" href="/shows/{{ show.id }}">
+      <div class="task-info">
+        <strong>{{ show.name }}</strong>
+        <span>{{ show.start_date.strftime('%b %-d, %Y') }} · {{ show.location }}</span>
+      </div>
+      {% if show.start_date == today %}
+      <span class="task-time">Show Day →</span>
+      {% endif %}
+    </a>
+    {% else %}
+    <article class="task-card"><div class="task-info"><strong>No upcoming shows</strong></div></article>
+    {% endfor %}
+  </div>
 </section>
 {% endblock %}

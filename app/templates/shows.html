@@ -1,3 +1,34 @@
 {% extends "base.html" %}
 {% block title %}Shows · Project Barn{% endblock %}
-{% block content %}<section class="stub-page"><h1>Shows coming in Phase 3</h1></section>{% endblock %}
+{% block content %}
+<section class="shows-page">
+  <div class="shows-head-row">
+    <a class="inline-link-btn" href="/shows/add">+ Add Show</a>
+  </div>
+
+  <div class="shows-filters" data-show-filters>
+    <button type="button" class="tab-btn active" data-filter="all">All</button>
+    <button type="button" class="tab-btn" data-filter="upcoming">Upcoming</button>
+    <button type="button" class="tab-btn" data-filter="past">Past</button>
+  </div>
+
+  <div class="shows-list" data-shows-list>
+    {% for show in shows %}
+    {% set status = 'upcoming' if show.start_date >= today else 'past' %}
+    <a class="show-card" href="/shows/{{ show.id }}" data-show-status="{{ status }}">
+      <p class="show-date">{{ show.start_date.strftime('%B %-d, %Y') }}</p>
+      <h2>{{ show.name }}</h2>
+      <p class="show-location">{{ show.location }}</p>
+      {% if status == 'upcoming' %}
+      <span class="show-arrow">→</span>
+      {% endif %}
+    </a>
+    {% else %}
+    <p class="empty-state" data-empty-shows>No shows yet</p>
+    {% endfor %}
+    {% if shows %}
+    <p class="empty-state" data-empty-shows hidden>No shows yet</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

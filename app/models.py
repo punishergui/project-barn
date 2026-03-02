@@ -70,7 +70,25 @@ class ShowEntry(db.Model):
     class_name = db.Column(db.String(120), nullable=True)
     placing = db.Column(db.String(40), nullable=True)
     ribbon_color = db.Column(db.String(40), nullable=True)
+    day_number = db.Column(db.Integer, nullable=True)
     notes = db.Column(db.Text, nullable=True)
+
+
+class ShowDay(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    show_id = db.Column(db.Integer, db.ForeignKey("show.id"), nullable=False)
+    day_number = db.Column(db.Integer, nullable=False)
+    notes = db.Column(db.Text, nullable=True)
+    date = db.Column(db.Date, nullable=True)
+
+
+class ShowDayCheck(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    show_day_id = db.Column(db.Integer, db.ForeignKey("show_day.id"), nullable=False)
+    item_name = db.Column(db.String(80), nullable=False)
+    completed = db.Column(db.Boolean, nullable=False, default=False)
+    completed_by_id = db.Column(db.Integer, db.ForeignKey("profile.id"), nullable=True)
+    completed_at = db.Column(db.DateTime, nullable=True)
 
 
 class Expense(db.Model):

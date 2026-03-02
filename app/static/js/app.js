@@ -103,4 +103,26 @@
       });
     }
   }
+
+  const showsFilterWrap = document.querySelector('[data-show-filters]');
+  if (showsFilterWrap) {
+    const buttons = [...showsFilterWrap.querySelectorAll('[data-filter]')];
+    const cards = [...document.querySelectorAll('[data-show-status]')];
+    const empty = document.querySelector('[data-empty-shows]');
+
+    const applyFilter = (filter) => {
+      let visible = 0;
+      cards.forEach((card) => {
+        const status = card.dataset.showStatus;
+        const show = filter === 'all' || filter === status;
+        card.hidden = !show;
+        if (show) visible += 1;
+      });
+      if (empty) empty.hidden = visible !== 0;
+      buttons.forEach((btn) => btn.classList.toggle('active', btn.dataset.filter === filter));
+    };
+
+    buttons.forEach((btn) => btn.addEventListener('click', () => applyFilter(btn.dataset.filter)));
+    applyFilter('all');
+  }
 })();

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Show Day · {{ show.name }}{% endblock %}
+{% block content %}
+<section class="show-day-page">
+  <p class="section-label">SHOW DAY MODE</p>
+  <h1 class="show-title">{{ show.name }}</h1>
+  <p class="show-subtitle">{{ show_day_record.date.strftime('%b %-d, %Y') if show_day_record.date else show.start_date.strftime('%b %-d, %Y') }} · {{ show.location }}</p>
+
+  <div class="day-selector-row">
+    {% for number in day_numbers %}
+    <a class="day-pill {% if number == day_num %}active{% endif %}" href="/shows/{{ show.id }}/day/{{ number }}">Day {{ number }}</a>
+    {% endfor %}
+    <form method="post" action="/shows/{{ show.id }}/days/add">
+      <button type="submit" class="day-pill add">+</button>
+    </form>
+  </div>
+
+  <p class="section-label">CHECKLIST FOR DAY {{ day_num }}</p>
+  <div class="task-list">
+    {% for check in checks %}
+    <form method="post" action="/shows/{{ show.id }}/day/{{ day_num }}/check" class="task-card {% if check.completed %}done{% endif %}">
+      <input type="hidden" name="item" value="{{ check.item_name }}">
+      <button type="submit" class="check">{% if check.completed %}✓{% endif %}</button>
+      <div class="task-info">
+        <strong>{{ check.item_name }}</strong>
+      </div>
+    </form>
+    {% endfor %}
+  </div>
+
+  <p class="section-label">ANIMALS TODAY</p>
+  <div class="task-list">
+    {% for entry in entries %}
+    {% set project = projects.get(entry.project_id) %}
+    <form method="post" action="/shows/{{ show.id }}/entries/{{ entry.id }}/result" class="result-card">
+      <input type="hidden" name="day_number" value="{{ day_num }}">
+      <p><span class="task-emoji">{{ project_emoji.get(project.type, '📋') if project else '📋' }}</span> <strong>{{ project.name if project else 'Project' }}</strong></p>
+      <label class="field"><span>Placing</span><input type="text" name="placing" value="{{ entry.placing or '' }}" placeholder="1st, 2nd, 3rd"></label>
+      <label class="field"><span>Ribbon</span>
+        <select name="ribbon_color">
+          <option value="" {% if not entry.ribbon_color %}selected{% endif %}>None</option>
+          {% for key in ['blue','red','white','yellow','purple','grand','reserve'] %}
+          <option value="{{ key }}" {% if entry.ribbon_color == key %}selected{% endif %}>{{ ribbon_labels.get(key, key|capitalize) }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button type="submit" class="submit-btn">Save Result</button>
+    </form>
+    {% endfor %}
+  </div>
+
+  <p class="section-label">PHOTOS &amp; NOTES</p>
+  <form method="post" action="/shows/{{ show.id }}/day/{{ day_num }}/notes" class="stack-form">
+    <label class="field"><span>Notes</span><textarea name="notes" rows="4">{{ show_day_record.notes or '' }}</textarea></label>
+    <button type="submit" class="submit-btn">Save</button>
+  </form>
+</section>
+{% endblock %}
