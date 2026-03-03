@@ -118,9 +118,15 @@ class Expense(db.Model):
     category = db.Column(db.String(20), nullable=False)
     date = db.Column(db.Date, default=date.today, nullable=False)
     notes = db.Column(db.Text, nullable=True)
+    vendor = db.Column(db.String(120), nullable=True)
 
     __table_args__ = (
-        CheckConstraint("category IN ('feed','bedding','vet','entry_fee','supplies','other')", name="ck_expense_category"),
+        CheckConstraint(
+            "category IN ('feed','hay','bedding','vet','entry_fee','supplies',"
+            "'equipment','transportation','registration','grooming',"
+            "'breeding_fee','insurance','other_expense')",
+            name="ck_expense_category",
+        ),
     )
 
 
@@ -256,3 +262,42 @@ class AuctionSale(db.Model):
     thank_you_sent = db.Column(db.Boolean, default=False, nullable=False)
     thank_you_date = db.Column(db.Date, nullable=True)
     notes = db.Column(db.Text, nullable=True)
+
+
+class IncomeRecord(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey('project.id'),
+                           nullable=False)
+    logged_by_id = db.Column(db.Integer, db.ForeignKey('profile.id'),
+                             nullable=False)
+    date = db.Column(db.Date, nullable=False)
+    category = db.Column(db.String(20), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    source = db.Column(db.String(120), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "category IN ('auction_sale','premium','add_on',"
+            "'private_sale','prize','sponsorship','other')",
+            name='ck_incomerecord_category'),
+    )
+
+
+class InventoryItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey('project.id'),
+                           nullable=False)
+    item_description = db.Column(db.String(255), nullable=False)
+    quantity = db.Column(db.Float, nullable=False, default=1)
+    unit_value = db.Column(db.Float, nullable=False)
+    total_value = db.Column(db.Float, nullable=False)
+    inventory_date = db.Column(db.Date, nullable=False)
+    inventory_type = db.Column(db.String(10), nullable=False,
+                               default='ending')
+
+    __table_args__ = (
+        CheckConstraint(
+            "inventory_type IN ('beginning','ending')",
+            name='ck_inventoryitem_type'),
+    )

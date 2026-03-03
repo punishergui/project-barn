@@ -11,6 +11,8 @@
       {% for section in expense_summary %}
       <div class="report-project-section">
         <h3>{{ section.project.name }}</h3>
+        <a href="/projects/{{ section.project.id }}/financial" class="inline-link-btn">📊 Financial Summary</a>
+        <a href="/projects/{{ section.project.id }}/expenses/csv" class="inline-link-btn">⬇ CSV</a>
         <table class="report-table">
           <thead><tr><th>Category</th><th>Amount</th></tr></thead>
           <tbody>

@@ -26,6 +26,16 @@
     <article class="chip"><strong>{{ ribbon_count }}</strong><span>RIBBONS</span></article>
     <article class="chip"><strong>${{ '%.2f'|format(total_spent) }}</strong><span>SPENT</span></article>
     <article class="chip"><strong>{{ tasks|length }}</strong><span>TASKS</span></article>
+    <div class="chip">
+      <strong style="color: {% if net_pl >= 0 %}#60d080{% else %}#ff8070{% endif %}">{% if net_pl >= 0 %}+{% endif %}${{ "%.0f"|format(net_pl|abs) }}</strong>
+      <span>NET P/L</span>
+    </div>
+  </div>
+
+  <div class="quick-links-row">
+    <a href="/projects/{{ project.id }}/financial" class="quick-link-btn">📊 Financial Summary</a>
+    <a href="/projects/{{ project.id }}/income" class="quick-link-btn">💰 Income</a>
+    <a href="/projects/{{ project.id }}/inventory" class="quick-link-btn">📦 Inventory</a>
   </div>
   {% if project.purchase_price and project.purchase_price > 0 %}
   <div class="chips-row"><article class="chip"><strong>${{ '%.2f'|format(project.purchase_price) }}</strong><span>COST BASIS</span></article></div>

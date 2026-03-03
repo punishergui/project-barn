@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Income · Project Barn{% endblock %}
+{% block content %}
+<section class="expenses-page">
+  <div class="chips-row">
+    <article class="chip"><strong>${{ '%.2f'|format(total_income) }}</strong><span>TOTAL INCOME</span></article>
+  </div>
+
+  <article class="report-card">
+    <button type="button" class="inline-link-btn" id="toggleIncomeForm">+ Add Income</button>
+    <form method="post" class="stack-form" id="incomeForm" hidden>
+      <label class="field"><span>Date</span><input type="date" name="date" value="{{ today or '' }}"></label>
+      <label class="field"><span>Category</span>
+        <select name="category">
+          <option value="auction_sale">Auction Sale</option>
+          <option value="premium">Premium</option>
+          <option value="add_on">Add-On</option>
+          <option value="private_sale">Private Sale</option>
+          <option value="prize">Prize</option>
+          <option value="sponsorship">Sponsorship</option>
+          <option value="other">Other</option>
+        </select>
+      </label>
+      <label class="field"><span>Source / From</span><input type="text" name="source" placeholder="e.g. County Fair, John Smith"></label>
+      <label class="field"><span>Amount ($)</span><input type="number" step="0.01" name="amount" required></label>
+      <label class="field"><span>Notes</span><textarea name="notes"></textarea></label>
+      <button class="submit-btn" type="submit">Add Income</button>
+    </form>
+  </article>
+
+  {% for record in records %}
+  <article class="expense-card">
+    <div>
+      <strong>{{ record.date.strftime('%b %-d, %Y') }}</strong>
+      <p class="expense-meta"><span class="income-category-chip">{{ record.category.replace('_', ' ') }}</span> · {{ record.source or '—' }}</p>
+    </div>
+    <div>
+      <span class="expense-amount">${{ '%.2f'|format(record.amount) }}</span>
+      {% if active_profile.role == 'parent' %}
+      <form method="post" action="/projects/{{ project.id }}/income/{{ record.id }}/delete">
+        <button class="pin-cancel" type="submit">Delete</button>
+      </form>
+      {% endif %}
+    </div>
+  </article>
+  {% else %}
+  <p class="empty-state">💰 No income recorded yet</p>
+  {% endfor %}
+</section>
+<script>
+  const toggleIncomeForm = document.getElementById('toggleIncomeForm');
+  const incomeForm = document.getElementById('incomeForm');
+  if (toggleIncomeForm && incomeForm) {
+    toggleIncomeForm.addEventListener('click', () => {
+      incomeForm.hidden = !incomeForm.hidden;
+    });
+  }
+</script>
+{% endblock %}

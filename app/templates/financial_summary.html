@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Financial Summary · Project Barn{% endblock %}
+{% block content %}
+<section class="reports-page">
+  <article class="report-card financial-section">
+    <p class="financial-section-label">Project Info</p>
+    <h2>{{ project.name }}</h2>
+    <p class="expense-meta">{{ project.type|capitalize }}{% if project.breed %} · {{ project.breed }}{% endif %}</p>
+    <div class="id-grid">
+      <div class="id-item"><span class="id-label">Start Date</span><span class="id-value">{{ project.start_date.strftime('%b %-d, %Y') if project.start_date else '—' }}</span></div>
+      <div class="id-item"><span class="id-label">Target Date</span><span class="id-value">{{ project.target_date.strftime('%b %-d, %Y') if project.target_date else '—' }}</span></div>
+      <div class="id-item"><span class="id-label">Days on Feed</span><span class="id-value">{{ days_on_feed if days_on_feed is not none else '—' }}</span></div>
+    </div>
+  </article>
+
+  <div class="chips-row financial-section">
+    <article class="chip"><strong>${{ '%.2f'|format(total_expenses) }}</strong><span>TOTAL EXPENSES</span></article>
+    <article class="chip"><strong>${{ '%.2f'|format(total_income) }}</strong><span>TOTAL INCOME</span></article>
+    <article class="chip"><strong class="{% if net_profit_loss >= 0 %}net-positive{% else %}net-negative{% endif %}">{% if net_profit_loss >= 0 %}+{% endif %}${{ '%.2f'|format(net_profit_loss|abs) }}</strong><span>NET PROFIT/LOSS</span></article>
+    <article class="chip"><strong>{{ total_hours }}</strong><span>HOURS WORKED</span></article>
+  </div>
+
+  <article class="report-card financial-section">
+    <p class="financial-section-label">Expenses</p>
+    {% for category, category_expenses in expense_by_cat.items() %}
+    <div class="expense-category-group">
+      <div class="expense-cat-header">
+        <span>{{ expense_categories.get(category, category.replace('_', ' ')|title) }}</span>
+        <span>${{ '%.2f'|format(category_expenses|sum(attribute='amount')) }}</span>
+      </div>
+      <div class="expense-cat-body">
+        {% for expense in category_expenses %}
+        <div class="expense-line">
+          <div>
+            <strong>{{ expense.vendor or '—' }}</strong>
+            <div class="expense-line-meta">{{ expense.date.strftime('%b %-d, %Y') }}{% if expense.notes %} · {{ expense.notes }}{% endif %}</div>
+          </div>
+          <span>${{ '%.2f'|format(expense.amount) }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+    <div class="financial-total-row"><strong>TOTAL EXPENSES</strong><span>${{ '%.2f'|format(total_expenses) }}</span></div>
+  </article>
+
+  <article class="report-card financial-section">
+    <p class="financial-section-label">Income</p>
+    {% for record in income_records %}
+    <div class="expense-line">
+      <div>
+        <strong>{{ record.category.replace('_', ' ')|title }}</strong>
+        <div class="expense-line-meta">{{ record.date.strftime('%b %-d, %Y') }} · {{ record.source or '—' }}</div>
+      </div>
+      <span>${{ '%.2f'|format(record.amount) }}</span>
+    </div>
+    {% endfor %}
+    {% for sale in auction_sales %}
+    <div class="expense-line">
+      <div>
+        <strong>Auction Sale</strong>
+        <div class="expense-line-meta">{{ sale.sale_date.strftime('%b %-d, %Y') }} · {{ sale.buyer_name }}</div>
+      </div>
+      <span>${{ '%.2f'|format(sale.net_proceeds) }}</span>
+    </div>
+    {% endfor %}
+    <div class="financial-total-row"><strong>TOTAL INCOME</strong><span>${{ '%.2f'|format(total_income) }}</span></div>
+  </article>
+
+  {% if fcr or total_gain > 0 %}
+  <article class="report-card financial-section">
+    <p class="financial-section-label">Livestock Performance</p>
+    <table class="perf-table">
+      <tr><td>Starting Weight</td><td>{{ project.initial_weight if project.initial_weight else '—' }} lbs</td></tr>
+      <tr><td>Final/Current Weight</td><td>{{ current_weight if current_weight else '—' }} lbs</td></tr>
+      <tr><td>Total Weight Gain</td><td>{{ total_gain }} lbs</td></tr>
+      <tr><td>Days on Feed</td><td>{{ days_on_feed if days_on_feed is not none else '—' }}</td></tr>
+      <tr><td>Total Feed Fed</td><td>{{ total_feed_lbs }} lbs</td></tr>
+      <tr><td>Feed Conversion Ratio</td><td>{% if fcr %}{{ fcr }}:1{% else %}—{% endif %}</td></tr>
+      <tr><td>Total Feed Cost</td><td>${{ '%.2f'|format(total_feed_cost) }}</td></tr>
+      <tr><td>Feed Cost per lb Gain</td><td>{% if feed_cost_per_lb %}${{ '%.2f'|format(feed_cost_per_lb) }}{% else %}—{% endif %}</td></tr>
+      <tr><td>Total Cost per lb Gain</td><td>{% if total_cost_per_lb %}${{ '%.2f'|format(total_cost_per_lb) }}{% else %}—{% endif %}</td></tr>
+    </table>
+  </article>
+  {% endif %}
+
+  <article class="report-card financial-section">
+    <p class="financial-section-label">Inventory</p>
+    <div class="summary-row"><span>Beginning Inventory</span><strong>${{ '%.2f'|format(beginning_inv) }}</strong></div>
+    <div class="summary-row"><span>Ending Inventory</span><strong>${{ '%.2f'|format(ending_inv) }}</strong></div>
+    <div class="summary-row"><span>Net Inventory Change</span><strong class="{% if net_inv_change >= 0 %}net-positive{% else %}net-negative{% endif %}">{% if net_inv_change >= 0 %}+{% endif %}${{ '%.2f'|format(net_inv_change|abs) }}</strong></div>
+    <a href="/projects/{{ project.id }}/inventory" class="inline-link-btn">Manage Inventory</a>
+  </article>
+
+  <article class="financial-section">
+    <a href="/projects/{{ project.id }}/financial/csv" class="submit-btn" style="text-decoration:none">⬇ Download CSV</a>
+    <a href="/reports/export/{{ project.id }}" class="submit-btn" style="text-decoration:none; background:var(--dark-card-2); margin-top:8px">⬇ Download PDF Report</a>
+  </article>
+</section>
+{% endblock %}
