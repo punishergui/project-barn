@@ -8,7 +8,8 @@ from flask import Blueprint, current_app, jsonify, redirect, render_template, re
 
 from app import save_upload
 from app.data.breeds import BREEDS
-from app.models import AuctionSale, Expense, FeedLog, Goal, HealthRecord, IncomeRecord, InventoryItem, Notification, Photo, Profile, Project, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowEntry, Task, db
+from app.data.project_types import PROJECT_TYPE_CONFIG
+from app.models import AuctionSale, Expense, FeedLog, Goal, HealthRecord, IncomeRecord, InventoryItem, Notification, Photo, Profile, Project, ProjectActivity, ProjectMaterial, ProjectNarrative, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowEntry, SkillsChecklist, Task, db
 
 
 dashboard_bp = Blueprint("dashboard", __name__)
@@ -341,6 +342,16 @@ def project_detail(project_id: int):
     ).filter_by(project_id=project_id).scalar() or 0
     net_pl = round(total_income_records + (total_auction_proceeds or 0)
                    - total_expenses_sum, 2)
+    type_config = PROJECT_TYPE_CONFIG.get(project.type, {})
+    activity_hours = db.session.query(
+        db.func.sum(ProjectActivity.hours)
+    ).filter_by(project_id=project_id).scalar() or 0
+    skills_total = SkillsChecklist.query.filter_by(
+        project_id=project_id).count()
+    skills_done = SkillsChecklist.query.filter_by(
+        project_id=project_id, completed=True).count()
+    has_narrative = ProjectNarrative.query.filter_by(
+        project_id=project_id).first() is not None
     tab = request.args.get("tab", "timeline")
     photos = Photo.query.filter_by(project_id=project.id).order_by(Photo.uploaded_at.desc()).all()
     goals = Goal.query.filter_by(project_id=project_id).order_by(Goal.completed.asc(), Goal.created_at.asc()).all()
@@ -425,7 +436,215 @@ def project_detail(project_id: int):
         active_withdrawal_count=active_withdrawal_count,
         feed_summary=feed_summary,
         net_pl=net_pl,
+        type_config=type_config,
+        activity_hours=activity_hours,
+        skills_total=skills_total,
+        skills_done=skills_done,
+        has_narrative=has_narrative,
     )
+
+
+@dashboard_bp.get('/projects/<int:project_id>/activity')
+@dashboard_bp.post('/projects/<int:project_id>/activity')
+def activity_log(project_id):
+    project = Project.query.get_or_404(project_id)
+    require_project_access(project)
+    activities = ProjectActivity.query.filter_by(
+        project_id=project_id).order_by(
+        ProjectActivity.date.desc()).all()
+    profiles = {p.id: p for p in Profile.query.all()}
+    total_hours = sum(a.hours or 0 for a in activities)
+    if request.method == 'POST':
+        from datetime import date as date_cls
+        hours_val = request.form.get('hours','').strip()
+        act = ProjectActivity(
+            project_id=project_id,
+            logged_by_id=session['active_profile_id'],
+            date=parse_date(request.form.get('date')) or date_cls.today(),
+            title=request.form.get('title','').strip(),
+            hours=float(hours_val) if hours_val else None,
+            notes=request.form.get('notes','').strip() or None,
+        )
+        db.session.add(act)
+        db.session.commit()
+        return redirect(f'/projects/{project_id}/activity')
+    type_config = PROJECT_TYPE_CONFIG.get(project.type, {})
+    return render_template('activity_log.html',
+        project=project, activities=activities,
+        profiles=profiles, total_hours=round(total_hours, 1),
+        type_config=type_config,
+        page_title='Activity Log',
+        back_url=f'/projects/{project_id}',
+        active_profile=Profile.query.get(session['active_profile_id']))
+
+
+@dashboard_bp.post('/projects/<int:project_id>/activity'
+                   '/<int:act_id>/delete')
+def activity_delete(project_id, act_id):
+    active = Profile.query.get(session['active_profile_id'])
+    act = ProjectActivity.query.filter_by(
+        id=act_id, project_id=project_id).first_or_404()
+    if active.role == 'parent' or act.logged_by_id == active.id:
+        db.session.delete(act)
+        db.session.commit()
+    return redirect(f'/projects/{project_id}/activity')
+
+
+@dashboard_bp.get('/projects/<int:project_id>/skills')
+@dashboard_bp.post('/projects/<int:project_id>/skills')
+def skills_checklist(project_id):
+    project = Project.query.get_or_404(project_id)
+    require_project_access(project)
+    skills = SkillsChecklist.query.filter_by(
+        project_id=project_id).order_by(
+        SkillsChecklist.sort_order,
+        SkillsChecklist.id).all()
+    if not skills:
+        config = PROJECT_TYPE_CONFIG.get(project.type, {})
+        for i, skill_name in enumerate(
+                config.get('default_skills', [])):
+            s = SkillsChecklist(
+                project_id=project_id,
+                skill_name=skill_name,
+                sort_order=i)
+            db.session.add(s)
+        db.session.commit()
+        skills = SkillsChecklist.query.filter_by(
+            project_id=project_id).order_by(
+            SkillsChecklist.sort_order).all()
+    if request.method == 'POST':
+        action = request.form.get('action')
+        if action == 'add':
+            new_skill_name = request.form.get('skill_name','').strip()
+            if new_skill_name:
+                new_skill = SkillsChecklist(
+                    project_id=project_id,
+                    skill_name=new_skill_name,
+                    sort_order=len(skills))
+                db.session.add(new_skill)
+                db.session.commit()
+        elif action == 'toggle':
+            from datetime import datetime as dt
+            skill_id = int(request.form.get('skill_id'))
+            skill = SkillsChecklist.query.filter_by(
+                id=skill_id, project_id=project_id).first()
+            if skill:
+                skill.completed = not skill.completed
+                skill.completed_at = dt.utcnow() if skill.completed else None
+                skill.completed_by_id = session['active_profile_id'] if skill.completed else None
+                db.session.commit()
+        elif action == 'delete':
+            active = Profile.query.get(session['active_profile_id'])
+            if active.role == 'parent':
+                skill_id = int(request.form.get('skill_id'))
+                skill = SkillsChecklist.query.filter_by(
+                    id=skill_id, project_id=project_id).first()
+                if skill:
+                    db.session.delete(skill)
+                    db.session.commit()
+        return redirect(f'/projects/{project_id}/skills')
+    completed_count = sum(1 for s in skills if s.completed)
+    profiles = {p.id: p for p in Profile.query.all()}
+    return render_template('skills_checklist.html',
+        project=project, skills=skills,
+        completed_count=completed_count,
+        total_count=len(skills),
+        profiles=profiles,
+        page_title='Skills Checklist',
+        back_url=f'/projects/{project_id}',
+        active_profile=Profile.query.get(session['active_profile_id']))
+
+
+@dashboard_bp.get('/projects/<int:project_id>/materials')
+@dashboard_bp.post('/projects/<int:project_id>/materials')
+def materials(project_id):
+    project = Project.query.get_or_404(project_id)
+    require_project_access(project)
+    items = ProjectMaterial.query.filter_by(
+        project_id=project_id).order_by(
+        ProjectMaterial.date_purchased.desc()).all()
+    total_cost = sum(
+        i.total_cost for i in items if i.total_cost)
+    type_config = PROJECT_TYPE_CONFIG.get(project.type, {})
+    if request.method == 'POST':
+        from datetime import date as date_cls
+        qty = float(request.form.get('quantity') or 1) or None
+        unit_cost = float(request.form.get('unit_cost') or 0) or None
+        total = round(qty * unit_cost, 2) if qty and unit_cost else None
+        item = ProjectMaterial(
+            project_id=project_id,
+            logged_by_id=session['active_profile_id'],
+            item_name=request.form.get('item_name','').strip(),
+            quantity=qty,
+            unit=request.form.get('unit','').strip() or None,
+            unit_cost=unit_cost,
+            total_cost=total,
+            category=request.form.get('category','').strip() or None,
+            notes=request.form.get('notes','').strip() or None,
+            date_purchased=parse_date(
+                request.form.get('date_purchased')) or date_cls.today(),
+        )
+        db.session.add(item)
+        if total:
+            expense = Expense(
+                project_id=project_id,
+                logged_by_id=session['active_profile_id'],
+                amount=total,
+                category='supplies',
+                date=item.date_purchased,
+                notes=item.item_name,
+            )
+            db.session.add(expense)
+        db.session.commit()
+        return redirect(f'/projects/{project_id}/materials')
+    profiles = {p.id: p for p in Profile.query.all()}
+    return render_template('materials.html',
+        project=project, items=items,
+        total_cost=round(total_cost, 2),
+        profiles=profiles,
+        type_config=type_config,
+        page_title=type_config.get('material_label','Materials'),
+        back_url=f'/projects/{project_id}',
+        active_profile=Profile.query.get(session['active_profile_id']))
+
+
+@dashboard_bp.post('/projects/<int:project_id>/materials'
+                   '/<int:item_id>/delete')
+def material_delete(project_id, item_id):
+    active = Profile.query.get(session['active_profile_id'])
+    item = ProjectMaterial.query.filter_by(
+        id=item_id, project_id=project_id).first_or_404()
+    if active.role == 'parent' or item.logged_by_id == active.id:
+        db.session.delete(item)
+        db.session.commit()
+    return redirect(f'/projects/{project_id}/materials')
+
+
+@dashboard_bp.get('/projects/<int:project_id>/narrative')
+@dashboard_bp.post('/projects/<int:project_id>/narrative')
+def narrative(project_id):
+    project = Project.query.get_or_404(project_id)
+    require_project_access(project)
+    narr = ProjectNarrative.query.filter_by(
+        project_id=project_id).first()
+    if request.method == 'POST':
+        from datetime import datetime as dt
+        if not narr:
+            narr = ProjectNarrative(project_id=project_id)
+            db.session.add(narr)
+        narr.project_goals_narrative = request.form.get('project_goals_narrative','').strip() or None
+        narr.what_i_did = request.form.get('what_i_did','').strip() or None
+        narr.what_i_learned = request.form.get('what_i_learned','').strip() or None
+        narr.how_i_improved = request.form.get('how_i_improved','').strip() or None
+        narr.skills_learned = request.form.get('skills_learned','').strip() or None
+        narr.updated_at = dt.utcnow()
+        db.session.commit()
+        return redirect(f'/projects/{project_id}/narrative')
+    return render_template('narrative.html',
+        project=project, narr=narr,
+        page_title='Project Story',
+        back_url=f'/projects/{project_id}',
+        active_profile=Profile.query.get(session['active_profile_id']))
 
 
 @dashboard_bp.route("/projects/<int:project_id>/expenses/add", methods=["GET", "POST"])

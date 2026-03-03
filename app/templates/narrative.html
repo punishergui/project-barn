@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Project Story · {{ project.name }}{% endblock %}
+{% block content %}
+<section class="shows-page">
+  <p class="expense-meta">Your project story helps you complete your 4-H record book. Answer each section in your own words.</p>
+  <form method="post">
+    <div class="narrative-field">
+      <p class="section-label">My Project Goals</p>
+      <span>What were your goals for this project this year?</span>
+      <textarea name="project_goals_narrative" rows="4" placeholder="Describe the goals you set at the start of the year and whether you achieved them...">{{ narr.project_goals_narrative or '' if narr else '' }}</textarea>
+    </div>
+    <div class="narrative-field">
+      <p class="section-label">What I Did</p>
+      <span>Describe the main activities you did for this project.</span>
+      <textarea name="what_i_did" rows="5" placeholder="Walk through what you did day-to-day, week-to-week. Include feeding, training, practicing, showing...">{{ narr.what_i_did or '' if narr else '' }}</textarea>
+    </div>
+    <div class="narrative-field">
+      <p class="section-label">What I Learned</p>
+      <span>What new skills or knowledge did you gain?</span>
+      <textarea name="what_i_learned" rows="4" placeholder="What did you learn about your animal, project, finances, or yourself?">{{ narr.what_i_learned or '' if narr else '' }}</textarea>
+    </div>
+    <div class="narrative-field">
+      <p class="section-label">How I Improved</p>
+      <span>How did you improve compared to last year?</span>
+      <textarea name="how_i_improved" rows="4" placeholder="What would you do differently? What got better?">{{ narr.how_i_improved or '' if narr else '' }}</textarea>
+    </div>
+    <div class="narrative-field">
+      <p class="section-label">Skills Learned (List)</p>
+      <span>List the specific skills you learned or improved.</span>
+      <textarea name="skills_learned" rows="3" placeholder="e.g. Learned to calculate ADG, improved showmanship stance, mastered straight seam sewing...">{{ narr.skills_learned or '' if narr else '' }}</textarea>
+    </div>
+    {% if narr and narr.updated_at %}
+    <p class="narrative-saved">Last saved {{ narr.updated_at.strftime('%b %-d, %Y') }}</p>
+    {% endif %}
+    <button class="btn" type="submit">Save Project Story</button>
+  </form>
+</section>
+{% endblock %}

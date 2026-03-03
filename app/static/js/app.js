@@ -532,6 +532,24 @@
     invUnitValInput.addEventListener('input', updateInvTotal);
   }
 
+
+  // Materials — real-time total calculator
+  const matQtyInput = document.getElementById('matQty');
+  const matUnitCostInput = document.getElementById('matUnitCost');
+  const matTotalPreview = document.getElementById('matTotalPreview');
+
+  function updateMatTotal() {
+    if (!matQtyInput || !matUnitCostInput || !matTotalPreview) return;
+    const qty = parseFloat(matQtyInput.value) || 0;
+    const cost = parseFloat(matUnitCostInput.value) || 0;
+    matTotalPreview.textContent = (qty && cost)
+      ? `Total: $${(qty * cost).toFixed(2)}` : '';
+  }
+  if (matQtyInput) {
+    matQtyInput.addEventListener('input', updateMatTotal);
+    matUnitCostInput.addEventListener('input', updateMatTotal);
+  }
+
   // Expense category group collapse/expand
   document.querySelectorAll('.expense-cat-header').forEach(header => {
     header.addEventListener('click', () => {

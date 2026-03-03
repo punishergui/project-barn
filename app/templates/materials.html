@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title }} · {{ project.name }}{% endblock %}
+{% block content %}
+<section class="shows-page">
+  <div class="chip"><strong>${{ '%.2f'|format(total_cost) }}</strong><span>TOTAL COST</span></div>
+
+  <form method="post" class="form-card">
+    <label>Item Name
+      <input class="input" type="text" name="item_name" required placeholder="{{ type_config.get('material_placeholder', 'e.g. Lumber, Paint, Leather') }}">
+    </label>
+    <label>Quantity
+      <input class="input" type="number" id="matQty" name="quantity" step="0.01" value="1">
+    </label>
+    <label>Unit
+      <input class="input" type="text" name="unit" placeholder="{{ type_config.get('material_unit_placeholder', 'e.g. each, lbs, yards') }}">
+    </label>
+    <label>Unit Cost ($)
+      <input class="input" type="number" id="matUnitCost" name="unit_cost" step="0.01">
+    </label>
+    <div id="matTotalPreview" class="material-total-preview"></div>
+    <label>Category
+      <input class="input" type="text" name="category" placeholder="e.g. Ingredients, Hardware, Fabric">
+    </label>
+    <label>Date Purchased
+      <input class="input" type="date" name="date_purchased" value="{{ request.form.get('date_purchased') or '' }}">
+    </label>
+    <label>Notes
+      <textarea class="input" name="notes" rows="3"></textarea>
+    </label>
+    <button class="btn" type="submit">Add {{ type_config.get('material_label','Material') }}</button>
+    <p class="expense-meta">Adding a cost will auto-create a supplies expense.</p>
+  </form>
+
+  {% for item in items %}
+  <div class="expense-card">
+    <div>
+      <strong>{{ item.item_name }}</strong>
+      {% if item.quantity %}<p class="expense-meta">Qty: {{ item.quantity }}{% if item.unit %} {{ item.unit }}{% endif %}</p>{% endif %}
+      {% if item.category %}<p class="expense-meta">{{ item.category }}</p>{% endif %}
+      {% if item.date_purchased %}<p class="expense-meta">{{ item.date_purchased.strftime('%b %-d, %Y') }}</p>{% endif %}
+      {% if item.notes %}<p class="expense-meta">{{ item.notes }}</p>{% endif %}
+    </div>
+    <div>
+      {% if item.unit_cost %}<div class="expense-amount">@ ${{ '%.2f'|format(item.unit_cost) }}</div>{% endif %}
+      {% if item.total_cost %}<div class="expense-amount">${{ '%.2f'|format(item.total_cost) }}</div>{% endif %}
+      {% if active_profile.role == 'parent' or active_profile.id == item.logged_by_id %}
+      <form method="post" action="/projects/{{ project.id }}/materials/{{ item.id }}/delete">
+        <button class="mini-btn" type="submit">Delete</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <p class="empty-state">📦 No materials added yet</p>
+  {% endfor %}
+</section>
+{% endblock %}
