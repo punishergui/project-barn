@@ -8,7 +8,7 @@ from flask import Blueprint, current_app, jsonify, redirect, render_template, re
 
 from app import save_upload
 from app.data.breeds import BREEDS
-from app.models import Expense, FeedLog, Goal, HealthRecord, Notification, Photo, Profile, Project, Show, ShowDay, ShowDayCheck, ShowEntry, Task, db
+from app.models import AuctionSale, Expense, FeedLog, Goal, HealthRecord, Notification, Photo, Profile, Project, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowEntry, Task, db
 
 
 dashboard_bp = Blueprint("dashboard", __name__)
@@ -1452,3 +1452,177 @@ def health_log_delete(project_id, record_id):
     db.session.delete(record)
     db.session.commit()
     return redirect(f'/projects/{project_id}/health')
+
+
+@dashboard_bp.get('/shows/<int:show_id>/entries/<int:entry_id>/compliance')
+@dashboard_bp.post('/shows/<int:show_id>/entries/<int:entry_id>/compliance')
+def show_compliance(show_id, entry_id):
+    show = Show.query.get_or_404(show_id)
+    entry = ShowEntry.query.filter_by(
+        id=entry_id, show_id=show_id).first_or_404()
+    project = Project.query.get_or_404(entry.project_id)
+    compliance = ShowCompliance.query.filter_by(
+        show_entry_id=entry_id).first()
+    if request.method == 'POST':
+        if not compliance:
+            compliance = ShowCompliance(
+                show_entry_id=entry_id,
+                project_id=entry.project_id)
+            db.session.add(compliance)
+        compliance.cvi_date = parse_date(request.form.get('cvi_date'))
+        compliance.cvi_vet = request.form.get('cvi_vet', '').strip() or None
+        compliance.cvi_expiry = parse_date(request.form.get('cvi_expiry'))
+        compliance.yqca_verified = bool(request.form.get('yqca_verified'))
+        compliance.health_test_type = (
+            request.form.get('health_test_type', '').strip() or None)
+        compliance.health_test_date = (
+            parse_date(request.form.get('health_test_date')))
+        compliance.health_test_result = (
+            request.form.get('health_test_result', '').strip() or None)
+        compliance.entry_fee_paid = bool(request.form.get('entry_fee_paid'))
+        compliance.weigh_in_time = (
+            request.form.get('weigh_in_time', '').strip() or None)
+        compliance.weigh_in_weight = (
+            float(request.form.get('weigh_in_weight') or 0) or None)
+        compliance.weigh_in_official = (
+            bool(request.form.get('weigh_in_official')))
+        compliance.notes = request.form.get('notes', '').strip() or None
+        db.session.commit()
+        return redirect(f'/shows/{show_id}')
+    return render_template('show_compliance.html',
+        show=show, entry=entry, project=project,
+        compliance=compliance,
+        page_title='Show Compliance',
+        back_url=f'/shows/{show_id}',
+        today=date.today(),
+        active_profile=Profile.query.get(session['active_profile_id']))
+
+
+@dashboard_bp.get('/projects/<int:project_id>/auction')
+def auction_list(project_id):
+    project = Project.query.get_or_404(project_id)
+    require_project_access(project)
+    sales = AuctionSale.query.filter_by(
+        project_id=project_id).order_by(
+        AuctionSale.sale_date.desc()).all()
+    total_proceeds = sum(s.net_proceeds for s in sales)
+    unsent = [s for s in sales if not s.thank_you_sent]
+    return render_template('auction_list.html',
+        project=project, sales=sales,
+        total_proceeds=round(total_proceeds, 2),
+        unsent=unsent,
+        page_title='Auction Sales',
+        back_url=f'/projects/{project_id}',
+        active_profile=Profile.query.get(session['active_profile_id']))
+
+
+@dashboard_bp.get('/projects/<int:project_id>/auction/add')
+@dashboard_bp.post('/projects/<int:project_id>/auction/add')
+def auction_add(project_id):
+    project = Project.query.get_or_404(project_id)
+    require_project_access(project)
+    shows = Show.query.order_by(Show.start_date.desc()).all()
+    if request.method == 'POST':
+        from datetime import date as date_cls
+        weight = float(request.form.get('weight_at_sale') or 0) or None
+        ppl = float(request.form.get('price_per_lb') or 0) or None
+        flat = float(request.form.get('flat_price') or 0) or None
+        if ppl and weight:
+            total = round(weight * ppl, 2)
+        elif flat:
+            total = flat
+        else:
+            total = float(request.form.get('total_price') or 0)
+        addon = float(request.form.get('addon_amount') or 0)
+        deductions = float(request.form.get('deductions') or 0)
+        net = round(total + addon - deductions, 2)
+        sale = AuctionSale(
+            project_id=project_id,
+            show_id=int(request.form.get('show_id')) if
+                request.form.get('show_id') else None,
+            sale_date=parse_date(request.form.get('sale_date')) or
+                date_cls.today(),
+            buyer_name=request.form.get('buyer_name', '').strip(),
+            buyer_business=request.form.get('buyer_business',
+                '').strip() or None,
+            weight_at_sale=weight,
+            price_per_lb=ppl,
+            flat_price=flat,
+            total_price=total,
+            addon_amount=addon,
+            deductions=deductions,
+            net_proceeds=net,
+            notes=request.form.get('notes', '').strip() or None,
+        )
+        db.session.add(sale)
+        from app.models import Expense
+        income = Expense(
+            project_id=project_id,
+            logged_by_id=session['active_profile_id'],
+            amount=net,
+            category='other',
+            date=sale.sale_date,
+            notes=f'Auction sale — {sale.buyer_name}'
+                  f'{" @ " + str(ppl) + "/lb" if ppl else ""}'
+        )
+        db.session.add(income)
+        db.session.commit()
+        return redirect(f'/projects/{project_id}/auction')
+    return render_template('auction_add.html',
+        project=project, shows=shows,
+        page_title='Add Auction Sale',
+        back_url=f'/projects/{project_id}/auction',
+        active_profile=Profile.query.get(session['active_profile_id']))
+
+
+@dashboard_bp.post('/projects/<int:project_id>/auction'
+                   '/<int:sale_id>/thankyou')
+def auction_thankyou(project_id, sale_id):
+    sale = AuctionSale.query.filter_by(
+        id=sale_id, project_id=project_id).first_or_404()
+    from datetime import date as date_cls
+    sale.thank_you_sent = True
+    sale.thank_you_date = date_cls.today()
+    db.session.commit()
+    return redirect(f'/projects/{project_id}/auction')
+
+
+@dashboard_bp.post('/projects/<int:project_id>/auction'
+                   '/<int:sale_id>/delete')
+def auction_delete(project_id, sale_id):
+    active = Profile.query.get(session['active_profile_id'])
+    if not active or active.role != 'parent':
+        return redirect('/')
+    sale = AuctionSale.query.filter_by(
+        id=sale_id, project_id=project_id).first_or_404()
+    db.session.delete(sale)
+    db.session.commit()
+    return redirect(f'/projects/{project_id}/auction')
+
+
+@dashboard_bp.get('/projects/<int:project_id>/rog')
+def rate_of_gain(project_id):
+    project = Project.query.get_or_404(project_id)
+    require_project_access(project)
+    weigh_tasks = Task.query.filter_by(
+        project_id=project_id, task_type='weigh'
+    ).filter(Task.weight_lbs.isnot(None)).order_by(Task.logged_at).all()
+    entries = []
+    prev_weight = project.initial_weight
+    prev_date = project.start_date
+    for t in weigh_tasks:
+        w = t.weight_lbs
+        d = t.logged_at.date() if t.logged_at else None
+        adg = None
+        if prev_weight and prev_date and d and d > prev_date:
+            days = (d - prev_date).days
+            adg = round((w - prev_weight) / days, 3) if days else None
+        entries.append({'date': d, 'weight': w, 'adg': adg,
+                        'task': t})
+        prev_weight = w
+        prev_date = d
+    return render_template('rate_of_gain.html',
+        project=project, entries=entries,
+        page_title='Rate of Gain',
+        back_url=f'/projects/{project_id}',
+        active_profile=Profile.query.get(session['active_profile_id']))
