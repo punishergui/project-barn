@@ -514,6 +514,33 @@
     );
   }
 
+
+  // Inventory item — real-time total calculator
+  const invQtyInput = document.getElementById('invQty');
+  const invUnitValInput = document.getElementById('invUnitVal');
+  const invTotalPreview = document.getElementById('invTotalPreview');
+
+  function updateInvTotal() {
+    if (!invQtyInput || !invUnitValInput || !invTotalPreview) return;
+    const qty = parseFloat(invQtyInput.value) || 0;
+    const val = parseFloat(invUnitValInput.value) || 0;
+    invTotalPreview.textContent = (qty && val)
+      ? `Total: $${(qty * val).toFixed(2)}` : '';
+  }
+  if (invQtyInput) {
+    invQtyInput.addEventListener('input', updateInvTotal);
+    invUnitValInput.addEventListener('input', updateInvTotal);
+  }
+
+  // Expense category group collapse/expand
+  document.querySelectorAll('.expense-cat-header').forEach(header => {
+    header.addEventListener('click', () => {
+      const body = header.nextElementSibling;
+      if (body) body.style.display =
+        body.style.display === 'none' ? '' : 'none';
+    });
+  });
+
 })();
 
 (() => {

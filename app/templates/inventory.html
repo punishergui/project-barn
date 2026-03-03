@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Inventory · Project Barn{% endblock %}
+{% block content %}
+<section class="reports-page">
+  <div class="chips-row">
+    <article class="chip"><strong>${{ '%.2f'|format(beginning_total) }}</strong><span>BEGINNING INVENTORY</span></article>
+    <article class="chip"><strong>${{ '%.2f'|format(ending_total) }}</strong><span>ENDING INVENTORY</span></article>
+    <article class="chip"><strong class="{% if net_change >= 0 %}net-positive{% else %}net-negative{% endif %}">{% if net_change >= 0 %}+{% endif %}${{ '%.2f'|format(net_change|abs) }}</strong><span>NET CHANGE</span></article>
+  </div>
+
+  <article class="report-card">
+    <form method="post" class="stack-form">
+      <label class="field"><span>Description</span><input type="text" name="item_description" required placeholder="e.g. 3 bags Show Chow, Animal, Equipment"></label>
+      <label class="field"><span>Quantity</span><input id="invQty" type="number" step="0.1" name="quantity" value="1"></label>
+      <label class="field"><span>Unit Value ($)</span><input id="invUnitVal" type="number" step="0.01" name="unit_value" required></label>
+      <div id="invTotalPreview" class="feed-cost-preview"></div>
+      <label class="field"><span>Inventory Date</span><input type="date" name="inventory_date" value="{{ today or '' }}"></label>
+      <label class="field"><span>Type</span>
+        <select name="inventory_type">
+          <option value="beginning">Beginning</option>
+          <option value="ending" selected>Ending</option>
+        </select>
+      </label>
+      <button class="submit-btn" type="submit">Add Item</button>
+    </form>
+  </article>
+
+  <div class="report-body inventory-sections">
+    <article class="report-card">
+      <p class="financial-section-label">Beginning Inventory</p>
+      <table class="inv-table">
+        <thead><tr><th>Description</th><th>Qty</th><th>Unit Value</th><th>Total</th><th></th></tr></thead>
+        <tbody>
+          {% for item in beginning %}
+          <tr>
+            <td>{{ item.item_description }}</td><td>{{ item.quantity }}</td><td>${{ '%.2f'|format(item.unit_value) }}</td><td>${{ '%.2f'|format(item.total_value) }}</td>
+            <td>{% if active_profile.role == 'parent' %}<form method="post" action="/projects/{{ project.id }}/inventory/{{ item.id }}/delete"><button class="pin-cancel" type="submit">Delete</button></form>{% endif %}</td>
+          </tr>
+          {% endfor %}
+          <tr class="inv-total-row"><td colspan="3">Total</td><td>${{ '%.2f'|format(beginning_total) }}</td><td></td></tr>
+        </tbody>
+      </table>
+    </article>
+    <article class="report-card">
+      <p class="financial-section-label">Ending Inventory</p>
+      <table class="inv-table">
+        <thead><tr><th>Description</th><th>Qty</th><th>Unit Value</th><th>Total</th><th></th></tr></thead>
+        <tbody>
+          {% for item in ending %}
+          <tr>
+            <td>{{ item.item_description }}</td><td>{{ item.quantity }}</td><td>${{ '%.2f'|format(item.unit_value) }}</td><td>${{ '%.2f'|format(item.total_value) }}</td>
+            <td>{% if active_profile.role == 'parent' %}<form method="post" action="/projects/{{ project.id }}/inventory/{{ item.id }}/delete"><button class="pin-cancel" type="submit">Delete</button></form>{% endif %}</td>
+          </tr>
+          {% endfor %}
+          <tr class="inv-total-row"><td colspan="3">Total</td><td>${{ '%.2f'|format(ending_total) }}</td><td></td></tr>
+        </tbody>
+      </table>
+    </article>
+  </div>
+</section>
+{% endblock %}

@@ -8,7 +8,7 @@ from flask import Blueprint, current_app, jsonify, redirect, render_template, re
 
 from app import save_upload
 from app.data.breeds import BREEDS
-from app.models import AuctionSale, Expense, FeedLog, Goal, HealthRecord, Notification, Photo, Profile, Project, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowEntry, Task, db
+from app.models import AuctionSale, Expense, FeedLog, Goal, HealthRecord, IncomeRecord, InventoryItem, Notification, Photo, Profile, Project, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowEntry, Task, db
 
 
 dashboard_bp = Blueprint("dashboard", __name__)
@@ -76,12 +76,19 @@ def require_project_access(project):
 VIDEO_EXTS = {'.mp4', '.mov', '.avi', '.webm'}
 
 EXPENSE_CATEGORIES = {
-    "feed": "Feed",
+    "feed": "Feed (Grain / Complete)",
+    "hay": "Hay / Forage",
     "bedding": "Bedding",
-    "vet": "Vet",
+    "vet": "Veterinary / Medical",
     "entry_fee": "Entry Fee",
     "supplies": "Supplies",
-    "other": "Other",
+    "equipment": "Equipment",
+    "transportation": "Transportation",
+    "registration": "Registration / Membership",
+    "grooming": "Grooming Supplies",
+    "breeding_fee": "Breeding Fee",
+    "insurance": "Insurance",
+    "other_expense": "Other",
 }
 
 
@@ -323,6 +330,17 @@ def project_detail(project_id: int):
         else:
             ribbon_dates.add(show_obj.start_date)
     total_spent = sum(expense.amount for expense in expenses)
+    total_auction_proceeds = db.session.query(
+        db.func.sum(AuctionSale.net_proceeds)
+    ).filter_by(project_id=project_id).scalar() or 0
+    total_income_records = db.session.query(
+        db.func.sum(IncomeRecord.amount)
+    ).filter_by(project_id=project_id).scalar() or 0
+    total_expenses_sum = db.session.query(
+        db.func.sum(Expense.amount)
+    ).filter_by(project_id=project_id).scalar() or 0
+    net_pl = round(total_income_records + (total_auction_proceeds or 0)
+                   - total_expenses_sum, 2)
     tab = request.args.get("tab", "timeline")
     photos = Photo.query.filter_by(project_id=project.id).order_by(Photo.uploaded_at.desc()).all()
     goals = Goal.query.filter_by(project_id=project_id).order_by(Goal.completed.asc(), Goal.created_at.asc()).all()
@@ -406,6 +424,7 @@ def project_detail(project_id: int):
         today=today,
         active_withdrawal_count=active_withdrawal_count,
         feed_summary=feed_summary,
+        net_pl=net_pl,
     )
 
 
@@ -415,13 +434,15 @@ def expense_add(project_id: int):
     project = Project.query.get_or_404(project_id)
 
     if request.method == "POST":
+        vendor = request.form.get('vendor', '').strip() or None
         expense = Expense(
             project_id=project.id,
             logged_by_id=active_profile.id,
             amount=request.form.get("amount", type=float) or 0,
-            category=request.form.get("category", "other"),
+            category=request.form.get("category", "other_expense"),
             date=request.form.get("date", type=lambda v: datetime.strptime(v, "%Y-%m-%d").date()) or date.today(),
             notes=(request.form.get("notes") or "").strip() or None,
+            vendor=vendor,
         )
         db.session.add(expense)
         db.session.commit()
@@ -782,13 +803,15 @@ def expense_add_global():
                 error="Project is required.",
             )
 
+        vendor = request.form.get('vendor', '').strip() or None
         expense = Expense(
             project_id=project_id,
             logged_by_id=active_profile.id,
             amount=request.form.get("amount", type=float) or 0,
-            category=request.form.get("category", "other"),
+            category=request.form.get("category", "other_expense"),
             date=request.form.get("date", type=lambda v: datetime.strptime(v, "%Y-%m-%d").date()) or date.today(),
             notes=(request.form.get("notes") or "").strip() or None,
+            vendor=vendor,
         )
         db.session.add(expense)
         db.session.commit()
@@ -1560,7 +1583,7 @@ def auction_add(project_id):
             project_id=project_id,
             logged_by_id=session['active_profile_id'],
             amount=net,
-            category='other',
+            category='other_expense',
             date=sale.sale_date,
             notes=f'Auction sale — {sale.buyer_name}'
                   f'{" @ " + str(ppl) + "/lb" if ppl else ""}'
@@ -1626,3 +1649,258 @@ def rate_of_gain(project_id):
         page_title='Rate of Gain',
         back_url=f'/projects/{project_id}',
         active_profile=Profile.query.get(session['active_profile_id']))
+
+
+@dashboard_bp.get('/projects/<int:project_id>/income')
+@dashboard_bp.post('/projects/<int:project_id>/income')
+def income_add(project_id):
+    project = Project.query.get_or_404(project_id)
+    require_project_access(project)
+    records = IncomeRecord.query.filter_by(
+        project_id=project_id).order_by(
+        IncomeRecord.date.desc()).all()
+    if request.method == 'POST':
+        from datetime import date as date_cls
+        record = IncomeRecord(
+            project_id=project_id,
+            logged_by_id=session['active_profile_id'],
+            date=parse_date(request.form.get('date')) or date_cls.today(),
+            category=request.form.get('category', 'other'),
+            amount=float(request.form.get('amount') or 0),
+            source=request.form.get('source', '').strip() or None,
+            notes=request.form.get('notes', '').strip() or None,
+        )
+        db.session.add(record)
+        db.session.commit()
+        return redirect(f'/projects/{project_id}/income')
+    total_income = sum(r.amount for r in records)
+    return render_template('income_list.html',
+        project=project, records=records,
+        total_income=round(total_income, 2),
+        page_title='Income', back_url=f'/projects/{project_id}',
+        today=date.today().isoformat(),
+        active_profile=Profile.query.get(session['active_profile_id']))
+
+
+@dashboard_bp.post('/projects/<int:project_id>/income'
+                   '/<int:record_id>/delete')
+def income_delete(project_id, record_id):
+    active = Profile.query.get(session['active_profile_id'])
+    if not active or active.role != 'parent':
+        return redirect('/')
+    record = IncomeRecord.query.filter_by(
+        id=record_id, project_id=project_id).first_or_404()
+    db.session.delete(record)
+    db.session.commit()
+    return redirect(f'/projects/{project_id}/income')
+
+
+@dashboard_bp.get('/projects/<int:project_id>/inventory')
+@dashboard_bp.post('/projects/<int:project_id>/inventory')
+def inventory(project_id):
+    project = Project.query.get_or_404(project_id)
+    require_project_access(project)
+    items = InventoryItem.query.filter_by(
+        project_id=project_id).order_by(
+        InventoryItem.inventory_date.desc()).all()
+    beginning = [i for i in items if i.inventory_type == 'beginning']
+    ending = [i for i in items if i.inventory_type == 'ending']
+    beginning_total = sum(i.total_value for i in beginning)
+    ending_total = sum(i.total_value for i in ending)
+    if request.method == 'POST':
+        from datetime import date as date_cls
+        qty = float(request.form.get('quantity') or 1)
+        unit_val = float(request.form.get('unit_value') or 0)
+        item = InventoryItem(
+            project_id=project_id,
+            item_description=request.form.get('item_description', '').strip(),
+            quantity=qty,
+            unit_value=unit_val,
+            total_value=round(qty * unit_val, 2),
+            inventory_date=parse_date(
+                request.form.get('inventory_date')) or date_cls.today(),
+            inventory_type=request.form.get('inventory_type', 'ending'),
+        )
+        db.session.add(item)
+        db.session.commit()
+        return redirect(f'/projects/{project_id}/inventory')
+    return render_template('inventory.html',
+        project=project, beginning=beginning, ending=ending,
+        beginning_total=round(beginning_total, 2),
+        ending_total=round(ending_total, 2),
+        net_change=round(ending_total - beginning_total, 2),
+        page_title='Inventory', back_url=f'/projects/{project_id}',
+        today=date.today().isoformat(),
+        active_profile=Profile.query.get(session['active_profile_id']))
+
+
+@dashboard_bp.post('/projects/<int:project_id>/inventory'
+                   '/<int:item_id>/delete')
+def inventory_delete(project_id, item_id):
+    active = Profile.query.get(session['active_profile_id'])
+    if not active or active.role != 'parent':
+        return redirect('/')
+    item = InventoryItem.query.filter_by(
+        id=item_id, project_id=project_id).first_or_404()
+    db.session.delete(item)
+    db.session.commit()
+    return redirect(f'/projects/{project_id}/inventory')
+
+
+@dashboard_bp.get('/projects/<int:project_id>/financial')
+def financial_summary(project_id):
+    project = Project.query.get_or_404(project_id)
+    require_project_access(project)
+    from datetime import date as date_cls
+
+    expenses = Expense.query.filter_by(project_id=project_id)        .order_by(Expense.date).all()
+    expense_by_cat = {}
+    for e in expenses:
+        expense_by_cat.setdefault(e.category, []).append(e)
+    total_expenses = sum(e.amount for e in expenses)
+
+    income_records = IncomeRecord.query.filter_by(
+        project_id=project_id).order_by(IncomeRecord.date).all()
+    auction_sales = AuctionSale.query.filter_by(
+        project_id=project_id).all()
+    total_income_records = sum(r.amount for r in income_records)
+    total_auction = sum(s.net_proceeds for s in auction_sales)
+    total_income = total_income_records + total_auction
+    net_profit_loss = total_income - total_expenses
+
+    feed_logs = FeedLog.query.filter_by(project_id=project_id).all()
+    total_feed_lbs = sum(l.amount_lbs for l in feed_logs)
+    total_feed_cost = sum(
+        (l.amount_lbs / l.bag_size_lbs * l.cost_per_bag)
+        for l in feed_logs
+        if l.cost_per_bag and l.bag_size_lbs and l.bag_size_lbs > 0
+    )
+
+    weigh_tasks = Task.query.filter_by(
+        project_id=project_id, task_type='weigh'
+    ).filter(Task.weight_lbs.isnot(None))     .order_by(Task.logged_at).all()
+    total_gain = 0
+    fcr = None
+    feed_cost_per_lb = None
+    total_cost_per_lb = None
+    current_weight = weigh_tasks[-1].weight_lbs if weigh_tasks else None
+    if weigh_tasks and project.initial_weight:
+        total_gain = weigh_tasks[-1].weight_lbs - project.initial_weight
+        if total_gain > 0:
+            if total_feed_lbs > 0:
+                fcr = round(total_feed_lbs / total_gain, 2)
+            if total_feed_cost > 0:
+                feed_cost_per_lb = round(total_feed_cost / total_gain, 2)
+            if total_expenses > 0:
+                total_cost_per_lb = round(total_expenses / total_gain, 2)
+
+    days_on_feed = None
+    if project.start_date:
+        days_on_feed = (date_cls.today() - project.start_date).days
+
+    inventory_items = InventoryItem.query.filter_by(
+        project_id=project_id).all()
+    beginning_inv = sum(i.total_value for i in inventory_items
+                        if i.inventory_type == 'beginning')
+    ending_inv = sum(i.total_value for i in inventory_items
+                     if i.inventory_type == 'ending')
+
+    tasks_with_duration = Task.query.filter_by(
+        project_id=project_id).filter(
+        Task.duration_minutes.isnot(None)).all()
+    total_hours = round(
+        sum(t.duration_minutes for t in tasks_with_duration) / 60, 1)
+
+    return render_template('financial_summary.html',
+        project=project,
+        expenses=expenses,
+        expense_by_cat=expense_by_cat,
+        expense_categories=EXPENSE_CATEGORIES,
+        total_expenses=round(total_expenses, 2),
+        income_records=income_records,
+        auction_sales=auction_sales,
+        total_income=round(total_income, 2),
+        net_profit_loss=round(net_profit_loss, 2),
+        total_feed_lbs=round(total_feed_lbs, 1),
+        total_feed_cost=round(total_feed_cost, 2),
+        total_gain=round(total_gain, 1),
+        current_weight=current_weight,
+        fcr=fcr,
+        feed_cost_per_lb=feed_cost_per_lb,
+        total_cost_per_lb=total_cost_per_lb,
+        days_on_feed=days_on_feed,
+        beginning_inv=round(beginning_inv, 2),
+        ending_inv=round(ending_inv, 2),
+        net_inv_change=round(ending_inv - beginning_inv, 2),
+        total_hours=total_hours,
+        page_title='Financial Summary',
+        back_url=f'/projects/{project_id}',
+        active_profile=Profile.query.get(session['active_profile_id']))
+
+
+@dashboard_bp.get('/projects/<int:project_id>/expenses/csv')
+def expenses_csv(project_id):
+    project = Project.query.get_or_404(project_id)
+    require_project_access(project)
+    import csv
+    import io
+    from flask import Response
+    expenses = Expense.query.filter_by(
+        project_id=project_id).order_by(Expense.date).all()
+    profiles = {p.id: p for p in Profile.query.all()}
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Date', 'Category', 'Vendor', 'Amount', 'Notes',
+                     'Logged By'])
+    for e in expenses:
+        writer.writerow([
+            e.date.isoformat(),
+            e.category.replace('_', ' ').title(),
+            e.vendor or '',
+            f'{e.amount:.2f}',
+            e.notes or '',
+            profiles.get(e.logged_by_id, type('', (), {'name': ''})()).name
+        ])
+    output.seek(0)
+    filename = f'{project.name.replace(" ","_")}_expenses.csv'
+    return Response(output.getvalue(), mimetype='text/csv',
+        headers={'Content-Disposition':
+                 f'attachment; filename="{filename}"'})
+
+
+@dashboard_bp.get('/projects/<int:project_id>/financial/csv')
+def financial_csv(project_id):
+    project = Project.query.get_or_404(project_id)
+    require_project_access(project)
+    import csv
+    import io
+    from flask import Response
+    expenses = Expense.query.filter_by(
+        project_id=project_id).order_by(Expense.date).all()
+    income = IncomeRecord.query.filter_by(
+        project_id=project_id).order_by(IncomeRecord.date).all()
+    auction = AuctionSale.query.filter_by(
+        project_id=project_id).order_by(AuctionSale.sale_date).all()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['--- EXPENSES ---'])
+    writer.writerow(['Date', 'Category', 'Vendor', 'Amount', 'Notes'])
+    for e in expenses:
+        writer.writerow([e.date.isoformat(),
+            e.category.replace('_', ' ').title(),
+            e.vendor or '', f'{e.amount:.2f}', e.notes or ''])
+    writer.writerow([])
+    writer.writerow(['--- INCOME ---'])
+    writer.writerow(['Date', 'Category', 'Source', 'Amount', 'Notes'])
+    for r in income:
+        writer.writerow([r.date.isoformat(),
+            r.category.replace('_', ' ').title(),
+            r.source or '', f'{r.amount:.2f}', r.notes or ''])
+    for s in auction:
+        writer.writerow([s.sale_date.isoformat(), 'Auction Sale',
+            s.buyer_name, f'{s.net_proceeds:.2f}', s.notes or ''])
+    output.seek(0)
+    filename = f'{project.name.replace(" ","_")}_financial.csv'
+    return Response(output.getvalue(), mimetype='text/csv',
+        headers={'Content-Disposition':
+                 f'attachment; filename="{filename}"'})

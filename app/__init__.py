@@ -6,7 +6,7 @@ import bcrypt
 from flask import Flask
 from sqlalchemy import text
 
-from app.models import AuctionSale, Expense, FeedLog, Goal, HealthRecord, Notification, Photo, Profile, Project, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowEntry, Task, db
+from app.models import AuctionSale, Expense, FeedLog, Goal, HealthRecord, IncomeRecord, InventoryItem, Notification, Photo, Profile, Project, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowEntry, Task, db
 
 
 def create_app() -> Flask:
@@ -82,6 +82,7 @@ def run_migrations() -> None:
         "ALTER TABLE show_compliance ADD COLUMN notes TEXT",
         "ALTER TABLE auction_sale ADD COLUMN flat_price REAL",
         "ALTER TABLE auction_sale ADD COLUMN buyer_business TEXT",
+        "ALTER TABLE expense ADD COLUMN vendor TEXT",
     ]
 
     with db.engine.connect() as conn:

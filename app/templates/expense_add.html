@@ -6,11 +6,26 @@
     <label class="field"><span>Amount</span><input name="amount" type="number" required step="0.01"></label>
     <label class="field"><span>Category</span>
       <select name="category">
-        {% for value, label in expense_categories.items() %}
-        <option value="{{ value }}">{{ label }}</option>
-        {% endfor %}
+        <option value="feed">Feed (Grain / Complete)</option>
+        <option value="hay">Hay / Forage</option>
+        <option value="bedding">Bedding</option>
+        <option value="vet">Veterinary / Medical</option>
+        <option value="entry_fee">Entry Fee</option>
+        <option value="supplies">Supplies</option>
+        <option value="equipment">Equipment</option>
+        <option value="transportation">Transportation</option>
+        <option value="registration">Registration / Membership</option>
+        <option value="grooming">Grooming Supplies</option>
+        <option value="breeding_fee">Breeding Fee</option>
+        <option value="insurance">Insurance</option>
+        <option value="other_expense">Other</option>
       </select>
     </label>
+    <div class="field">
+      <span>Vendor / Store</span>
+      <input type="text" name="vendor"
+             placeholder="e.g. Tractor Supply, Local Co-op">
+    </div>
     <label class="field"><span>Date</span><input name="date" type="date" value="{{ today }}"></label>
     <label class="field"><span>Notes</span><input name="notes" type="text"></label>
     <button class="submit-btn" type="submit">Save Expense</button>
