@@ -7,6 +7,7 @@ from io import BytesIO
 from flask import Blueprint, current_app, jsonify, redirect, render_template, request, send_file, send_from_directory, session, url_for
 
 from app import save_upload
+from app.data.breeds import BREEDS
 from app.models import Expense, Goal, Notification, Photo, Profile, Project, Show, ShowDay, ShowDayCheck, ShowEntry, Task, db
 
 
@@ -24,13 +25,19 @@ TASK_ICONS = {
 }
 PROJECT_EMOJI = {
     "cow": "🐄",
+    "dairy": "🥛",
     "pig": "🐖",
     "goat": "🐐",
     "sheep": "🐑",
     "chicken": "🐔",
     "rabbit": "🐇",
+    "horse": "🐎",
     "baking": "🧁",
-    "welding": "🔧",
+    "sewing": "🧵",
+    "shooting": "🎯",
+    "garden": "🌱",
+    "robotics": "🤖",
+    "photography": "📷",
     "other": "📋",
 }
 RIBBON_LABELS = {
@@ -49,6 +56,15 @@ SHOW_CHECK_ITEMS = [
     "Show Ring",
     "Notes",
 ]
+
+def parse_date(val):
+    if not val:
+        return None
+    try:
+        return date.fromisoformat(val)
+    except ValueError:
+        return None
+
 
 VIDEO_EXTS = {'.mp4', '.mov', '.avi', '.webm'}
 
@@ -237,8 +253,22 @@ def project_add():
             type=request.form.get("type", "other"),
             owner_id=request.form.get("owner_id", type=int),
             breed=(request.form.get("breed") or "").strip() or None,
-            start_date=request.form.get("start_date", type=lambda v: datetime.strptime(v, "%Y-%m-%d").date()) if request.form.get("start_date") else None,
-            purchase_date=request.form.get("purchase_date", type=lambda v: datetime.strptime(v, "%Y-%m-%d").date()) if request.form.get("purchase_date") else None,
+            sub_type=(request.form.get("sub_type") or "").strip() or None,
+            sex=(request.form.get("sex") or "").strip() or None,
+            animal_dob=parse_date(request.form.get("animal_dob")),
+            ear_tag=(request.form.get("ear_tag") or "").strip() or None,
+            tattoo=(request.form.get("tattoo") or "").strip() or None,
+            rfid_tag=(request.form.get("rfid_tag") or "").strip() or None,
+            registration_number=(request.form.get("registration_number") or "").strip() or None,
+            scrapie_tag=(request.form.get("scrapie_tag") or "").strip() or None,
+            coggins_date=parse_date(request.form.get("coggins_date")),
+            yqca_number=(request.form.get("yqca_number") or "").strip() or None,
+            yqca_expiry=parse_date(request.form.get("yqca_expiry")),
+            initial_weight=float(request.form.get("initial_weight") or 0) or None,
+            target_weight=float(request.form.get("target_weight") or 0) or None,
+            target_date=parse_date(request.form.get("target_date")),
+            start_date=parse_date(request.form.get("start_date")),
+            purchase_date=parse_date(request.form.get("purchase_date")),
             purchase_price=request.form.get("purchase_price", type=float) or 0,
             notes=(request.form.get("notes") or "").strip() or None,
         )
@@ -283,6 +313,29 @@ def project_detail(project_id: int):
     photos = Photo.query.filter_by(project_id=project.id).order_by(Photo.uploaded_at.desc()).all()
     goals = Goal.query.filter_by(project_id=project_id).order_by(Goal.completed.asc(), Goal.created_at.asc()).all()
 
+    weigh_tasks = [t for t in tasks if t.task_type == "weigh" and t.weight_lbs and t.logged_at]
+    weigh_tasks_sorted = sorted(weigh_tasks, key=lambda t: t.logged_at)
+    current_weight = weigh_tasks_sorted[-1].weight_lbs if weigh_tasks_sorted else project.initial_weight
+    adg = None
+    projected_weight = None
+    days_until_fair = None
+    weight_status = None
+    if project.initial_weight and current_weight and project.start_date:
+        days_on_feed = (date.today() - project.start_date).days or 1
+        adg = round((current_weight - project.initial_weight) / days_on_feed, 2)
+        if project.target_date:
+            days_until_fair = (project.target_date - date.today()).days
+            if days_until_fair > 0 and adg:
+                projected_weight = round(current_weight + (adg * days_until_fair), 1)
+                if project.target_weight:
+                    diff = projected_weight - project.target_weight
+                    if abs(diff) <= project.target_weight * 0.03:
+                        weight_status = "on_track"
+                    elif diff > 0:
+                        weight_status = "heavy"
+                    else:
+                        weight_status = "light"
+
     return render_template(
         "project_detail.html",
         active_profile=active_profile,
@@ -303,6 +356,11 @@ def project_detail(project_id: int):
         goals=goals,
         ribbon_count=ribbon_count,
         ribbon_dates=ribbon_dates,
+        adg=adg,
+        projected_weight=projected_weight,
+        days_until_fair=days_until_fair,
+        weight_status=weight_status,
+        current_weight=current_weight,
     )
 
 
@@ -951,8 +1009,22 @@ def project_edit(project_id: int):
         project.type = request.form.get("type", project.type)
         project.owner_id = request.form.get("owner_id", type=int) or project.owner_id
         project.breed = (request.form.get("breed") or "").strip() or None
-        project.start_date = request.form.get("start_date", type=lambda v: datetime.strptime(v, "%Y-%m-%d").date()) if request.form.get("start_date") else None
-        project.purchase_date = request.form.get("purchase_date", type=lambda v: datetime.strptime(v, "%Y-%m-%d").date()) if request.form.get("purchase_date") else None
+        project.sub_type = (request.form.get("sub_type") or "").strip() or None
+        project.sex = (request.form.get("sex") or "").strip() or None
+        project.animal_dob = parse_date(request.form.get("animal_dob"))
+        project.initial_weight = float(request.form.get("initial_weight") or 0) or None
+        project.target_weight = float(request.form.get("target_weight") or 0) or None
+        project.target_date = parse_date(request.form.get("target_date"))
+        project.ear_tag = (request.form.get("ear_tag") or "").strip() or None
+        project.tattoo = (request.form.get("tattoo") or "").strip() or None
+        project.rfid_tag = (request.form.get("rfid_tag") or "").strip() or None
+        project.registration_number = (request.form.get("registration_number") or "").strip() or None
+        project.scrapie_tag = (request.form.get("scrapie_tag") or "").strip() or None
+        project.coggins_date = parse_date(request.form.get("coggins_date"))
+        project.yqca_number = (request.form.get("yqca_number") or "").strip() or None
+        project.yqca_expiry = parse_date(request.form.get("yqca_expiry"))
+        project.start_date = parse_date(request.form.get("start_date"))
+        project.purchase_date = parse_date(request.form.get("purchase_date"))
         project.purchase_price = request.form.get("purchase_price", type=float) or 0
         project.notes = (request.form.get("notes") or "").strip() or None
         db.session.commit()
@@ -1170,3 +1242,13 @@ def remove_avatar(profile_id: int):
     profile.avatar_path = None
     db.session.commit()
     return jsonify({"success": True})
+
+
+@dashboard_bp.get('/api/breeds/<species>')
+def api_breeds(species):
+    from app.data.breeds import BREEDS
+    data = BREEDS.get(species, {})
+    return jsonify({
+        'sub_types': data.get('sub_types', []),
+        'breeds': data.get('breeds', [])
+    })

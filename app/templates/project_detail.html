@@ -12,6 +12,12 @@
     <div class="hero-overlay">
       {% if active_profile.role == "parent" or active_profile.id == project.owner_id %}<a class="hero-edit-link" href="/projects/{{ project.id }}/edit">Edit</a>{% endif %}
       <h1>{{ project.name }}</h1>
+      {% if project.sub_type or project.ear_tag %}
+      <div class="hero-chips">
+        {% if project.sub_type %}<span class="hero-chip">{{ project.sub_type }}</span>{% endif %}
+        {% if project.ear_tag %}<span class="hero-chip">🏷 {{ project.ear_tag }}</span>{% endif %}
+      </div>
+      {% endif %}
       <p>{{ profiles[project.owner_id].name }} · {{ project.type|capitalize }}{% if project.breed %} / {{ project.breed }}{% endif %}</p>
     </div>
   </div>
@@ -28,6 +34,45 @@
     {% if project.start_date %}<span>Started {{ project.start_date.strftime('%b %-d, %Y') }}</span>{% endif %}
     {% if project.purchase_date and project.purchase_price %}<span>Purchased {{ project.purchase_date.strftime('%b %-d, %Y') }} · ${{ '%.2f'|format(project.purchase_price) }}</span>{% endif %}
   </p>
+
+  {% if project.ear_tag or project.tattoo or project.rfid_tag or project.registration_number or project.scrapie_tag or project.yqca_number %}
+  <div class="info-card">
+    <p class="section-label">Animal ID</p>
+    <div class="id-grid">
+      {% if project.ear_tag %}<div class="id-item"><span class="id-label">Ear Tag</span><span class="id-value">{{ project.ear_tag }}</span></div>{% endif %}
+      {% if project.tattoo %}<div class="id-item"><span class="id-label">Tattoo</span><span class="id-value">{{ project.tattoo }}</span></div>{% endif %}
+      {% if project.rfid_tag %}<div class="id-item"><span class="id-label">RFID / EID</span><span class="id-value">{{ project.rfid_tag }}</span></div>{% endif %}
+      {% if project.registration_number %}<div class="id-item"><span class="id-label">Registration</span><span class="id-value">{{ project.registration_number }}</span></div>{% endif %}
+      {% if project.scrapie_tag %}<div class="id-item"><span class="id-label">Scrapie Tag</span><span class="id-value">{{ project.scrapie_tag }}</span></div>{% endif %}
+      {% if project.yqca_number %}
+      <div class="id-item">
+        <span class="id-label">YQCA #</span>
+        <span class="id-value">{{ project.yqca_number }}{% if project.yqca_expiry %} <small>(exp {{ project.yqca_expiry.strftime('%m/%d/%y') }})</small>{% endif %}</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if adg %}
+  <div class="info-card">
+    <p class="section-label">Weight Projection</p>
+    <div class="weight-proj-grid">
+      <div class="proj-item"><span class="proj-label">Current</span><span class="proj-value">{{ current_weight }} lbs</span></div>
+      <div class="proj-item"><span class="proj-label">ADG</span><span class="proj-value">{{ adg }} lbs/day</span></div>
+      {% if projected_weight %}
+      <div class="proj-item"><span class="proj-label">Projected</span><span class="proj-value">{{ projected_weight }} lbs</span></div>
+      <div class="proj-item"><span class="proj-label">Days to Fair</span><span class="proj-value">{{ days_until_fair }}</span></div>
+      {% endif %}
+    </div>
+    {% if weight_status %}
+    <div class="weight-status weight-status-{{ weight_status }}">
+      {% if weight_status == 'on_track' %}✅ On Track{% elif weight_status == 'heavy' %}⚠️ Trending Heavy{% else %}⚠️ Trending Light{% endif %}
+      {% if project.target_weight %} — target {{ project.target_weight }} lbs{% endif %}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
 
   <div class="tabs-row">
     <button type="button" class="tab-btn" data-tab="timeline">Timeline</button>

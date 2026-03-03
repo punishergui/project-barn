@@ -5,13 +5,33 @@
   <form method="post" class="stack-form">
     {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
     <label class="field"><span>Name</span><input name="name" type="text" required></label>
-    <label class="field"><span>Type</span>
-      <select name="type">
-        {% for value in ['cow','pig','goat','sheep','chicken','rabbit','baking','welding','other'] %}
-        <option value="{{ value }}">{{ value|capitalize }}</option>
-        {% endfor %}
+    <div class="field">
+      <span>Project Type</span>
+      <select name="type" id="projectType" required>
+        <option value="">Select type...</option>
+        <option value="cow">Beef Cattle</option>
+        <option value="dairy">Dairy Cattle</option>
+        <option value="pig">Swine / Pig</option>
+        <option value="goat">Goat</option>
+        <option value="sheep">Sheep / Lamb</option>
+        <option value="chicken">Poultry / Chicken</option>
+        <option value="rabbit">Rabbit</option>
+        <option value="horse">Horse / Equine</option>
+        <option value="baking">Baking / Food & Nutrition</option>
+        <option value="sewing">Sewing / Clothing</option>
+        <option value="shooting">Shooting Sports</option>
+        <option value="garden">Horticulture / Garden</option>
+        <option value="robotics">Robotics / STEM</option>
+        <option value="photography">Photography / Arts</option>
+        <option value="other">Other Project</option>
       </select>
-    </label>
+    </div>
+    <div class="field" id="subTypeField" style="display:none">
+      <span>Sub-type / Class</span>
+      <select name="sub_type" id="subType">
+        <option value="">Select sub-type...</option>
+      </select>
+    </div>
     <label class="field"><span>Owner</span>
       <select name="owner_id">
         {% for profile in profiles %}
@@ -19,7 +39,25 @@
         {% endfor %}
       </select>
     </label>
-    <label class="field"><span>Breed</span><input name="breed" type="text"></label>
+    <div class="field" id="breedField" style="display:none">
+      <span>Breed</span>
+      <select name="breed" id="breedSelect">
+        <option value="">Select breed...</option>
+      </select>
+    </div>
+    <div class="field livestock-only" style="display:none"><span>Sex</span><select name="sex"><option value="">Select...</option><option value="male">Male</option><option value="female">Female</option><option value="wether">Wether (castrated male)</option><option value="barrow">Barrow (castrated male swine)</option><option value="gilt">Gilt (young female swine)</option></select></div>
+    <div class="field livestock-only" style="display:none"><span>Animal Date of Birth</span><input type="date" name="animal_dob"></div>
+    <div class="field livestock-only" style="display:none"><span>Initial / Purchase Weight (lbs)</span><input type="number" name="initial_weight" step="0.1" min="0" placeholder="e.g. 55"></div>
+    <div class="field livestock-only" style="display:none"><span>Target Fair Weight (lbs)</span><input type="number" name="target_weight" step="0.1" min="0" placeholder="e.g. 280"></div>
+    <div class="field livestock-only" style="display:none"><span>Target / Fair Date</span><input type="date" name="target_date"></div>
+    <div class="field livestock-only" style="display:none"><span>Ear Tag #</span><input type="text" name="ear_tag" placeholder="e.g. 42"></div>
+    <div class="field livestock-only" style="display:none"><span>Tattoo</span><input type="text" name="tattoo" placeholder="e.g. ABC123"></div>
+    <div class="field livestock-only" style="display:none"><span>RFID / 840 EID Tag</span><input type="text" name="rfid_tag" placeholder="e.g. 840003012345678"></div>
+    <div class="field livestock-only" style="display:none"><span>Registration Number</span><input type="text" name="registration_number" placeholder="e.g. AAA12345678"></div>
+    <div class="field" id="scrapieField" style="display:none"><span>Scrapie Tag # (sheep/goats)</span><input type="text" name="scrapie_tag" placeholder="e.g. US-TX-1234"></div>
+    <div class="field" id="cogginsField" style="display:none"><span>Coggins Test Date (horses)</span><input type="date" name="coggins_date"></div>
+    <div class="field livestock-only" style="display:none"><span>YQCA Certification #</span><input type="text" name="yqca_number" placeholder="e.g. YQCA-12345"></div>
+    <div class="field livestock-only" style="display:none"><span>YQCA Expiry Date</span><input type="date" name="yqca_expiry"></div>
     <label class="field"><span>Start Date</span><input name="start_date" type="date"></label>
     <label class="field"><span>Purchase Date</span><input name="purchase_date" type="date"></label>
     <label class="field"><span>Purchase Price</span><input name="purchase_price" type="number" step="0.01" value="0"></label>
