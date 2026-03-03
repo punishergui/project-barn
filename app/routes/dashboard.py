@@ -1096,6 +1096,24 @@ def settings_profiles_restore(profile_id: int):
     return redirect(url_for("dashboard.settings_profiles"))
 
 
+@dashboard_bp.post('/settings/profiles/<int:profile_id>/delete')
+def profile_delete(profile_id):
+    active = Profile.query.get(session['active_profile_id'])
+    if not active or active.role != 'parent':
+        return redirect('/')
+    if profile_id == active.id:
+        return redirect('/settings/profiles')
+    profile = Profile.query.get_or_404(profile_id)
+    for project in Project.query.filter_by(owner_id=profile.id).all():
+        project.owner_id = active.id
+    Notification.query.filter_by(profile_id=profile.id).delete()
+    Goal.query.filter(Goal.completed_by_id == profile.id).update({'completed_by_id': None})
+    Task.query.filter_by(logged_by_id=profile.id).update({'logged_by_id': active.id})
+    db.session.delete(profile)
+    db.session.commit()
+    return redirect('/settings/profiles')
+
+
 @dashboard_bp.get("/admin")
 def admin_dashboard():
     active_profile = Profile.query.get_or_404(session["active_profile_id"])

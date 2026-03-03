@@ -74,7 +74,7 @@ def run_migrations() -> None:
 
 
 def seed_if_empty() -> None:
-    if Profile.query.first():
+    if Profile.query.count() != 0:
         return
 
     mom_pin = bcrypt.hashpw(b"1234", bcrypt.gensalt()).decode("utf-8")

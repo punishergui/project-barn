@@ -14,6 +14,11 @@
       <form method="post" action="/settings/profiles/{{ profile.id }}/restore"><button class="inline-link-btn" type="submit">Restore</button></form>
       {% elif active_profile.id != profile.id %}
       <form method="post" action="/settings/profiles/{{ profile.id }}/archive"><button class="inline-link-btn" type="submit">Archive</button></form>
+      <form method="post"
+            action="/settings/profiles/{{ profile.id }}/delete"
+            onsubmit="return confirm('Delete {{ profile.name }}? This cannot be undone. Their projects will be transferred to you.')">
+        <button type="submit" class="danger-btn">Delete</button>
+      </form>
       {% endif %}
     </article>
     {% endfor %}
