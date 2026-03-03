@@ -20,7 +20,7 @@
     {% set emoji = {'cow':'🐄','pig':'🐖','goat':'🐐','sheep':'🐑','chicken':'🐔','rabbit':'🐇','baking':'🧁','welding':'🔧','other':'📋'} %}
     {% for project in projects %}
     <a class="project-card" href="/projects/{{ project.id }}">
-      <div class="project-hero">{% if project_photos.get(project.id) %}<img src="/uploads/{{ project_photos[project.id].filename }}" alt="{{ project.name }}" class="project-thumb">{% else %}{{ emoji.get(project.type, '📋') }}{% endif %}</div>
+      <div class="project-hero">{% if project_photos.get(project.id) %}<img src="/uploads/{{ project_photos[project.id].filename }}" alt="{{ project.name }}" class="project-thumb">{% else %}{{ emoji.get(project.type, '📋') }}{% endif %}{% if project.id in withdrawal_project_ids %}<span class="withdrawal-badge">⚠ Withdrawal</span>{% endif %}</div>
       <div class="project-meta">
         <strong>{{ project.name }}</strong>
         <span>{{ profiles[project.owner_id].name }}</span>

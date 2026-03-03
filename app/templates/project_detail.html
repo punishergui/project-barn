@@ -80,6 +80,8 @@
     <button type="button" class="tab-btn" data-tab="shows">Shows</button>
     <button type="button" class="tab-btn" data-tab="gallery">Gallery</button>
     <button type="button" class="tab-btn" data-tab="goals">Goals</button>
+    <button type="button" class="tab-btn" data-tab="feed">Feed</button>
+    <button type="button" class="tab-btn" data-tab="health">Health</button>
   </div>
 
   <div class="tab-panel" data-tab-content="timeline">
@@ -121,6 +123,78 @@
     {% else %}<p class="empty-state">No shows yet — enter this project in a show</p>{% endfor %}
   </div>
 
+
+  <div class="tab-panel" data-tab-content="feed">
+    {% if feed_summary %}
+    <div class="info-card">
+      <div class="id-grid">
+        <div class="id-item">
+          <span class="id-label">Total Fed</span>
+          <span class="id-value">{{ feed_summary.total_lbs }} lbs</span>
+        </div>
+        <div class="id-item">
+          <span class="id-label">Total Cost</span>
+          <span class="id-value">${{ feed_summary.total_cost }}</span>
+        </div>
+        {% if feed_summary.fcr %}
+        <div class="id-item">
+          <span class="id-label">FCR</span>
+          <span class="id-value">{{ feed_summary.fcr }}:1</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+    {% for log in recent_feed_logs %}
+    <div class="task-card">
+      <span class="task-emoji">🌾</span>
+      <div class="task-info">
+        <strong>{{ log.feed_brand or log.feed_type|title }}</strong>
+        <span>{{ log.amount_lbs }} lbs
+          · {{ log.date.strftime('%b %-d') }}</span>
+      </div>
+    </div>
+    {% else %}
+    <p class="empty-state">🌾 No feed logged yet</p>
+    {% endfor %}
+    <a href="/projects/{{ project.id }}/feed"
+       class="inline-link-btn" style="margin-top:8px">
+       View Full Feed Log →</a>
+  </div>
+
+  <div class="tab-panel" data-tab-content="health">
+    {% if active_withdrawal_count and active_withdrawal_count > 0 %}
+    <div class="withdrawal-warning">
+      ⚠️ {{ active_withdrawal_count }} active withdrawal period(s)
+    </div>
+    {% endif %}
+    {% for rec in recent_health_records %}
+    <div class="task-card">
+      <span class="task-emoji">
+        {% if rec.record_type == 'vaccination' %}💉
+        {% elif rec.record_type == 'medication' %}💊
+        {% elif rec.record_type == 'deworming' %}🪱
+        {% elif rec.record_type == 'vet_visit' %}🩺
+        {% else %}📋{% endif %}
+      </span>
+      <div class="task-info">
+        <strong>{{ rec.product_name }}</strong>
+        <span>{{ rec.record_type|title }}
+          · {{ rec.date.strftime('%b %-d') }}</span>
+        {% if rec.withdrawal_end_date and rec.withdrawal_end_date >= today %}
+        <span class="withdrawal-chip">
+          ⚠ {{ (rec.withdrawal_end_date - today).days }}d withdrawal
+        </span>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <p class="empty-state">💉 No health records yet</p>
+    {% endfor %}
+    <a href="/projects/{{ project.id }}/health"
+       class="inline-link-btn" style="margin-top:8px">
+       View Full Health Log →</a>
+  </div>
   <div class="tab-panel" data-tab-content="gallery" id="projectGallerySection">
     <div class="gallery-filter-tabs">
       <button type="button" class="gallery-filter-tab active" data-gallery-filter="all">All</button>

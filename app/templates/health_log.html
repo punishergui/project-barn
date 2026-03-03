@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Health Records · {{ project.name }}{% endblock %}
+{% block content %}
+<section class="reports-page">
+  {% if active_withdrawals %}
+  <div class="withdrawal-warning">
+    <strong>⚠️ Active Withdrawal Periods</strong>
+    {% for r in active_withdrawals %}
+    <div>{{ r.product_name }} — expires {{ r.withdrawal_end_date.strftime('%b %-d, %Y') }} — {{ (r.withdrawal_end_date - today).days }} days remaining</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if active_profile.role != 'grandparent' %}
+  <a class="inline-link-btn" href="/projects/{{ project.id }}/health/add">+ Add Health Record</a>
+  {% endif %}
+
+  <div class="task-list">
+    {% for rec in records %}
+    <article class="task-card">
+      <div class="task-info">
+        <span class="record-type-badge badge-{{ rec.record_type }}">{{ rec.record_type|replace('_',' ') }}</span>
+        <strong>{{ rec.product_name }}</strong>
+        {% if rec.dosage or rec.route %}<span>{{ rec.dosage or '' }}{% if rec.route %} · {{ rec.route }}{% endif %}</span>{% endif %}
+        {% if rec.administered_by %}<span>Administered by: {{ rec.administered_by }}</span>{% endif %}
+        {% if rec.lot_number %}<span>Lot #: {{ rec.lot_number }}</span>{% endif %}
+        {% if rec.notes %}<span>{{ rec.notes }}</span>{% endif %}
+        {% if rec.withdrawal_end_date and rec.withdrawal_end_date >= today %}
+        <span class="withdrawal-chip">⚠ Withdrawal: {{ (rec.withdrawal_end_date - today).days }} days left</span>
+        {% elif rec.withdrawal_end_date %}
+        <span class="cleared-chip">✓ Cleared {{ rec.withdrawal_end_date.strftime('%b %-d') }}</span>
+        {% endif %}
+      </div>
+      <div class="task-info" style="text-align:right; align-items:flex-end;">
+        <span>{{ rec.date.strftime('%b %-d, %Y') }}</span>
+        {% if rec.cost %}<span class="mini-chip">${{ '%.2f'|format(rec.cost) }}</span>{% endif %}
+        {% if active_profile.role == 'parent' %}
+        <form method="post" action="/projects/{{ project.id }}/health/{{ rec.id }}/delete">
+          <button type="submit" class="pin-cancel">Delete</button>
+        </form>
+        {% endif %}
+      </div>
+    </article>
+    {% else %}
+    <p class="empty-state">💉 No health records yet</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

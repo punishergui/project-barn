@@ -73,7 +73,7 @@ h1,h2,h3 { font-family: "Playfair Display", serif; }
 .project-row { display:flex; gap: 10px; overflow-x:auto; padding: 0 0 18px; scrollbar-width: none; }
 .project-row::-webkit-scrollbar { display:none; }
 .project-card { flex-shrink:0; width:130px; text-decoration:none; color: var(--light-text); background: var(--dark-card-2); border:1px solid var(--divider); border-radius:14px; }
-.project-hero { height:90px; display:grid; place-items:center; font-size: 30px; }
+.project-hero { position: relative; height:90px; display:grid; place-items:center; font-size: 30px; }
 .project-meta { padding: 10px; }
 .project-meta strong { display:block; font-size:15px; font-weight: 700; }
 .project-meta span { color: var(--muted); font-size:12px; }
@@ -106,7 +106,7 @@ h1,h2,h3 { font-family: "Playfair Display", serif; }
 .hero-overlay p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
 .hero-back { position:absolute; top: calc(10px + env(safe-area-inset-top)); left: 12px; width:34px; height:34px; border-radius:50%; background: rgba(0,0,0,.35); color: var(--cream); display:grid; place-items:center; z-index:2; }
 .hero-back svg { width:20px; height:20px; stroke: currentColor; fill:none; stroke-width:2; }
-.tabs-row { display:grid; grid-template-columns: repeat(4,1fr); margin: 8px 0; }
+.tabs-row { display:grid; grid-template-columns: repeat(7,1fr); margin: 8px 0; }
 .tab-btn { background:none; color: var(--muted); border:0; padding: 10px 2px; border-bottom:2px solid transparent; }
 .tab-btn.active { color: var(--gold-light); border-bottom-color: var(--gold-light); }
 .tab-panel { display:none; gap:6px; }
@@ -266,7 +266,7 @@ body { animation: pageIn .15s ease; }
 .goal-item.done span { text-decoration:line-through; opacity:.5; }
 .goal-check { background:none; border:0; padding:0; cursor:pointer; flex-shrink:0; }
 .goal-add-form { display:flex; gap:8px; margin-top:10px; }
-.goal-input { flex:1; background:var(--dark-card); border:1px solid rgba(255,255,255,.1);
+.goal-input { flex:1; background:var(--dark-card); border:1px solid var(--divider);
   border-radius:var(--radius-sm); padding:10px 12px; color:var(--light-text);
   font-family:inherit; font-size:14px; }
 .goal-input:focus { outline:none; border-color:var(--gold); }
@@ -374,3 +374,30 @@ body { animation: pageIn .15s ease; }
   color:var(--gold-light); border:1px solid rgba(200,120,20,.25); }
 .weight-status-light { background:rgba(180,40,30,.15);
   color:#ff8070; border:1px solid rgba(180,40,30,.25); }
+
+
+/* ── Phase 9 additions ── */
+.withdrawal-warning { background: rgba(139,40,20,.2);
+  border: 1px solid var(--barn-red); border-radius: var(--radius-sm);
+  padding: 10px 14px; color: #ff9070; font-size: 13px;
+  margin-bottom: 10px; }
+.withdrawal-chip { display: inline-block; background: rgba(200,120,20,.2);
+  color: var(--gold-light); border-radius: 10px;
+  padding: 2px 8px; font-size: 11px; margin-top: 3px; }
+.withdrawal-badge { position: absolute; top: 6px; right: 6px;
+  background: var(--barn-red); color: #fff; font-size: 9px;
+  padding: 2px 6px; border-radius: 8px; font-weight: 700; }
+.record-type-badge { display: inline-block; padding: 2px 8px;
+  border-radius: 10px; font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .05em; }
+.badge-vaccination { background: rgba(40,160,80,.2); color: #60d080; }
+.badge-medication { background: rgba(200,120,20,.2);
+  color: var(--gold-light); }
+.badge-deworming { background: rgba(120,60,180,.2); color: #b080e0; }
+.badge-vet_visit { background: rgba(40,100,180,.2); color: #70a8f0; }
+.badge-observation { background: var(--dark-card-2); color: var(--muted); }
+.feed-cost-preview { font-size: 13px; color: var(--gold);
+  padding: 6px 0; }
+.cleared-chip { display: inline-block; background: rgba(40,160,80,.15);
+  color: #60d080; border-radius: 10px;
+  padding: 2px 8px; font-size: 11px; margin-top: 3px; }
