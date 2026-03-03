@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Feed Log · {{ project.name }}{% endblock %}
+{% block content %}
+<section class="reports-page">
+  <div class="chips-row">
+    <article class="chip"><strong>{{ total_lbs }}</strong><span>TOTAL FED (LBS)</span></article>
+    <article class="chip"><strong>${{ '%.2f'|format(total_cost) }}</strong><span>TOTAL COST</span></article>
+    <article class="chip"><strong>{{ fcr if fcr is not none else '—' }}</strong><span>FCR</span></article>
+    <article class="chip"><strong>{% if cost_per_lb_gain is not none %}${{ '%.2f'|format(cost_per_lb_gain) }}{% else %}—{% endif %}</strong><span>COST/LB GAIN</span></article>
+  </div>
+
+  {% if active_profile.role != 'grandparent' %}
+  <a class="inline-link-btn" href="/projects/{{ project.id }}/feed/add">+ Log Feed</a>
+  {% endif %}
+
+  <div class="task-list">
+    {% for log in logs %}
+    <article class="task-card">
+      <span class="task-emoji">
+        {% if log.feed_type == 'grain' %}🌾
+        {% elif log.feed_type == 'hay' %}🍀
+        {% elif log.feed_type == 'supplement' %}💊
+        {% elif log.feed_type == 'mineral' %}🧂
+        {% elif log.feed_type == 'pasture' %}🌱
+        {% elif log.feed_type == 'complete' %}📦
+        {% elif log.feed_type == 'mixed' %}🔀
+        {% else %}📋{% endif %}
+      </span>
+      <div class="task-info">
+        <strong>{{ log.feed_brand or 'Feed Entry' }} · {{ log.feed_type|title }}</strong>
+        <span>{{ log.amount_lbs }} lbs{% if log.feedings_per_day %} · {{ log.feedings_per_day }}x per day{% endif %}</span>
+        {% if log.notes %}<span>{{ log.notes }}</span>{% endif %}
+        {% if log.cost_per_bag and log.bag_size_lbs and log.bag_size_lbs > 0 %}
+        <span>${{ '%.2f'|format((log.amount_lbs / log.bag_size_lbs) * log.cost_per_bag) }}</span>
+        {% endif %}
+      </div>
+      <div class="task-info" style="text-align:right; align-items:flex-end;">
+        <span>{{ log.date.strftime('%b %-d, %Y') }}</span>
+        <span>{{ profiles[log.logged_by_id].name if profiles.get(log.logged_by_id) else 'Unknown' }}</span>
+        {% if active_profile.role == 'parent' or active_profile.id == log.logged_by_id %}
+        <form method="post" action="/projects/{{ project.id }}/feed/{{ log.id }}/delete">
+          <button type="submit" class="pin-cancel">Delete</button>
+        </form>
+        {% endif %}
+      </div>
+    </article>
+    {% else %}
+    <p class="empty-state">🌾 No feed entries yet</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

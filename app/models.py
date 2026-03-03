@@ -160,3 +160,55 @@ class Notification(db.Model):
     read = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     link = db.Column(db.String(255), nullable=True)
+
+
+class FeedLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey('project.id'),
+                           nullable=False)
+    logged_by_id = db.Column(db.Integer, db.ForeignKey('profile.id'),
+                             nullable=False)
+    date = db.Column(db.Date, nullable=False)
+    feed_brand = db.Column(db.String(120), nullable=True)
+    feed_type = db.Column(db.String(20), nullable=False, default='grain')
+    amount_lbs = db.Column(db.Float, nullable=False)
+    feedings_per_day = db.Column(db.Integer, nullable=True, default=1)
+    cost_per_bag = db.Column(db.Float, nullable=True)
+    bag_size_lbs = db.Column(db.Float, nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "feed_type IN ('grain','hay','supplement','mineral',"
+            "'pasture','complete','mixed','other')",
+            name='ck_feedlog_type'),
+    )
+
+
+class HealthRecord(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey('project.id'),
+                           nullable=False)
+    logged_by_id = db.Column(db.Integer, db.ForeignKey('profile.id'),
+                             nullable=False)
+    date = db.Column(db.Date, nullable=False)
+    record_type = db.Column(db.String(20), nullable=False)
+    product_name = db.Column(db.String(120), nullable=False)
+    dosage = db.Column(db.String(80), nullable=True)
+    route = db.Column(db.String(20), nullable=True)
+    lot_number = db.Column(db.String(80), nullable=True)
+    administered_by = db.Column(db.String(80), nullable=True)
+    withdrawal_days = db.Column(db.Integer, nullable=True)
+    withdrawal_end_date = db.Column(db.Date, nullable=True)
+    cost = db.Column(db.Float, nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "record_type IN ('vaccination','medication','deworming',"
+            "'vet_visit','observation','other')",
+            name='ck_healthrecord_type'),
+        CheckConstraint(
+            "route IN ('IM','SQ','IV','oral','topical','pour-on','other')",
+            name='ck_healthrecord_route'),
+    )

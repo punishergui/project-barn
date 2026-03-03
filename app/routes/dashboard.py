@@ -8,7 +8,7 @@ from flask import Blueprint, current_app, jsonify, redirect, render_template, re
 
 from app import save_upload
 from app.data.breeds import BREEDS
-from app.models import Expense, Goal, Notification, Photo, Profile, Project, Show, ShowDay, ShowDayCheck, ShowEntry, Task, db
+from app.models import Expense, FeedLog, Goal, HealthRecord, Notification, Photo, Profile, Project, Show, ShowDay, ShowDayCheck, ShowEntry, Task, db
 
 
 dashboard_bp = Blueprint("dashboard", __name__)
@@ -64,6 +64,13 @@ def parse_date(val):
         return date.fromisoformat(val)
     except ValueError:
         return None
+
+
+def require_project_access(project):
+    profile_id = session.get('active_profile_id')
+    if not profile_id:
+        from flask import abort
+        abort(403)
 
 
 VIDEO_EXTS = {'.mp4', '.mov', '.avi', '.webm'}
@@ -136,6 +143,11 @@ def dashboard_home():
     tasks_today = Task.query.order_by(Task.id.asc()).all()
     recent_activity = Task.query.filter(Task.logged_at.isnot(None)).order_by(Task.logged_at.desc()).limit(5).all()
     recent_expenses = Expense.query.order_by(Expense.date.desc(), Expense.id.desc()).limit(3).all()
+    today = date.today()
+    withdrawal_project_ids = set(
+        r.project_id for r in HealthRecord.query.filter(
+            HealthRecord.withdrawal_end_date >= today).all()
+    )
 
     hour = datetime.now().hour
     greeting = "Good morning" if hour < 12 else ("Good afternoon" if hour < 18 else "Good evening")
@@ -190,7 +202,8 @@ def dashboard_home():
         recent_activity=recent_activity,
         project_map=project_map,
         project_photos=project_photos,
-        today=date.today(),
+        today=today,
+        withdrawal_project_ids=withdrawal_project_ids,
         recent_expenses=recent_expenses,
         expense_categories=EXPENSE_CATEGORIES,
         unread_count=unread_count,
@@ -289,6 +302,7 @@ def project_add():
 def project_detail(project_id: int):
     active_profile = Profile.query.get_or_404(session["active_profile_id"])
     project = Project.query.get_or_404(project_id)
+    require_project_access(project)
     profiles = {profile.id: profile for profile in Profile.query.all()}
 
     tasks = Task.query.filter_by(project_id=project.id).order_by(Task.logged_at.desc().nullslast(), Task.id.desc()).all()
@@ -336,6 +350,32 @@ def project_detail(project_id: int):
                     else:
                         weight_status = "light"
 
+    recent_feed_logs = FeedLog.query.filter_by(project_id=project_id).order_by(FeedLog.date.desc()).limit(5).all()
+    recent_health_records = HealthRecord.query.filter_by(
+        project_id=project_id).order_by(HealthRecord.date.desc()).limit(5).all()
+    from datetime import date as date_cls
+    today = date_cls.today()
+    active_withdrawal_count = HealthRecord.query.filter_by(
+        project_id=project_id).filter(
+        HealthRecord.withdrawal_end_date >= today).count()
+    feed_logs_all = FeedLog.query.filter_by(project_id=project_id).all()
+    feed_total_lbs = sum(l.amount_lbs for l in feed_logs_all)
+    feed_total_cost = sum(
+        (l.amount_lbs / l.bag_size_lbs * l.cost_per_bag)
+        for l in feed_logs_all
+        if l.cost_per_bag and l.bag_size_lbs and l.bag_size_lbs > 0
+    )
+    fcr = None
+    if project.initial_weight and current_weight:
+        total_gain = current_weight - project.initial_weight
+        if total_gain > 0 and feed_total_lbs > 0:
+            fcr = round(feed_total_lbs / total_gain, 2)
+    feed_summary = {
+        'total_lbs': round(feed_total_lbs, 1),
+        'total_cost': round(feed_total_cost, 2),
+        'fcr': fcr
+    } if feed_logs_all else None
+
     return render_template(
         "project_detail.html",
         active_profile=active_profile,
@@ -361,6 +401,11 @@ def project_detail(project_id: int):
         days_until_fair=days_until_fair,
         weight_status=weight_status,
         current_weight=current_weight,
+        recent_feed_logs=recent_feed_logs,
+        recent_health_records=recent_health_records,
+        today=today,
+        active_withdrawal_count=active_withdrawal_count,
+        feed_summary=feed_summary,
     )
 
 
@@ -1252,3 +1297,158 @@ def api_breeds(species):
         'sub_types': data.get('sub_types', []),
         'breeds': data.get('breeds', [])
     })
+
+@dashboard_bp.get('/projects/<int:project_id>/feed')
+def feed_log(project_id):
+    project = Project.query.get_or_404(project_id)
+    require_project_access(project)
+    logs = FeedLog.query.filter_by(project_id=project_id)\
+        .order_by(FeedLog.date.desc()).all()
+    profiles = {p.id: p for p in Profile.query.all()}
+    total_lbs = sum(l.amount_lbs for l in logs)
+    total_cost = sum(
+        (l.amount_lbs / l.bag_size_lbs * l.cost_per_bag)
+        for l in logs
+        if l.cost_per_bag and l.bag_size_lbs and l.bag_size_lbs > 0
+    )
+    weigh_tasks = Task.query.filter_by(
+        project_id=project_id, task_type='weigh'
+    ).filter(Task.weight_lbs.isnot(None)).order_by(Task.logged_at).all()
+    total_gain = 0
+    fcr = None
+    cost_per_lb_gain = None
+    if weigh_tasks and project.initial_weight:
+        total_gain = weigh_tasks[-1].weight_lbs - project.initial_weight
+        if total_gain > 0 and total_lbs > 0:
+            fcr = round(total_lbs / total_gain, 2)
+            if total_cost > 0:
+                cost_per_lb_gain = round(total_cost / total_gain, 2)
+    return render_template('feed_log.html',
+        project=project, logs=logs, profiles=profiles,
+        total_lbs=round(total_lbs, 1), total_cost=round(total_cost, 2),
+        fcr=fcr, cost_per_lb_gain=cost_per_lb_gain,
+        total_gain=round(total_gain, 1),
+        page_title='Feed Log', back_url=f'/projects/{project_id}',
+        active_profile=Profile.query.get(session['active_profile_id']),
+        today=date.today().isoformat())
+
+
+@dashboard_bp.get('/projects/<int:project_id>/feed/add')
+@dashboard_bp.post('/projects/<int:project_id>/feed/add')
+def feed_log_add(project_id):
+    project = Project.query.get_or_404(project_id)
+    require_project_access(project)
+    if request.method == 'POST':
+        from datetime import date as date_cls
+        log = FeedLog(
+            project_id=project_id,
+            logged_by_id=session['active_profile_id'],
+            date=parse_date(request.form.get('date')) or date_cls.today(),
+            feed_brand=request.form.get('feed_brand', '').strip() or None,
+            feed_type=request.form.get('feed_type', 'grain'),
+            amount_lbs=float(request.form.get('amount_lbs') or 0),
+            feedings_per_day=int(request.form.get('feedings_per_day') or 1),
+            cost_per_bag=float(request.form.get('cost_per_bag') or 0) or None,
+            bag_size_lbs=float(request.form.get('bag_size_lbs') or 0) or None,
+            notes=request.form.get('notes', '').strip() or None,
+        )
+        db.session.add(log)
+        db.session.commit()
+        return redirect(f'/projects/{project_id}/feed')
+    return render_template('feed_log_add.html',
+        project=project,
+        page_title='Log Feed', back_url=f'/projects/{project_id}/feed',
+        active_profile=Profile.query.get(session['active_profile_id']),
+        today=date.today().isoformat())
+
+
+@dashboard_bp.post('/projects/<int:project_id>/feed/<int:log_id>/delete')
+def feed_log_delete(project_id, log_id):
+    log = FeedLog.query.filter_by(
+        id=log_id, project_id=project_id).first_or_404()
+    active_profile = Profile.query.get_or_404(session['active_profile_id'])
+    if active_profile.role != 'parent' and active_profile.id != log.logged_by_id:
+        return redirect(f'/projects/{project_id}/feed')
+    db.session.delete(log)
+    db.session.commit()
+    return redirect(f'/projects/{project_id}/feed')
+
+
+@dashboard_bp.get('/projects/<int:project_id>/health')
+def health_log(project_id):
+    project = Project.query.get_or_404(project_id)
+    require_project_access(project)
+    from datetime import date as date_cls
+    records = HealthRecord.query.filter_by(project_id=project_id)\
+        .order_by(HealthRecord.date.desc()).all()
+    profiles = {p.id: p for p in Profile.query.all()}
+    today = date_cls.today()
+    active_withdrawals = [
+        r for r in records
+        if r.withdrawal_end_date and r.withdrawal_end_date >= today
+    ]
+    return render_template('health_log.html',
+        project=project, records=records, profiles=profiles,
+        today=today, active_withdrawals=active_withdrawals,
+        page_title='Health Records', back_url=f'/projects/{project_id}',
+        active_profile=Profile.query.get(session['active_profile_id']))
+
+
+@dashboard_bp.get('/projects/<int:project_id>/health/add')
+@dashboard_bp.post('/projects/<int:project_id>/health/add')
+def health_log_add(project_id):
+    project = Project.query.get_or_404(project_id)
+    require_project_access(project)
+    if request.method == 'POST':
+        from datetime import date as date_cls, timedelta
+        treatment_date = parse_date(request.form.get('date')) or date_cls.today()
+        withdrawal_days = int(request.form.get('withdrawal_days') or 0) or None
+        withdrawal_end = None
+        if withdrawal_days:
+            withdrawal_end = treatment_date + timedelta(days=withdrawal_days)
+        record = HealthRecord(
+            project_id=project_id,
+            logged_by_id=session['active_profile_id'],
+            date=treatment_date,
+            record_type=request.form.get('record_type', 'observation'),
+            product_name=request.form.get('product_name', '').strip(),
+            dosage=request.form.get('dosage', '').strip() or None,
+            route=request.form.get('route') or None,
+            lot_number=request.form.get('lot_number', '').strip() or None,
+            administered_by=request.form.get('administered_by', '').strip() or None,
+            withdrawal_days=withdrawal_days,
+            withdrawal_end_date=withdrawal_end,
+            cost=float(request.form.get('cost') or 0) or None,
+            notes=request.form.get('notes', '').strip() or None,
+        )
+        db.session.add(record)
+        if record.cost:
+            expense = Expense(
+                project_id=project_id,
+                logged_by_id=session['active_profile_id'],
+                amount=record.cost,
+                category='vet',
+                date=treatment_date,
+                notes=f'{record.record_type.title()}: {record.product_name}'
+            )
+            db.session.add(expense)
+        db.session.commit()
+        return redirect(f'/projects/{project_id}/health')
+    return render_template('health_log_add.html',
+        project=project,
+        page_title='Add Health Record',
+        back_url=f'/projects/{project_id}/health',
+        active_profile=Profile.query.get(session['active_profile_id']),
+        today=date.today().isoformat())
+
+
+@dashboard_bp.post('/projects/<int:project_id>/health/<int:record_id>/delete')
+def health_log_delete(project_id, record_id):
+    record = HealthRecord.query.filter_by(
+        id=record_id, project_id=project_id).first_or_404()
+    active_profile = Profile.query.get_or_404(session['active_profile_id'])
+    if active_profile.role != 'parent':
+        return redirect(f'/projects/{project_id}/health')
+    db.session.delete(record)
+    db.session.commit()
+    return redirect(f'/projects/{project_id}/health')

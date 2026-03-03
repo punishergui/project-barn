@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Log Feed · {{ project.name }}{% endblock %}
+{% block content %}
+<section class="form-page">
+  <form method="post" class="form-card">
+    <label class="field"><span>Date</span><input id="treatmentDate" type="date" name="date" value="{{ today if today is defined else '' }}" required></label>
+    <label class="field">
+      <span>Feed Type</span>
+      <select name="feed_type">
+        {% for t in ['grain','hay','supplement','mineral','pasture','complete','mixed','other'] %}
+        <option value="{{ t }}">{{ t|title }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="field"><span>Feed Brand / Product Name</span><input type="text" name="feed_brand" placeholder="e.g. Purina Show Chow"></label>
+    <label class="field"><span>Amount (lbs)</span><input id="feedAmount" type="number" name="amount_lbs" step="0.1" required></label>
+    <label class="field"><span>Feedings per Day</span><input type="number" name="feedings_per_day" min="1" value="1"></label>
+    <label class="field"><span>Bag Size (lbs)</span><input id="feedBagSize" type="number" name="bag_size_lbs" step="0.1" placeholder="e.g. 50"></label>
+    <label class="field"><span>Cost per Bag ($)</span><input id="feedCostBag" type="number" name="cost_per_bag" step="0.01" placeholder="e.g. 24.99"></label>
+    <div id="feedCostPreview" class="feed-cost-preview"></div>
+    <label class="field"><span>Notes</span><textarea name="notes"></textarea></label>
+    <button class="btn-primary" type="submit">Log Feed Entry</button>
+  </form>
+</section>
+{% endblock %}

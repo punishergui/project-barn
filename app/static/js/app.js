@@ -430,6 +430,90 @@
     }
   }
 
+
+  // Health record add — withdrawal end date calculator
+  const withdrawalDaysInput = document.getElementById('withdrawalDays');
+  const treatmentDateInput = document.getElementById('treatmentDate');
+  const withdrawalPreview = document.getElementById('withdrawalPreview');
+  const fairDateWarning = document.getElementById('fairDateWarning');
+  const healthForm = document.querySelector('form[data-fair-date]');
+  const routeField = document.getElementById('routeField');
+  const recordTypeSelect = document.getElementById('recordType');
+
+  function updateWithdrawalPreview() {
+    if (!withdrawalDaysInput || !treatmentDateInput || !withdrawalPreview)
+      return;
+    const days = parseInt(withdrawalDaysInput.value);
+    const dateVal = treatmentDateInput.value;
+    if (!days || !dateVal) {
+      withdrawalPreview.textContent = '';
+      return;
+    }
+    const treatDate = new Date(dateVal + 'T00:00:00');
+    const clearDate = new Date(treatDate);
+    clearDate.setDate(clearDate.getDate() + days);
+    const formatted = clearDate.toLocaleDateString('en-US',
+      {month:'short', day:'numeric', year:'numeric'});
+    withdrawalPreview.textContent = `Cleared by: ${formatted}`;
+
+    if (fairDateWarning && healthForm) {
+      const fairDateStr = healthForm.dataset.fairDate;
+      if (fairDateStr) {
+        const fairDate = new Date(fairDateStr + 'T00:00:00');
+        if (clearDate > fairDate) {
+          fairDateWarning.style.display = '';
+          fairDateWarning.textContent =
+            '⚠ This withdrawal extends past your fair date!';
+        } else {
+          fairDateWarning.style.display = 'none';
+        }
+      }
+    }
+  }
+
+  if (withdrawalDaysInput) {
+    withdrawalDaysInput.addEventListener('input', updateWithdrawalPreview);
+  }
+  if (treatmentDateInput) {
+    treatmentDateInput.addEventListener('change', updateWithdrawalPreview);
+  }
+
+  if (recordTypeSelect && routeField) {
+    const updateRouteVisibility = () => {
+      const show = ['medication', 'deworming', 'vaccination']
+        .includes(recordTypeSelect.value);
+      routeField.style.display = show ? '' : 'none';
+    };
+    recordTypeSelect.addEventListener('change', updateRouteVisibility);
+    updateRouteVisibility();
+  }
+
+  // Feed log add — cost preview calculator
+  const feedAmountInput = document.getElementById('feedAmount');
+  const feedBagSizeInput = document.getElementById('feedBagSize');
+  const feedCostBagInput = document.getElementById('feedCostBag');
+  const feedCostPreview = document.getElementById('feedCostPreview');
+
+  function updateFeedCost() {
+    if (!feedAmountInput || !feedBagSizeInput || !feedCostBagInput
+        || !feedCostPreview) return;
+    const amt = parseFloat(feedAmountInput.value);
+    const bagSz = parseFloat(feedBagSizeInput.value);
+    const costBag = parseFloat(feedCostBagInput.value);
+    if (amt && bagSz && costBag && bagSz > 0) {
+      const cost = (amt / bagSz * costBag).toFixed(2);
+      feedCostPreview.textContent = `Estimated cost this entry: $${cost}`;
+    } else {
+      feedCostPreview.textContent = '';
+    }
+  }
+
+  if (feedAmountInput) {
+    [feedAmountInput, feedBagSizeInput, feedCostBagInput].forEach(
+      el => el && el.addEventListener('input', updateFeedCost)
+    );
+  }
+
 })();
 
 (() => {

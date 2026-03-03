@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Add Health Record · {{ project.name }}{% endblock %}
+{% block content %}
+<section class="form-page">
+  <form method="post" class="form-card" data-fair-date="{{ project.target_date.isoformat() if project.target_date else '' }}">
+    <label class="field"><span>Date</span><input id="treatmentDate" type="date" name="date" value="{{ today if today is defined else '' }}" required></label>
+    <label class="field">
+      <span>Record Type</span>
+      <select id="recordType" name="record_type">
+        {% for t in ['vaccination','medication','deworming','vet_visit','observation','other'] %}
+        <option value="{{ t }}">{{ t|replace('_',' ')|title }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="field"><span>Product / Treatment Name</span><input type="text" name="product_name" placeholder="e.g. CD-T Vaccine, Ivermectin, LA-200" required></label>
+    <label class="field"><span>Dosage</span><input type="text" name="dosage" placeholder="e.g. 2ml per 100lbs"></label>
+    <label class="field" id="routeField"><span>Route</span>
+      <select name="route">
+        <option value="">Select route...</option>
+        {% for r in ['IM','SQ','IV','oral','topical','pour-on','other'] %}
+        <option value="{{ r }}">{{ r }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="field"><span>Lot Number</span><input type="text" name="lot_number" placeholder="e.g. 12345A"></label>
+    <label class="field"><span>Administered By</span><input type="text" name="administered_by" placeholder="e.g. Dr. Smith, Self"></label>
+    <label class="field"><span>Withdrawal Days</span><input id="withdrawalDays" type="number" name="withdrawal_days" placeholder="e.g. 28"></label>
+    <div id="withdrawalPreview" class="feed-cost-preview"></div>
+    <div id="fairDateWarning" class="withdrawal-warning" style="display:none"></div>
+    <label class="field"><span>Cost ($)</span><input type="number" name="cost" step="0.01" placeholder="Will auto-create a vet expense"></label>
+    <label class="field"><span>Notes</span><textarea name="notes"></textarea></label>
+    <button class="btn-primary" type="submit">Save Health Record</button>
+  </form>
+</section>
+{% endblock %}
