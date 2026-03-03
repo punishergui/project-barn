@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Rate of Gain · {{ project.name }}{% endblock %}
+{% block content %}
+<section class="form-page">
+  <div class="form-card">
+    <p class="section-label">PROJECT</p>
+    <h2 style="margin:0">{{ project.name }}</h2>
+    <p style="margin:6px 0 0;color:var(--muted)">Starting weight: {{ project.initial_weight if project.initial_weight is not none else 'N/A' }} lbs</p>
+  </div>
+  <div class="task-list">
+    {% for row in entries %}
+    <article class="task-card">
+      <div class="task-info">
+        <strong>{{ row.date.strftime('%b %-d, %Y') if row.date else 'Unknown date' }}</strong>
+        <span>Weight: {{ row.weight }} lbs</span>
+      </div>
+      <span class="task-time">ADG: {{ row.adg if row.adg is not none else '—' }}</span>
+    </article>
+    {% else %}
+    <p class="empty-state">No weigh-ins logged yet.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

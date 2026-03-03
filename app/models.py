@@ -212,3 +212,47 @@ class HealthRecord(db.Model):
             "route IN ('IM','SQ','IV','oral','topical','pour-on','other')",
             name='ck_healthrecord_route'),
     )
+
+
+class ShowCompliance(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    show_entry_id = db.Column(db.Integer,
+        db.ForeignKey('show_entry.id'), nullable=False)
+    project_id = db.Column(db.Integer,
+        db.ForeignKey('project.id'), nullable=False)
+    cvi_date = db.Column(db.Date, nullable=True)
+    cvi_vet = db.Column(db.String(120), nullable=True)
+    cvi_expiry = db.Column(db.Date, nullable=True)
+    yqca_verified = db.Column(db.Boolean, default=False, nullable=False)
+    health_test_type = db.Column(db.String(80), nullable=True)
+    health_test_date = db.Column(db.Date, nullable=True)
+    health_test_result = db.Column(db.String(40), nullable=True)
+    entry_fee_paid = db.Column(db.Boolean, default=False, nullable=False)
+    weigh_in_time = db.Column(db.String(40), nullable=True)
+    weigh_in_weight = db.Column(db.Float, nullable=True)
+    weigh_in_official = db.Column(db.Boolean, default=False,
+        nullable=False)
+    notes = db.Column(db.Text, nullable=True)
+
+
+class AuctionSale(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    show_entry_id = db.Column(db.Integer,
+        db.ForeignKey('show_entry.id'), nullable=True)
+    project_id = db.Column(db.Integer,
+        db.ForeignKey('project.id'), nullable=False)
+    show_id = db.Column(db.Integer,
+        db.ForeignKey('show.id'), nullable=True)
+    sale_date = db.Column(db.Date, nullable=False)
+    buyer_name = db.Column(db.String(120), nullable=False)
+    buyer_business = db.Column(db.String(120), nullable=True)
+    weight_at_sale = db.Column(db.Float, nullable=True)
+    price_per_lb = db.Column(db.Float, nullable=True)
+    flat_price = db.Column(db.Float, nullable=True)
+    total_price = db.Column(db.Float, nullable=False)
+    addon_amount = db.Column(db.Float, nullable=True, default=0)
+    deductions = db.Column(db.Float, nullable=True, default=0)
+    net_proceeds = db.Column(db.Float, nullable=False)
+    thank_you_sent = db.Column(db.Boolean, default=False, nullable=False)
+    thank_you_date = db.Column(db.Date, nullable=True)
+    notes = db.Column(db.Text, nullable=True)

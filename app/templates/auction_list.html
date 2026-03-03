@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Auction Sales · {{ project.name }}{% endblock %}
+{% block content %}
+<section class="form-page">
+  <div class="form-card">
+    <p class="section-label">SUMMARY</p>
+    <h2 style="margin:0">{{ project.name }}</h2>
+    <p style="margin:6px 0 0;color:var(--muted)">Total net proceeds: ${{ '%.2f'|format(total_proceeds) }}</p>
+    <p style="margin:4px 0 0;color:var(--muted)">Unsent thank-yous: {{ unsent|length }}</p>
+    <a class="inline-link-btn" href="/projects/{{ project.id }}/auction/add" style="margin-top:10px;display:inline-block">Add Sale</a>
+  </div>
+
+  <div class="task-list">
+    {% for sale in sales %}
+    <article class="task-card">
+      <div class="task-info">
+        <strong>{{ sale.sale_date.strftime('%b %-d, %Y') }} · ${{ '%.2f'|format(sale.net_proceeds) }}</strong>
+        <span>{{ sale.buyer_name }}{% if sale.buyer_business %} · {{ sale.buyer_business }}{% endif %}</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        {% if not sale.thank_you_sent %}
+        <form method="post" action="/projects/{{ project.id }}/auction/{{ sale.id }}/thankyou">
+          <button class="inline-link-btn" type="submit">Mark Thank You</button>
+        </form>
+        {% else %}
+        <span class="section-label" style="margin:0">Sent {{ sale.thank_you_date.strftime('%b %-d') if sale.thank_you_date else '' }}</span>
+        {% endif %}
+        {% if active_profile and active_profile.role == 'parent' %}
+        <form method="post" action="/projects/{{ project.id }}/auction/{{ sale.id }}/delete" onsubmit="return confirm('Delete this sale?')">
+          <button class="danger-btn" type="submit">Delete</button>
+        </form>
+        {% endif %}
+      </div>
+    </article>
+    {% else %}
+    <p class="empty-state">No auction sales yet.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
