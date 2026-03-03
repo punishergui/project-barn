@@ -15,8 +15,8 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
-  {% set profiles_view = request.path == '/profiles' %}
+{% set profiles_view = request.path == '/profiles' %}
+<body{% if profiles_view %} class="profiles-page-body"{% endif %}>
   {% set route_path = request.path %}
   {% if not profiles_view and not hide_top_bar %}
   {% set avatar_href = '/admin' if active_profile and active_profile.role == 'parent' else '/profiles' %}
@@ -101,6 +101,23 @@
   </div>
 
   <nav class="bottom-nav" aria-label="Primary">
+    {% if active_profile %}
+    <div class="nav-profile-card">
+      <div class="nav-profile-avatar"
+           style="--avatar-color: {{ active_profile.color }}">
+        {% if active_profile.avatar_path %}
+        <img src="/uploads/{{ active_profile.avatar_path }}"
+             alt="{{ active_profile.name }}">
+        {% else %}
+        {{ active_profile.name[0] }}
+        {% endif %}
+      </div>
+      <div>
+        <div class="nav-profile-name">{{ active_profile.name }}</div>
+        <div class="nav-profile-role">{{ active_profile.role }}</div>
+      </div>
+    </div>
+    {% endif %}
     <a class="nav-item {% if route_path == '/' %}active{% endif %}" href="/"><svg viewBox="0 0 24 24"><path d="M4 11 12 5l8 6v8H4z"/></svg><span>Dashboard</span></a>
     <a class="nav-item {% if route_path.startswith('/reports') %}active{% endif %}" href="/reports"><svg viewBox="0 0 24 24"><path d="M5 19V9m7 10V5m7 14v-7"/></svg><span>Reports</span></a>
     <a class="nav-item {% if route_path.startswith('/expenses') %}active{% endif %}" href="/expenses"><svg viewBox="0 0 24 24"><path d="M4 8h16M6 8l1 11h10l1-11"/></svg><span>Expenses</span></a>
