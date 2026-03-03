@@ -234,14 +234,14 @@
     }
   }
 
-  // Theme toggle
+  // Theme toggle (light is default; dark is the toggled state)
   const themeToggle = document.getElementById("themeToggle");
   const savedTheme = localStorage.getItem("barn-theme");
   if (savedTheme) document.documentElement.setAttribute("data-theme", savedTheme);
   if (themeToggle) {
     themeToggle.addEventListener("click", () => {
       const current = document.documentElement.getAttribute("data-theme");
-      const next = current === "light" ? "dark" : "light";
+      const next = current === "dark" ? "light" : "dark";
       document.documentElement.setAttribute("data-theme", next);
       localStorage.setItem("barn-theme", next);
     });
