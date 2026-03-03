@@ -17,6 +17,10 @@ class Profile(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     archived = db.Column(db.Boolean, default=False, nullable=False)
     birthdate = db.Column(db.Date, nullable=True)
+    club_name = db.Column(db.String(120), nullable=True)
+    county = db.Column(db.String(80), nullable=True)
+    state = db.Column(db.String(40), nullable=True, default='Texas')
+    years_in_4h = db.Column(db.Integer, nullable=True)
 
     __table_args__ = (CheckConstraint("role IN ('parent','kid','grandparent')", name="ck_profile_role"),)
 
@@ -46,6 +50,10 @@ class Project(db.Model):
     target_date = db.Column(db.Date, nullable=True)
     purchase_price = db.Column(db.Float, nullable=False, default=0)
     notes = db.Column(db.Text, nullable=True)
+    club_name = db.Column(db.String(120), nullable=True)
+    county = db.Column(db.String(80), nullable=True)
+    state = db.Column(db.String(40), nullable=True, default='Texas')
+    project_year = db.Column(db.Integer, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     __table_args__ = (

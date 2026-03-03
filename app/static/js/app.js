@@ -559,6 +559,33 @@
     });
   });
 
+  // Desktop keyboard shortcuts
+  document.addEventListener('keydown', function(e) {
+    if (e.target.tagName === 'INPUT' ||
+        e.target.tagName === 'TEXTAREA' ||
+        e.target.tagName === 'SELECT') return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    switch (e.key) {
+      case 'p':
+      case 'P':
+        window.location.href = '/projects'; break;
+      case 'e':
+      case 'E':
+        window.location.href = '/expenses'; break;
+      case 's':
+      case 'S':
+        window.location.href = '/shows'; break;
+      case 'r':
+      case 'R':
+        window.location.href = '/reports'; break;
+      case 'd':
+      case 'D':
+        window.location.href = '/'; break;
+      case '?':
+        break;
+    }
+  });
+
 })();
 
 (() => {

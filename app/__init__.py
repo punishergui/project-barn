@@ -87,6 +87,14 @@ def run_migrations() -> None:
         "ALTER TABLE skills_checklist ADD COLUMN sort_order INTEGER DEFAULT 0",
         "ALTER TABLE project_material ADD COLUMN date_purchased DATE",
         "ALTER TABLE project_narrative ADD COLUMN how_i_improved TEXT",
+        "ALTER TABLE project ADD COLUMN club_name TEXT",
+        "ALTER TABLE project ADD COLUMN county TEXT",
+        "ALTER TABLE project ADD COLUMN state TEXT DEFAULT 'Texas'",
+        "ALTER TABLE project ADD COLUMN project_year INTEGER",
+        "ALTER TABLE profile ADD COLUMN club_name TEXT",
+        "ALTER TABLE profile ADD COLUMN county TEXT",
+        "ALTER TABLE profile ADD COLUMN state TEXT DEFAULT 'Texas'",
+        "ALTER TABLE profile ADD COLUMN years_in_4h INTEGER",
     ]
 
     with db.engine.connect() as conn:

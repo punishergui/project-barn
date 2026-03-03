@@ -11,6 +11,30 @@
     {% if profile.role == 'kid' and profile.pin_hash %}<button type="submit" class="inline-link-btn" name="remove_pin" value="1">Remove PIN</button>{% endif %}
     <div class="field"><span>Color</span><div class="color-swatches">{% for color in colors %}<label><input type="radio" name="color" value="{{ color }}" {% if profile.color==color %}checked{% endif %}><span class="swatch" style="background:{{ color }}"></span></label>{% endfor %}</div></div>
     <label class="field"><span>Birthdate</span><input type="date" name="birthdate" value="{{ profile.birthdate.isoformat() if profile.birthdate else '' }}"></label>
+    <div class="field">
+      <span>4-H Club Name</span>
+      <input type="text" name="club_name"
+             value="{{ profile.club_name or '' }}"
+             placeholder="e.g. Pine Ridge 4-H Club">
+    </div>
+    <div class="field">
+      <span>County</span>
+      <input type="text" name="county"
+             value="{{ profile.county or '' }}"
+             placeholder="e.g. Angelina County">
+    </div>
+    <div class="field">
+      <span>State</span>
+      <input type="text" name="state"
+             value="{{ profile.state or 'Texas' }}"
+             placeholder="e.g. Texas">
+    </div>
+    <div class="field">
+      <span>Years in 4-H</span>
+      <input type="number" name="years_in_4h" min="1" max="10"
+             value="{{ profile.years_in_4h or '' }}"
+             placeholder="e.g. 3">
+    </div>
     <button class="submit-btn" type="submit">Save Profile</button>
   </form>
 </section>

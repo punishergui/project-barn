@@ -292,6 +292,10 @@ def project_add():
             purchase_date=parse_date(request.form.get("purchase_date")),
             purchase_price=request.form.get("purchase_price", type=float) or 0,
             notes=(request.form.get("notes") or "").strip() or None,
+            club_name=request.form.get('club_name', '').strip() or None,
+            county=request.form.get('county', '').strip() or None,
+            state=request.form.get('state', 'Texas').strip() or 'Texas',
+            project_year=int(request.form.get('project_year') or 0) or None,
         )
         db.session.add(project)
         db.session.commit()
@@ -1088,106 +1092,484 @@ def reports_page():
     )
 
 
-@dashboard_bp.get("/reports/export/<int:project_id>")
-def export_project_book(project_id: int):
-    from reportlab.lib import colors
+@dashboard_bp.get('/reports/export/<int:project_id>')
+def reports_export(project_id):
+    import io
+    from datetime import date as date_cls
     from reportlab.lib.pagesizes import letter
-    from reportlab.lib.styles import getSampleStyleSheet
-    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
+        Table, TableStyle, HRFlowable, PageBreak)
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+    from flask import Response
 
     project = Project.query.get_or_404(project_id)
-    profiles = {profile.id: profile for profile in Profile.query.all()}
-    owner = profiles.get(project.owner_id)
+    require_project_access(project)
+    owner = Profile.query.get(project.owner_id)
 
-    expenses = Expense.query.filter_by(project_id=project.id).order_by(Expense.date.asc(), Expense.id.asc()).all()
-    tasks = Task.query.filter_by(project_id=project.id).order_by(Task.logged_at.asc().nullslast(), Task.id.asc()).all()
-    entries = ShowEntry.query.filter_by(project_id=project.id).order_by(ShowEntry.id.asc()).all()
-    shows = {show.id: show for show in Show.query.filter(Show.id.in_([entry.show_id for entry in entries])).all()} if entries else {}
+    BARN_RED = colors.HexColor('#8B2814')
+    GOLD = colors.HexColor('#D4920C')
+    GOLD_LIGHT = colors.HexColor('#F0B020')
+    DARK_CARD = colors.HexColor('#2C1810')
+    CREAM = colors.HexColor('#FAF6ED')
+    MUTED = colors.HexColor('#B89070')
+    WHITE = colors.white
+    BLACK = colors.HexColor('#1E0C04')
+    GREEN = colors.HexColor('#3DAA60')
+    RED_LIGHT = colors.HexColor('#FF8070')
 
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, title=f"{project.name} Project Book")
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=letter,
+        leftMargin=0.75*inch, rightMargin=0.75*inch,
+        topMargin=0.75*inch, bottomMargin=0.75*inch)
+
     styles = getSampleStyleSheet()
+
+    def sty(name, **kw):
+        return ParagraphStyle(name, parent=styles['Normal'], **kw)
+
+    S_TITLE = sty('title', fontSize=26, textColor=GOLD_LIGHT,
+                  fontName='Helvetica-Bold', alignment=TA_CENTER,
+                  spaceAfter=4)
+    S_SUB = sty('sub', fontSize=13, textColor=MUTED,
+                alignment=TA_CENTER, spaceAfter=2)
+    S_H1 = sty('h1', fontSize=16, textColor=GOLD_LIGHT,
+               fontName='Helvetica-Bold', spaceBefore=14,
+               spaceAfter=4)
+    S_H2 = sty('h2', fontSize=12, textColor=GOLD,
+               fontName='Helvetica-Bold', spaceBefore=8,
+               spaceAfter=3)
+    S_MUTED = sty('muted', fontSize=9, textColor=MUTED,
+                  spaceAfter=2)
+    S_NARR = sty('narr', fontSize=10, textColor=BLACK,
+                 leading=16, spaceAfter=8)
+
+    def hr():
+        return HRFlowable(width='100%', thickness=0.5,
+            color=colors.HexColor('#C4A060'), spaceAfter=6, spaceBefore=6)
+
+    def sp(h=8):
+        return Spacer(1, h)
+
+    def tbl_style(extra=None):
+        base = [
+            ('BACKGROUND', (0, 0), (-1, 0), DARK_CARD),
+            ('TEXTCOLOR', (0, 0), (-1, 0), GOLD_LIGHT),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1),
+             [CREAM, colors.HexColor('#F0E8D8')]),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('TEXTCOLOR', (0, 1), (-1, -1), BLACK),
+            ('GRID', (0, 0), (-1, -1), 0.3,
+             colors.HexColor('#C4A060')),
+            ('ROWHEIGHT', (0, 0), (-1, -1), 18),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ]
+        if extra:
+            base.extend(extra)
+        return TableStyle(base)
+
     story = []
+    story.append(sp(40))
+    story.append(Paragraph('PROJECT BARN', S_TITLE))
+    story.append(Paragraph('4-H Project Record Book', S_SUB))
+    story.append(sp(6))
+    story.append(hr())
+    story.append(sp(20))
 
-    story.append(Paragraph(f"<b>{project.name} Project Book</b>", styles["Title"]))
-    story.append(Spacer(1, 12))
-    story.append(Paragraph(f"Owner: {owner.name if owner else 'Unknown'}", styles["Normal"]))
-    story.append(Paragraph(f"Type/Breed: {project.type.capitalize()}{' / ' + project.breed if project.breed else ''}", styles["Normal"]))
-    story.append(Paragraph(f"Date: {date.today().strftime('%B %d, %Y')}", styles["Normal"]))
-    story.append(Spacer(1, 14))
+    type_cfg = PROJECT_TYPE_CONFIG.get(project.type, {})
+    emoji = type_cfg.get('emoji', '📋')
+    story.append(Paragraph(emoji, sty('em', fontSize=48,
+        alignment=TA_CENTER, spaceAfter=6)))
+    story.append(Paragraph(project.name,
+        sty('pname', fontSize=22, textColor=BARN_RED,
+            fontName='Helvetica-Bold', alignment=TA_CENTER,
+            spaceAfter=4)))
+    story.append(Paragraph(type_cfg.get('label', project.type.title()),
+        sty('ptype', fontSize=13, textColor=MUTED,
+            alignment=TA_CENTER, spaceAfter=16)))
 
-    story.append(Paragraph("<b>Goals</b>", styles["Heading2"]))
-    story.append(Paragraph(project.notes or "No goals recorded.", styles["Normal"]))
-    story.append(Spacer(1, 14))
+    year = project.project_year or date_cls.today().year
+    club = (project.club_name or (owner.club_name if owner else '') or '—')
+    county = (project.county or (owner.county if owner else '') or '—')
+    state = (project.state or (owner.state if owner else 'Texas') or 'Texas')
+    cover_data = [
+        ['Member Name', owner.name if owner else '—'],
+        ['Club / Chapter', club],
+        ['County', county],
+        ['State', state],
+        ['Project Year', str(year)],
+        ['Breed / Sub-type',
+         f"{project.breed or '—'}"
+         f"{' · ' + project.sub_type if project.sub_type else ''}"],
+    ]
+    if owner and owner.birthdate:
+        age = (date_cls.today() - owner.birthdate).days // 365
+        cover_data.insert(1, ['Age / Grade', f'{age} years old'])
+    if owner and owner.years_in_4h:
+        cover_data.append(['Years in 4-H', str(owner.years_in_4h)])
+    ct = Table(cover_data, colWidths=[2*inch, 4.5*inch])
+    ct.setStyle(tbl_style())
+    story.append(ct)
+    story.append(sp(20))
+    story.append(hr())
+    story.append(Paragraph(
+        f'Generated {date_cls.today().strftime("%B %d, %Y")}', S_MUTED))
+    story.append(PageBreak())
 
-    story.append(Paragraph("<b>Financial Summary</b>", styles["Heading2"]))
-    exp_table_data = [["Date", "Category", "Notes", "Amount"]]
-    expenses_total = 0.0
-    for expense in expenses:
-        exp_table_data.append([
-            expense.date.strftime("%Y-%m-%d"),
-            EXPENSE_CATEGORIES.get(expense.category, expense.category),
-            expense.notes or "Expense",
-            f"${expense.amount:.2f}",
-        ])
-        expenses_total += expense.amount
-    exp_table_data.append(["", "", "Total", f"${expenses_total:.2f}"])
-    exp_table = Table(exp_table_data, colWidths=[80, 100, 230, 80])
-    exp_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#341A08")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTNAME", (2, -1), (3, -1), "Helvetica-Bold"),
+    story.append(Paragraph('Project Overview', S_H1))
+    story.append(hr())
+    overview_data = []
+    if project.start_date:
+        overview_data.append(['Start Date', project.start_date.strftime('%B %d, %Y')])
+    if project.purchase_date:
+        overview_data.append(['Purchase Date', project.purchase_date.strftime('%B %d, %Y')])
+    if project.purchase_price:
+        overview_data.append(['Purchase Price', f'${project.purchase_price:.2f}'])
+    if project.initial_weight:
+        overview_data.append(['Starting Weight', f'{project.initial_weight} lbs'])
+    if project.target_weight:
+        overview_data.append(['Target Weight', f'{project.target_weight} lbs'])
+    if project.target_date:
+        overview_data.append(['Fair / Target Date', project.target_date.strftime('%B %d, %Y')])
+    if project.ear_tag:
+        overview_data.append(['Ear Tag', project.ear_tag])
+    if project.registration_number:
+        overview_data.append(['Registration', project.registration_number])
+    if project.yqca_number:
+        exp = (f' (exp {project.yqca_expiry.strftime("%m/%d/%y")})' if project.yqca_expiry else '')
+        overview_data.append(['YQCA #', f'{project.yqca_number}{exp}'])
+    if project.notes:
+        overview_data.append(['Notes', project.notes])
+    if overview_data:
+        ot = Table(overview_data, colWidths=[2*inch, 4.5*inch])
+        ot.setStyle(tbl_style())
+        story.append(ot)
+        story.append(sp(12))
+
+    goals = Goal.query.filter_by(project_id=project_id).all()
+    if goals:
+        story.append(Paragraph('Project Goals', S_H2))
+        g_data = [['#', 'Goal', 'Status']]
+        for i, g in enumerate(goals, 1):
+            g_data.append([str(i), g.text, '✓ Complete' if g.completed else 'In Progress'])
+        gt = Table(g_data, colWidths=[0.3*inch, 5.2*inch, 1*inch])
+        gt.setStyle(tbl_style([('TEXTCOLOR', (2, 1), (2, -1), GREEN)]))
+        story.append(gt)
+        story.append(sp(12))
+
+    activities = ProjectActivity.query.filter_by(project_id=project_id).order_by(ProjectActivity.date).all()
+    total_hours = sum(a.hours or 0 for a in activities)
+    if activities:
+        story.append(Paragraph(f'Activity Log  ({total_hours:.1f} total hours)', S_H2))
+        a_data = [['Date', 'Activity', 'Hours', 'Notes']]
+        for a in activities:
+            a_data.append([
+                a.date.strftime('%m/%d/%y') if a.date else '—',
+                a.title,
+                f'{a.hours:.2f}' if a.hours else '—',
+                a.notes or ''
+            ])
+        at = Table(a_data, colWidths=[0.9*inch, 2.8*inch, 0.6*inch, 2.2*inch])
+        at.setStyle(tbl_style())
+        story.append(at)
+        story.append(sp(8))
+    story.append(PageBreak())
+
+    story.append(Paragraph('Financial Records', S_H1))
+    story.append(hr())
+    expenses = Expense.query.filter_by(project_id=project_id).order_by(Expense.date).all()
+    total_expenses = sum(e.amount for e in expenses)
+    if expenses:
+        story.append(Paragraph('Expenses', S_H2))
+        e_data = [['Date', 'Category', 'Vendor', 'Amount', 'Notes']]
+        for e in expenses:
+            e_data.append([
+                e.date.strftime('%m/%d/%y'),
+                e.category.replace('_', ' ').title(),
+                e.vendor or '—',
+                f'${e.amount:.2f}',
+                (e.notes or '')[:40]
+            ])
+        e_data.append(['', '', 'TOTAL EXPENSES', f'${total_expenses:.2f}', ''])
+        et = Table(e_data, colWidths=[0.8*inch, 1.3*inch, 1.4*inch, 0.9*inch, 2.1*inch])
+        et.setStyle(tbl_style([
+            ('FONTNAME', (-3, -1), (-1, -1), 'Helvetica-Bold'),
+            ('BACKGROUND', (0, -1), (-1, -1), DARK_CARD),
+            ('TEXTCOLOR', (0, -1), (-1, -1), GOLD_LIGHT),
+        ]))
+        story.append(et)
+        story.append(sp(10))
+
+    income_records = IncomeRecord.query.filter_by(project_id=project_id).order_by(IncomeRecord.date).all()
+    auction_sales = AuctionSale.query.filter_by(project_id=project_id).all()
+    total_income = (sum(r.amount for r in income_records) + sum(s.net_proceeds for s in auction_sales))
+    if income_records or auction_sales:
+        story.append(Paragraph('Income', S_H2))
+        i_data = [['Date', 'Category', 'Source / Buyer', 'Amount']]
+        for r in income_records:
+            i_data.append([r.date.strftime('%m/%d/%y'), r.category.replace('_', ' ').title(), r.source or '—', f'${r.amount:.2f}'])
+        for s in auction_sales:
+            detail = f'${s.price_per_lb:.3f}/lb' if s.price_per_lb else 'flat price'
+            i_data.append([s.sale_date.strftime('%m/%d/%y'), 'Auction Sale', f'{s.buyer_name} ({detail})', f'${s.net_proceeds:.2f}'])
+        i_data.append(['', 'TOTAL INCOME', '', f'${total_income:.2f}'])
+        it = Table(i_data, colWidths=[0.8*inch, 1.4*inch, 3.0*inch, 1.3*inch])
+        it.setStyle(tbl_style([
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('BACKGROUND', (0, -1), (-1, -1), DARK_CARD),
+            ('TEXTCOLOR', (0, -1), (-1, -1), GOLD_LIGHT),
+        ]))
+        story.append(it)
+        story.append(sp(10))
+
+    net = total_income - total_expenses
+    st = Table([
+        ['Total Expenses', f'${total_expenses:.2f}'],
+        ['Total Income', f'${total_income:.2f}'],
+        ['Net Profit / Loss', f'{"+" if net >= 0 else ""}${net:.2f}'],
+    ], colWidths=[4*inch, 2.5*inch])
+    st.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), DARK_CARD),
+        ('TEXTCOLOR', (0, 0), (0, -1), WHITE),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 11),
+        ('TEXTCOLOR', (1, 0), (1, 0), RED_LIGHT),
+        ('TEXTCOLOR', (1, 1), (1, 1), GREEN),
+        ('TEXTCOLOR', (1, 2), (1, 2), GREEN if net >= 0 else RED_LIGHT),
+        ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#C4A060')),
     ]))
-    story.append(exp_table)
-    story.append(Spacer(1, 14))
+    story.append(st)
 
-    story.append(Paragraph("<b>Activity Log</b>", styles["Heading2"]))
-    task_table_data = [["Date/Time", "Who", "Type", "Notes"]]
-    for task in tasks:
-        who = profiles.get(task.logged_by_id)
-        task_table_data.append([
-            task.logged_at.strftime("%Y-%m-%d %I:%M %p") if task.logged_at else "Pending",
-            who.name if who else "Unknown",
-            task.task_type.capitalize(),
-            task.notes or "",
-        ])
-    if len(task_table_data) == 1:
-        task_table_data.append(["-", "-", "-", "No activity logged."])
-    task_table = Table(task_table_data, colWidths=[120, 80, 70, 220])
-    task_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#341A08")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-    ]))
-    story.append(task_table)
-    story.append(Spacer(1, 14))
+    inv_items = InventoryItem.query.filter_by(project_id=project_id).all()
+    if inv_items:
+        story.append(sp(10))
+        story.append(Paragraph('Inventory', S_H2))
+        beg = [i for i in inv_items if i.inventory_type == 'beginning']
+        end = [i for i in inv_items if i.inventory_type == 'ending']
+        beg_total = sum(i.total_value for i in beg)
+        end_total = sum(i.total_value for i in end)
+        inv_data = [['Type', 'Description', 'Qty', 'Unit Value', 'Total']]
+        for i in beg + end:
+            inv_data.append([
+                'Beginning' if i in beg else 'Ending', i.item_description,
+                f'{i.quantity:.1f}', f'${i.unit_value:.2f}', f'${i.total_value:.2f}'
+            ])
+        inv_data.append(['', 'Net Inventory Change', '', '', f'${end_total - beg_total:.2f}'])
+        ivt = Table(inv_data, colWidths=[0.8*inch, 2.5*inch, 0.5*inch, 1.0*inch, 0.7*inch])
+        ivt.setStyle(tbl_style())
+        story.append(ivt)
+    story.append(PageBreak())
 
-    story.append(Paragraph("<b>Show Results</b>", styles["Heading2"]))
-    show_table_data = [["Show", "Placing", "Ribbon"]]
-    for entry in entries:
-        show = shows.get(entry.show_id)
-        show_table_data.append([
-            show.name if show else "Show",
-            entry.placing or "-",
-            RIBBON_LABELS.get(entry.ribbon_color, (entry.ribbon_color or "-").title()),
-        ])
-    if len(show_table_data) == 1:
-        show_table_data.append(["-", "-", "No show results."])
-    show_table = Table(show_table_data, colWidths=[280, 120, 90])
-    show_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#341A08")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-    ]))
-    story.append(show_table)
+    is_livestock = type_cfg.get('is_livestock', False)
+    if is_livestock:
+        story.append(Paragraph('Livestock Performance', S_H1))
+        story.append(hr())
+        weigh_tasks = Task.query.filter_by(project_id=project_id, task_type='weigh').filter(Task.weight_lbs.isnot(None)).order_by(Task.logged_at).all()
+        if project.initial_weight or weigh_tasks:
+            story.append(Paragraph('Weight History', S_H2))
+            w_data = [['Date', 'Weight (lbs)', 'Gain', 'ADG']]
+            prev_w = project.initial_weight
+            prev_d = project.start_date
+            if project.initial_weight and project.start_date:
+                w_data.append([project.start_date.strftime('%m/%d/%y'), f'{project.initial_weight:.1f}', '— (start)', '—'])
+            for t in weigh_tasks:
+                w = t.weight_lbs
+                d = t.logged_at.date() if t.logged_at else None
+                gain = f'{w - prev_w:.1f}' if prev_w else '—'
+                adg = '—'
+                if prev_w and prev_d and d and d > prev_d:
+                    days = (d - prev_d).days
+                    adg = f'{(w - prev_w) / days:.3f}' if days else '—'
+                w_data.append([d.strftime('%m/%d/%y') if d else '—', f'{w:.1f}', gain, adg])
+                prev_w = w
+                prev_d = d
+            wt = Table(w_data, colWidths=[1.0*inch, 1.4*inch, 1.2*inch, 1.0*inch])
+            wt.setStyle(tbl_style([('TEXTCOLOR', (3, 1), (3, -1), GOLD_LIGHT)]))
+            story.append(wt)
+            story.append(sp(10))
+
+        feed_logs = FeedLog.query.filter_by(project_id=project_id).all()
+        total_feed_lbs = sum(l.amount_lbs for l in feed_logs)
+        total_feed_cost = sum(l.amount_lbs / l.bag_size_lbs * l.cost_per_bag for l in feed_logs if l.cost_per_bag and l.bag_size_lbs and l.bag_size_lbs > 0)
+        if feed_logs:
+            story.append(Paragraph('Feed Summary', S_H2))
+            feed_summary = {}
+            for l in feed_logs:
+                key = f'{l.feed_brand or "Unknown"} ({l.feed_type})'
+                feed_summary.setdefault(key, {'lbs': 0, 'cost': 0})
+                feed_summary[key]['lbs'] += l.amount_lbs
+                if l.cost_per_bag and l.bag_size_lbs and l.bag_size_lbs > 0:
+                    feed_summary[key]['cost'] += l.amount_lbs / l.bag_size_lbs * l.cost_per_bag
+            fd = [['Feed Product', 'Total lbs', 'Est. Cost']]
+            for name, vals in feed_summary.items():
+                fd.append([name, f'{vals["lbs"]:.1f}', f'${vals["cost"]:.2f}'])
+            fd.append(['TOTALS', f'{total_feed_lbs:.1f}', f'${total_feed_cost:.2f}'])
+            fdt = Table(fd, colWidths=[3.5*inch, 1.2*inch, 1.2*inch])
+            fdt.setStyle(tbl_style([
+                ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+                ('BACKGROUND', (0, -1), (-1, -1), DARK_CARD),
+                ('TEXTCOLOR', (0, -1), (-1, -1), GOLD_LIGHT),
+            ]))
+            story.append(fdt)
+            story.append(sp(10))
+
+        if weigh_tasks and project.initial_weight:
+            final_w = weigh_tasks[-1].weight_lbs
+            total_gain = final_w - project.initial_weight
+            days_on = ((date_cls.today() - project.start_date).days if project.start_date else None)
+            overall_adg = (round(total_gain / days_on, 3) if days_on and days_on > 0 else None)
+            fcr = (round(total_feed_lbs / total_gain, 2) if total_gain > 0 and total_feed_lbs > 0 else None)
+            feed_cplg = (round(total_feed_cost / total_gain, 2) if total_gain > 0 and total_feed_cost > 0 else None)
+            tot_cplg = (round(total_expenses / total_gain, 2) if total_gain > 0 and total_expenses > 0 else None)
+            story.append(Paragraph('Performance Calculations', S_H2))
+            pt = Table([
+                ['Starting Weight', f'{project.initial_weight:.1f} lbs'],
+                ['Final / Current Weight', f'{final_w:.1f} lbs'],
+                ['Total Weight Gain', f'{total_gain:.1f} lbs'],
+                ['Days on Feed', str(days_on) if days_on else '—'],
+                ['Overall ADG', f'{overall_adg:.3f} lbs/day' if overall_adg else '—'],
+                ['Total Feed Fed', f'{total_feed_lbs:.1f} lbs'],
+                ['Feed Conversion Ratio', f'{fcr}:1' if fcr else '—'],
+                ['Total Feed Cost', f'${total_feed_cost:.2f}'],
+                ['Feed Cost per lb Gain', f'${feed_cplg:.2f}' if feed_cplg else '—'],
+                ['Total Cost per lb Gain', f'${tot_cplg:.2f}' if tot_cplg else '—'],
+            ], colWidths=[3*inch, 3.5*inch])
+            pt.setStyle(tbl_style([('TEXTCOLOR', (1, 1), (1, -1), GOLD_LIGHT)]))
+            story.append(pt)
+
+        health = HealthRecord.query.filter_by(project_id=project_id).order_by(HealthRecord.date).all()
+        if health:
+            story.append(sp(10))
+            story.append(Paragraph('Health Records', S_H2))
+            h_data = [['Date', 'Type', 'Product', 'Dosage/Route', 'Withdrawal End']]
+            for r in health:
+                route = f' / {r.route}' if r.route else ''
+                h_data.append([
+                    r.date.strftime('%m/%d/%y'),
+                    r.record_type.replace('_', ' ').title(),
+                    r.product_name,
+                    f'{r.dosage or ""}{route}',
+                    r.withdrawal_end_date.strftime('%m/%d/%y') if r.withdrawal_end_date else '—'
+                ])
+            ht = Table(h_data, colWidths=[0.8*inch, 1.1*inch, 1.5*inch, 1.3*inch, 1.0*inch])
+            ht.setStyle(tbl_style())
+            story.append(ht)
+        story.append(PageBreak())
+
+    entries = ShowEntry.query.filter_by(project_id=project_id).all()
+    if entries:
+        story.append(Paragraph('Show Results', S_H1))
+        story.append(hr())
+        shows_map = {s.id: s for s in Show.query.all()}
+        s_data = [['Show', 'Date', 'Class', 'Ring', 'Placing', 'Ribbon']]
+        for e in entries:
+            show = shows_map.get(e.show_id)
+            s_data.append([
+                show.name if show else '—',
+                show.start_date.strftime('%m/%d/%y') if show and show.start_date else '—',
+                e.class_name or '—',
+                e.ring or '—',
+                e.placing or '—',
+                e.ribbon_color or '—'
+            ])
+        sht = Table(s_data, colWidths=[1.8*inch, 0.9*inch, 1.3*inch, 0.7*inch, 0.7*inch, 0.9*inch])
+        sht.setStyle(tbl_style())
+        story.append(sht)
+
+        auction_sales_all = AuctionSale.query.filter_by(project_id=project_id).all()
+        if auction_sales_all:
+            story.append(sp(10))
+            story.append(Paragraph('Auction Sales', S_H2))
+            au_data = [['Date', 'Buyer', 'Weight', 'Price/lb', 'Net Proceeds', 'Thank You']]
+            for s in auction_sales_all:
+                au_data.append([
+                    s.sale_date.strftime('%m/%d/%y'), s.buyer_name,
+                    f'{s.weight_at_sale:.1f} lbs' if s.weight_at_sale else '—',
+                    f'${s.price_per_lb:.3f}' if s.price_per_lb else '—',
+                    f'${s.net_proceeds:.2f}',
+                    '✓ Sent' if s.thank_you_sent else 'Not sent'
+                ])
+            aut = Table(au_data, colWidths=[0.8*inch, 1.6*inch, 0.8*inch, 0.7*inch, 1.1*inch, 0.7*inch])
+            aut.setStyle(tbl_style([('TEXTCOLOR', (5, 1), (5, -1), GREEN)]))
+            story.append(aut)
+        story.append(PageBreak())
+
+    narr = ProjectNarrative.query.filter_by(project_id=project_id).first()
+    skills = SkillsChecklist.query.filter_by(project_id=project_id).all()
+    profiles_map = {p.id: p for p in Profile.query.all()}
+    story.append(Paragraph('Project Story', S_H1))
+    story.append(hr())
+    story.append(Paragraph('Member reflection and narrative for 4-H record book.', S_MUTED))
+    story.append(sp(8))
+    sections = [
+        ('My Project Goals', 'project_goals_narrative'),
+        ('What I Did', 'what_i_did'),
+        ('What I Learned', 'what_i_learned'),
+        ('How I Improved', 'how_i_improved'),
+        ('Skills Learned', 'skills_learned'),
+    ]
+    for label, field in sections:
+        story.append(Paragraph(label, S_H2))
+        text = getattr(narr, field, None) if narr else None
+        if text:
+            for para in text.split('\n'):
+                if para.strip():
+                    story.append(Paragraph(para.strip(), S_NARR))
+        else:
+            story.append(Paragraph('(not completed)', S_MUTED))
+        story.append(sp(6))
+
+    if skills:
+        story.append(sp(6))
+        story.append(Paragraph('Skills Checklist', S_H2))
+        sk_data = [['Skill', 'Status', 'Completed By']]
+        for s in skills:
+            by = profiles_map.get(s.completed_by_id).name if s.completed_by_id in profiles_map else '—'
+            sk_data.append([s.skill_name, '✓ Complete' if s.completed else 'In Progress', by if s.completed else '—'])
+        skt = Table(sk_data, colWidths=[3.8*inch, 1.2*inch, 1.5*inch])
+        skt.setStyle(tbl_style([('TEXTCOLOR', (1, 1), (1, -1), GREEN)]))
+        story.append(skt)
 
     doc.build(story)
-    buffer.seek(0)
-    return send_file(buffer, mimetype="application/pdf", as_attachment=True, download_name=f"{project.name.lower().replace(' ', '-')}-project-book.pdf")
+    buf.seek(0)
+    safe_name = project.name.replace(' ', '_').replace('/', '_')
+    filename = f'{safe_name}_record_book_{year}.pdf'
+    return Response(buf.read(), mimetype='application/pdf',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'})
+
+
+@dashboard_bp.get('/reports/export-all')
+def reports_export_all():
+    active = Profile.query.get(session.get('active_profile_id'))
+    if not active or active.role != 'parent':
+        return redirect('/')
+
+    import zipfile
+    import io
+    from flask import Response
+    from datetime import date as dc
+
+    projects = Project.query.all()
+    zip_buf = io.BytesIO()
+    with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for project in projects:
+            try:
+                with current_app.test_request_context():
+                    session['active_profile_id'] = active.id
+                    resp = reports_export(project.id)
+                    safe = project.name.replace(' ', '_').replace('/', '_')
+                    year = project.project_year or dc.today().year
+                    zf.writestr(f'{safe}_record_book_{year}.pdf', resp.get_data())
+            except Exception as e:
+                current_app.logger.error(f'Export failed for project {project.id}: {e}')
+    zip_buf.seek(0)
+    fname = f'ProjectBarn_RecordBooks_{dc.today().isoformat()}.zip'
+    return Response(zip_buf.read(), mimetype='application/zip',
+        headers={'Content-Disposition': f'attachment; filename="{fname}"'})
 
 
 @dashboard_bp.get("/uploads/<path:filename>")
@@ -1314,6 +1696,10 @@ def project_edit(project_id: int):
         project.purchase_date = parse_date(request.form.get("purchase_date"))
         project.purchase_price = request.form.get("purchase_price", type=float) or 0
         project.notes = (request.form.get("notes") or "").strip() or None
+        project.club_name = request.form.get('club_name', '').strip() or None
+        project.county = request.form.get('county', '').strip() or None
+        project.state = request.form.get('state', 'Texas').strip() or 'Texas'
+        project.project_year = int(request.form.get('project_year') or 0) or None
         db.session.commit()
         return redirect(url_for("dashboard.project_detail", project_id=project.id))
 
@@ -1416,6 +1802,10 @@ def settings_profiles_edit(profile_id: int):
         profile.role = request.form.get("role", profile.role)
         profile.color = request.form.get("color") or profile.color
         profile.birthdate = request.form.get("birthdate", type=lambda v: datetime.strptime(v, "%Y-%m-%d").date()) if request.form.get("birthdate") else None
+        profile.club_name = request.form.get('club_name', '').strip() or None
+        profile.county = request.form.get('county', '').strip() or None
+        profile.state = request.form.get('state', 'Texas').strip() or 'Texas'
+        profile.years_in_4h = int(request.form.get('years_in_4h') or 0) or None
 
         if request.form.get("remove_pin") == "1" and profile.role == "kid":
             profile.pin_hash = None
