@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Skills Checklist · {{ project.name }}{% endblock %}
+{% block content %}
+<section class="shows-page">
+  {% set pct = ((completed_count / total_count) * 100) if total_count else 0 %}
+  <p class="skills-progress-label">{{ completed_count }} of {{ total_count }} skills completed</p>
+  <div class="skills-progress-wrap"><div class="skills-progress-bar" style="width: {{ pct }}%"></div></div>
+
+  {% for skill in skills %}
+  <div class="skill-row">
+    <form method="post">
+      <input type="hidden" name="action" value="toggle">
+      <input type="hidden" name="skill_id" value="{{ skill.id }}">
+      <button class="skill-check-btn {% if skill.completed %}done{% endif %}" type="submit" aria-label="Toggle"></button>
+    </form>
+    <div class="skill-name {% if skill.completed %}done{% endif %}">
+      {{ skill.skill_name }}
+      {% if skill.completed %}
+      <small class="skill-completed-by">✓ {{ profiles.get(skill.completed_by_id).name if skill.completed_by_id and profiles.get(skill.completed_by_id) else 'Completed' }} on {{ skill.completed_at.strftime('%b %-d, %Y') if skill.completed_at else '' }}</small>
+      {% endif %}
+    </div>
+    {% if active_profile.role == 'parent' %}
+    <form method="post">
+      <input type="hidden" name="action" value="delete">
+      <input type="hidden" name="skill_id" value="{{ skill.id }}">
+      <button class="mini-btn" type="submit">Delete</button>
+    </form>
+    {% endif %}
+  </div>
+  {% else %}
+  <p class="empty-state">📋 No skills available for this project type yet</p>
+  {% endfor %}
+
+  <form method="post" class="goal-add-form">
+    <input type="hidden" name="action" value="add">
+    <input class="goal-input" type="text" name="skill_name" placeholder="Add a custom skill...">
+    <button class="inline-link-btn" type="submit">+</button>
+  </form>
+</section>
+{% endblock %}

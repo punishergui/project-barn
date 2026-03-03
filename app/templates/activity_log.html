@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Activity Log · {{ project.name }}{% endblock %}
+{% block content %}
+<section class="shows-page">
+  <div class="chip"><strong>{{ total_hours }}</strong><span>TOTAL HOURS</span></div>
+
+  <form method="post" class="form-card">
+    <label>Date
+      <input class="input" type="date" name="date" value="{{ request.form.get('date') or '' }}">
+    </label>
+    <label>Activity Title
+      <input class="input" type="text" name="title" required placeholder="e.g. Fed animals, Practice session, Weighed pig">
+    </label>
+    <label>Hours
+      <input class="input" type="number" step="0.25" name="hours" placeholder="e.g. 0.5">
+    </label>
+    <label>Notes
+      <textarea class="input" name="notes" rows="3"></textarea>
+    </label>
+    <button class="btn" type="submit">Log Activity</button>
+  </form>
+
+  {% for activity in activities %}
+  <div class="task-card">
+    <div class="task-info">
+      <strong style="color:var(--gold-light)">{{ activity.date.strftime('%b %-d, %Y') }}</strong>
+      <strong>{{ activity.title }}</strong>
+      {% if activity.notes %}<span>{{ activity.notes }}</span>{% endif %}
+      {% if activity.hours %}<span>{{ activity.hours }} hrs</span>{% endif %}
+      <span>Logged by {{ profiles.get(activity.logged_by_id).name if profiles.get(activity.logged_by_id) else 'Unknown' }}</span>
+    </div>
+    {% if active_profile.role == 'parent' or active_profile.id == activity.logged_by_id %}
+    <form method="post" action="/projects/{{ project.id }}/activity/{{ activity.id }}/delete">
+      <button class="mini-btn" type="submit">Delete</button>
+    </form>
+    {% endif %}
+  </div>
+  {% else %}
+  <p class="empty-state">📋 No activities logged yet</p>
+  {% endfor %}
+</section>
+{% endblock %}

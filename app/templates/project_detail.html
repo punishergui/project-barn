@@ -32,10 +32,98 @@
     </div>
   </div>
 
-  <div class="quick-links-row">
-    <a href="/projects/{{ project.id }}/financial" class="quick-link-btn">📊 Financial Summary</a>
-    <a href="/projects/{{ project.id }}/income" class="quick-link-btn">💰 Income</a>
-    <a href="/projects/{{ project.id }}/inventory" class="quick-link-btn">📦 Inventory</a>
+  <div class="module-grid">
+    {% set modules = type_config.get('modules', []) %}
+
+    {% if 'activity' in modules %}
+    <a href="/projects/{{ project.id }}/activity" class="module-btn">
+      <span class="module-icon">📋</span>
+      <span class="module-label">Activity Log</span>
+      {% if activity_hours > 0 %}
+      <span class="module-stat">{{ activity_hours|round(1) }} hrs</span>
+      {% endif %}
+    </a>
+    {% endif %}
+
+    {% if 'skills' in modules %}
+    <a href="/projects/{{ project.id }}/skills" class="module-btn">
+      <span class="module-icon">✅</span>
+      <span class="module-label">Skills</span>
+      {% if skills_total > 0 %}
+      <span class="module-stat">{{ skills_done }}/{{ skills_total }}</span>
+      {% endif %}
+    </a>
+    {% endif %}
+
+    {% if 'materials' in modules %}
+    <a href="/projects/{{ project.id }}/materials" class="module-btn">
+      <span class="module-icon">📦</span>
+      <span class="module-label">{{ type_config.get('material_label','Materials') }}</span>
+    </a>
+    {% endif %}
+
+    {% if 'feed' in modules %}
+    <a href="/projects/{{ project.id }}/feed" class="module-btn">
+      <span class="module-icon">🌾</span>
+      <span class="module-label">Feed Log</span>
+    </a>
+    {% endif %}
+
+    {% if 'health' in modules %}
+    <a href="/projects/{{ project.id }}/health" class="module-btn">
+      <span class="module-icon">💉</span>
+      <span class="module-label">Health</span>
+      {% if active_withdrawal_count and active_withdrawal_count > 0 %}
+      <span class="module-stat withdrawal-chip">⚠ {{ active_withdrawal_count }}</span>
+      {% endif %}
+    </a>
+    {% endif %}
+
+    {% if 'weight' in modules %}
+    <a href="/projects/{{ project.id }}/rog" class="module-btn">
+      <span class="module-icon">📏</span>
+      <span class="module-label">Weight / ROG</span>
+    </a>
+    {% endif %}
+
+    <a href="/projects/{{ project.id }}/expenses/add" class="module-btn">
+      <span class="module-icon">💸</span>
+      <span class="module-label">Add Expense</span>
+    </a>
+
+    {% if 'income' in modules %}
+    <a href="/projects/{{ project.id }}/income" class="module-btn">
+      <span class="module-icon">💰</span>
+      <span class="module-label">Income</span>
+    </a>
+    {% endif %}
+
+    <a href="/projects/{{ project.id }}/financial" class="module-btn">
+      <span class="module-icon">📊</span>
+      <span class="module-label">Financials</span>
+      {% if net_pl is defined %}
+      <span class="module-stat {% if net_pl >= 0 %}net-positive{% else %}net-negative{% endif %}">
+        {% if net_pl >= 0 %}+{% endif %}${{ "%.0f"|format(net_pl|abs) }}
+      </span>
+      {% endif %}
+    </a>
+
+    {% if 'income' in modules %}
+    <a href="/projects/{{ project.id }}/auction" class="module-btn">
+      <span class="module-icon">🏆</span>
+      <span class="module-label">Auction</span>
+    </a>
+    {% endif %}
+
+    <a href="/projects/{{ project.id }}/narrative" class="module-btn {% if has_narrative %}has-data{% endif %}">
+      <span class="module-icon">📖</span>
+      <span class="module-label">Project Story</span>
+    </a>
+
+    <a href="/projects/{{ project.id }}/inventory" class="module-btn">
+      <span class="module-icon">🗃</span>
+      <span class="module-label">Inventory</span>
+    </a>
   </div>
   {% if project.purchase_price and project.purchase_price > 0 %}
   <div class="chips-row"><article class="chip"><strong>${{ '%.2f'|format(project.purchase_price) }}</strong><span>COST BASIS</span></article></div>

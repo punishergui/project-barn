@@ -301,3 +301,61 @@ class InventoryItem(db.Model):
             "inventory_type IN ('beginning','ending')",
             name='ck_inventoryitem_type'),
     )
+
+
+class ProjectActivity(db.Model):
+    """Generic activity log with hours — used by all project types."""
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey('project.id'),
+                           nullable=False)
+    logged_by_id = db.Column(db.Integer, db.ForeignKey('profile.id'),
+                             nullable=False)
+    date = db.Column(db.Date, nullable=False)
+    title = db.Column(db.String(255), nullable=False)
+    hours = db.Column(db.Float, nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+
+
+class SkillsChecklist(db.Model):
+    """Skills checklist item per project."""
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey('project.id'),
+                           nullable=False)
+    skill_name = db.Column(db.String(255), nullable=False)
+    completed = db.Column(db.Boolean, default=False, nullable=False)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    completed_by_id = db.Column(db.Integer,
+        db.ForeignKey('profile.id'), nullable=True)
+    sort_order = db.Column(db.Integer, default=0, nullable=False)
+
+
+class ProjectMaterial(db.Model):
+    """Materials, ingredients, components — used by all project types."""
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey('project.id'),
+                           nullable=False)
+    logged_by_id = db.Column(db.Integer, db.ForeignKey('profile.id'),
+                             nullable=False)
+    item_name = db.Column(db.String(255), nullable=False)
+    quantity = db.Column(db.Float, nullable=True)
+    unit = db.Column(db.String(40), nullable=True)
+    unit_cost = db.Column(db.Float, nullable=True)
+    total_cost = db.Column(db.Float, nullable=True)
+    category = db.Column(db.String(80), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    date_purchased = db.Column(db.Date, nullable=True)
+
+
+class ProjectNarrative(db.Model):
+    """Record book narrative / story sections per project."""
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey('project.id'),
+                           nullable=False, unique=True)
+    project_goals_narrative = db.Column(db.Text, nullable=True)
+    what_i_did = db.Column(db.Text, nullable=True)
+    what_i_learned = db.Column(db.Text, nullable=True)
+    how_i_improved = db.Column(db.Text, nullable=True)
+    skills_learned = db.Column(db.Text, nullable=True)
+    updated_at = db.Column(db.DateTime,
+        default=datetime.utcnow, nullable=False,
+        onupdate=datetime.utcnow)
