@@ -3,12 +3,51 @@
 {% block content %}
 <section class="form-page">
   <form method="post" class="stack-form">
+    <input type="hidden" id="currentBreed" value="{{ project.breed or '' }}">
+    <input type="hidden" id="currentSubType" value="{{ project.sub_type or '' }}">
     <label class="field"><span>Name</span><input name="name" type="text" value="{{ project.name }}" required></label>
-    <label class="field"><span>Type</span>
-      <select name="type">{% for value in ['cow','pig','goat','sheep','chicken','rabbit','baking','welding','other'] %}<option value="{{ value }}" {% if project.type==value %}selected{% endif %}>{{ value|capitalize }}</option>{% endfor %}</select>
-    </label>
+    <div class="field">
+      <span>Project Type</span>
+      <select name="type" id="projectType" required>
+        <option value="">Select type...</option>
+        <option value="cow" {% if project.type == 'cow' %}selected{% endif %}>Beef Cattle</option>
+        <option value="dairy" {% if project.type == 'dairy' %}selected{% endif %}>Dairy Cattle</option>
+        <option value="pig" {% if project.type == 'pig' %}selected{% endif %}>Swine / Pig</option>
+        <option value="goat" {% if project.type == 'goat' %}selected{% endif %}>Goat</option>
+        <option value="sheep" {% if project.type == 'sheep' %}selected{% endif %}>Sheep / Lamb</option>
+        <option value="chicken" {% if project.type == 'chicken' %}selected{% endif %}>Poultry / Chicken</option>
+        <option value="rabbit" {% if project.type == 'rabbit' %}selected{% endif %}>Rabbit</option>
+        <option value="horse" {% if project.type == 'horse' %}selected{% endif %}>Horse / Equine</option>
+        <option value="baking" {% if project.type == 'baking' %}selected{% endif %}>Baking / Food & Nutrition</option>
+        <option value="sewing" {% if project.type == 'sewing' %}selected{% endif %}>Sewing / Clothing</option>
+        <option value="shooting" {% if project.type == 'shooting' %}selected{% endif %}>Shooting Sports</option>
+        <option value="garden" {% if project.type == 'garden' %}selected{% endif %}>Horticulture / Garden</option>
+        <option value="robotics" {% if project.type == 'robotics' %}selected{% endif %}>Robotics / STEM</option>
+        <option value="photography" {% if project.type == 'photography' %}selected{% endif %}>Photography / Arts</option>
+        <option value="other" {% if project.type == 'other' %}selected{% endif %}>Other Project</option>
+      </select>
+    </div>
+    <div class="field" id="subTypeField" style="display:none">
+      <span>Sub-type / Class</span>
+      <select name="sub_type" id="subType">
+        <option value="">Select sub-type...</option>
+      </select>
+    </div>
     <label class="field"><span>Owner</span><select name="owner_id">{% for profile in profiles %}<option value="{{ profile.id }}" {% if project.owner_id==profile.id %}selected{% endif %}>{{ profile.name }}</option>{% endfor %}</select></label>
-    <label class="field"><span>Breed</span><input name="breed" type="text" value="{{ project.breed or '' }}"></label>
+    <div class="field" id="breedField" style="display:none"><span>Breed</span><select name="breed" id="breedSelect"><option value="">Select breed...</option></select></div>
+    <div class="field livestock-only" style="display:none"><span>Sex</span><select name="sex"><option value="">Select...</option><option value="male" {% if project.sex == 'male' %}selected{% endif %}>Male</option><option value="female" {% if project.sex == 'female' %}selected{% endif %}>Female</option><option value="wether" {% if project.sex == 'wether' %}selected{% endif %}>Wether (castrated male)</option><option value="barrow" {% if project.sex == 'barrow' %}selected{% endif %}>Barrow (castrated male swine)</option><option value="gilt" {% if project.sex == 'gilt' %}selected{% endif %}>Gilt (young female swine)</option></select></div>
+    <div class="field livestock-only" style="display:none"><span>Animal Date of Birth</span><input type="date" name="animal_dob" value="{{ project.animal_dob.isoformat() if project.animal_dob else '' }}"></div>
+    <div class="field livestock-only" style="display:none"><span>Initial / Purchase Weight (lbs)</span><input type="number" name="initial_weight" step="0.1" min="0" placeholder="e.g. 55" value="{{ project.initial_weight or '' }}"></div>
+    <div class="field livestock-only" style="display:none"><span>Target Fair Weight (lbs)</span><input type="number" name="target_weight" step="0.1" min="0" placeholder="e.g. 280" value="{{ project.target_weight or '' }}"></div>
+    <div class="field livestock-only" style="display:none"><span>Target / Fair Date</span><input type="date" name="target_date" value="{{ project.target_date.isoformat() if project.target_date else '' }}"></div>
+    <div class="field livestock-only" style="display:none"><span>Ear Tag #</span><input type="text" name="ear_tag" placeholder="e.g. 42" value="{{ project.ear_tag or '' }}"></div>
+    <div class="field livestock-only" style="display:none"><span>Tattoo</span><input type="text" name="tattoo" placeholder="e.g. ABC123" value="{{ project.tattoo or '' }}"></div>
+    <div class="field livestock-only" style="display:none"><span>RFID / 840 EID Tag</span><input type="text" name="rfid_tag" placeholder="e.g. 840003012345678" value="{{ project.rfid_tag or '' }}"></div>
+    <div class="field livestock-only" style="display:none"><span>Registration Number</span><input type="text" name="registration_number" placeholder="e.g. AAA12345678" value="{{ project.registration_number or '' }}"></div>
+    <div class="field" id="scrapieField" style="display:none"><span>Scrapie Tag # (sheep/goats)</span><input type="text" name="scrapie_tag" placeholder="e.g. US-TX-1234" value="{{ project.scrapie_tag or '' }}"></div>
+    <div class="field" id="cogginsField" style="display:none"><span>Coggins Test Date (horses)</span><input type="date" name="coggins_date" value="{{ project.coggins_date.isoformat() if project.coggins_date else '' }}"></div>
+    <div class="field livestock-only" style="display:none"><span>YQCA Certification #</span><input type="text" name="yqca_number" placeholder="e.g. YQCA-12345" value="{{ project.yqca_number or '' }}"></div>
+    <div class="field livestock-only" style="display:none"><span>YQCA Expiry Date</span><input type="date" name="yqca_expiry" value="{{ project.yqca_expiry.isoformat() if project.yqca_expiry else '' }}"></div>
     <label class="field"><span>Start Date</span><input name="start_date" type="date" value="{{ project.start_date.isoformat() if project.start_date else '' }}"></label>
     <label class="field"><span>Purchase Date</span><input name="purchase_date" type="date" value="{{ project.purchase_date.isoformat() if project.purchase_date else '' }}"></label>
     <label class="field"><span>Purchase Price</span><input name="purchase_price" type="number" step="0.01" value="{{ project.purchase_price or 0 }}"></label>

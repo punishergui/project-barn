@@ -356,6 +356,80 @@
     tabs.forEach((tab) => tab.addEventListener('click', () => applyGallery(tab.dataset.galleryFilter)));
     applyGallery('all');
   }
+  // Dynamic breed + sub-type dropdowns on project add/edit
+  const projectTypeSelect = document.getElementById('projectType');
+  const subTypeField = document.getElementById('subTypeField');
+  const subTypeSelect = document.getElementById('subType');
+  const breedField = document.getElementById('breedField');
+  const breedSelect = document.getElementById('breedSelect');
+  const livestockOnlyFields = document.querySelectorAll('.livestock-only');
+  const scrapieField = document.getElementById('scrapieField');
+  const cogginsField = document.getElementById('cogginsField');
+
+  const LIVESTOCK_TYPES = ['cow','dairy','pig','goat','sheep',
+                            'chicken','rabbit','horse'];
+
+  async function loadBreedData(species) {
+    if (!species || !subTypeSelect || !breedSelect || !subTypeField || !breedField) return;
+    try {
+      const resp = await fetch(`/api/breeds/${species}`);
+      const data = await resp.json();
+
+      // Populate sub-type
+      subTypeSelect.innerHTML = '<option value="">Select sub-type...</option>';
+      data.sub_types.forEach(st => {
+        const opt = document.createElement('option');
+        opt.value = st;
+        opt.textContent = st;
+        subTypeSelect.appendChild(opt);
+      });
+      subTypeField.style.display = data.sub_types.length ? '' : 'none';
+
+      // Populate breed
+      breedSelect.innerHTML = '<option value="">Select breed...</option>';
+      data.breeds.forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b;
+        opt.textContent = b;
+        breedSelect.appendChild(opt);
+      });
+      breedField.style.display = data.breeds.length ? '' : 'none';
+
+      // Show/hide livestock-only fields
+      const isLivestock = LIVESTOCK_TYPES.includes(species);
+      livestockOnlyFields.forEach(f => {
+        f.style.display = isLivestock ? '' : 'none';
+      });
+
+      // Species-specific fields
+      if (scrapieField) scrapieField.style.display =
+        (species === 'goat' || species === 'sheep') ? '' : 'none';
+      if (cogginsField) cogginsField.style.display =
+        species === 'horse' ? '' : 'none';
+
+      // Pre-select values on edit page
+      const currentBreed = document.getElementById('currentBreed');
+      const currentSubType = document.getElementById('currentSubType');
+      if (currentBreed && currentBreed.value) {
+        breedSelect.value = currentBreed.value;
+      }
+      if (currentSubType && currentSubType.value) {
+        subTypeSelect.value = currentSubType.value;
+      }
+    } catch(e) {
+      console.error('Failed to load breed data', e);
+    }
+  }
+
+  if (projectTypeSelect) {
+    projectTypeSelect.addEventListener('change', () => {
+      loadBreedData(projectTypeSelect.value);
+    });
+    if (projectTypeSelect.value) {
+      loadBreedData(projectTypeSelect.value);
+    }
+  }
+
 })();
 
 (() => {

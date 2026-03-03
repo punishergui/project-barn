@@ -30,13 +30,27 @@ class Project(db.Model):
     breed = db.Column(db.String(120), nullable=True)
     start_date = db.Column(db.Date, nullable=True)
     purchase_date = db.Column(db.Date, nullable=True)
+    sub_type = db.Column(db.String(80), nullable=True)
+    sex = db.Column(db.String(20), nullable=True)
+    animal_dob = db.Column(db.Date, nullable=True)
+    ear_tag = db.Column(db.String(40), nullable=True)
+    tattoo = db.Column(db.String(40), nullable=True)
+    rfid_tag = db.Column(db.String(40), nullable=True)
+    registration_number = db.Column(db.String(80), nullable=True)
+    scrapie_tag = db.Column(db.String(40), nullable=True)
+    coggins_date = db.Column(db.Date, nullable=True)
+    yqca_number = db.Column(db.String(40), nullable=True)
+    yqca_expiry = db.Column(db.Date, nullable=True)
+    initial_weight = db.Column(db.Float, nullable=True)
+    target_weight = db.Column(db.Float, nullable=True)
+    target_date = db.Column(db.Date, nullable=True)
     purchase_price = db.Column(db.Float, nullable=False, default=0)
     notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     __table_args__ = (
         CheckConstraint(
-            "type IN ('cow','pig','goat','sheep','chicken','rabbit','baking','welding','other')",
+            "type IN ('cow','dairy','pig','goat','sheep','chicken','rabbit','horse','baking','sewing','shooting','garden','robotics','photography','other')",
             name="ck_project_type",
         ),
     )
