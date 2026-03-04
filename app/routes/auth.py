@@ -51,4 +51,6 @@ def upload_avatar(profile_id: int):
 
     profile.avatar_path = filename
     db.session.commit()
+    if session.get('active_profile_id') == profile_id:
+        session.modified = True
     return jsonify({"success": True, "filename": filename})

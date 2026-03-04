@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Feed Inventory · {{ project.name }}{% endblock %}
+{% block content %}
+<section class="form-page">
+  <p class="section-label">FEED INVENTORY</p>
+  <p style="font-size:13px;color:var(--text-muted);margin:0 0 16px">
+    Add each feed or supplement you purchase. When logging daily feedings,
+    select from this list instead of re-entering details each time.
+  </p>
+
+  <form method="post" class="stack-form" style="margin-bottom:24px">
+    <div class="field">
+      <span class="field-label">Feed Name <span style="color:var(--red)">*</span></span>
+      <input type="text" name="name" required placeholder="e.g. Purina ShowChow 50, Local Square Bale">
+    </div>
+    <div class="field">
+      <span class="field-label">Brand (optional)</span>
+      <input type="text" name="brand" placeholder="e.g. Purina, ADM, Local Farm">
+    </div>
+    <div class="field">
+      <span class="field-label">Feed Type</span>
+      <select name="feed_type">
+        <option value="grain">Grain / Pellets</option>
+        <option value="hay">Hay / Forage</option>
+        <option value="supplement">Supplement</option>
+        <option value="mineral">Mineral / Salt</option>
+        <option value="complete">Complete Feed</option>
+        <option value="mixed">Mixed Ration</option>
+        <option value="pasture">Pasture</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="field">
+      <span class="field-label">Bag / Bale Size (lbs)</span>
+      <input type="number" name="bag_size_lbs" id="invBagSize" step="0.1" min="0" placeholder="e.g. 50">
+    </div>
+    <div class="field">
+      <span class="field-label">Cost per Bag / Bale ($)</span>
+      <input type="number" name="cost_per_bag" id="invCostBag" step="0.01" min="0" placeholder="e.g. 24.99">
+      <span class="field-help" id="invCostPerLb"></span>
+    </div>
+    <div class="field">
+      <span class="field-label">Purchase Date</span>
+      <input type="date" name="purchase_date" value="{{ today.isoformat() if today else '' }}">
+    </div>
+    <div class="field">
+      <span class="field-label">Notes (optional)</span>
+      <textarea name="notes" rows="2" placeholder="Supplier, location, observations..."></textarea>
+    </div>
+    <button class="submit-btn" type="submit">Add to Inventory</button>
+  </form>
+
+  {% if items %}
+  <p class="section-label" style="margin-top:8px">CURRENT INVENTORY</p>
+  <div class="task-list">
+    {% for item in items %}
+    <article class="task-card" style="flex-direction:column;align-items:flex-start;gap:6px">
+      <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
+        <div>
+          <strong style="font-size:15px">{{ item.name }}</strong>
+          {% if item.brand %}<span style="color:var(--text-muted);font-size:12px"> · {{ item.brand }}</span>{% endif %}
+        </div>
+        {% if active_profile.role == 'parent' %}
+        <form method="post" action="/projects/{{ project.id }}/feed/inventory/{{ item.id }}/delete" style="margin:0">
+          <button type="submit" class="danger-btn" style="font-size:11px;padding:4px 8px">Remove</button>
+        </form>
+        {% endif %}
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <span class="mini-chip">{{ item.feed_type|title }}</span>
+        {% if item.bag_size_lbs %}<span style="font-size:12px;color:var(--text-muted)">{{ item.bag_size_lbs }} lbs/bag</span>{% endif %}
+        {% if item.cost_per_bag %}<span style="font-size:12px;color:var(--text-muted)">${{ '%.2f'|format(item.cost_per_bag) }}/bag</span>{% endif %}
+        {% if item.cost_per_lb %}<span style="font-size:12px;color:var(--brand);font-weight:600">${{ '%.3f'|format(item.cost_per_lb) }}/lb</span>{% endif %}
+        {% if item.purchase_date %}<span style="font-size:12px;color:var(--text-muted)">{{ item.purchase_date.strftime('%b %-d, %Y') }}</span>{% endif %}
+      </div>
+      {% if item.notes %}<p style="font-size:12px;color:var(--text-muted);margin:0">{{ item.notes }}</p>{% endif %}
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state" style="padding:40px 20px">
+    <div style="font-size:40px;margin-bottom:12px">🌾</div>
+    <strong>No Feed in Inventory</strong>
+    <p style="margin:6px 0 0;font-size:13px">
+      Add the feeds and supplements you've purchased.<br>
+      You'll select from this list when logging daily feedings.
+    </p>
+  </div>
+  {% endif %}
+</section>
+
+<script>
+  const bagSizeInput = document.getElementById('invBagSize');
+  const costBagInput = document.getElementById('invCostBag');
+  const costPerLbEl = document.getElementById('invCostPerLb');
+  function updateCostPerLb() {
+    const bag = parseFloat(bagSizeInput?.value);
+    const cost = parseFloat(costBagInput?.value);
+    if (bag && cost && bag > 0 && costPerLbEl) {
+      costPerLbEl.textContent = `Cost per lb: $${(cost/bag).toFixed(3)}`;
+    } else if (costPerLbEl) {
+      costPerLbEl.textContent = '';
+    }
+  }
+  bagSizeInput?.addEventListener('input', updateCostPerLb);
+  costBagInput?.addEventListener('input', updateCostPerLb);
+</script>
+{% endblock %}

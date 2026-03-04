@@ -1,9 +1,25 @@
 {% extends "base.html" %}
 {% block title %}Edit Profile · Project Barn{% endblock %}
 {% block content %}
+<div data-edit-profile style="display:none" id="editProfileMeta" data-profile-id="{{ edit_profile_id }}"></div>
 <section class="form-page">
   <form method="post" class="stack-form">
     {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
+    <div class="field" style="align-items:center;text-align:center">
+      <span>Profile Photo</span>
+      <div class="avatar-round" id="editAvatarPreview"
+           style="width:72px;height:72px;font-size:28px;margin:8px auto;background:{{ profile.color }}">
+        {% if profile.avatar_path %}
+        <img src="/uploads/{{ profile.avatar_path }}" class="profile-avatar-img" alt="{{ profile.name }}">
+        {% else %}
+        {{ profile.name[0].upper() }}
+        {% endif %}
+      </div>
+      <input type="file" id="editAvatarInput" accept="image/*" style="display:none">
+      <button type="button" class="secondary-btn" onclick="document.getElementById('editAvatarInput').click()" style="margin:4px auto;display:block">
+        Change Photo
+      </button>
+    </div>
     <label class="field"><span>Name</span><input name="name" value="{{ profile.name }}" required></label>
     <label class="field"><span>Role</span><select name="role"><option value="parent" {% if profile.role=='parent' %}selected{% endif %}>Parent</option><option value="kid" {% if profile.role=='kid' %}selected{% endif %}>Kid</option><option value="grandparent" {% if profile.role=='grandparent' %}selected{% endif %}>Grandparent</option></select></label>
     <label class="field"><span>New PIN</span><input name="new_pin" maxlength="4"></label>

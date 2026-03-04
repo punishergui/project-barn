@@ -2,24 +2,84 @@
 {% block title %}Log Feed · {{ project.name }}{% endblock %}
 {% block content %}
 <section class="form-page">
-  <form method="post" class="form-card">
-    <label class="field"><span>Date</span><input id="treatmentDate" type="date" name="date" value="{{ today if today is defined else '' }}" required></label>
-    <label class="field">
-      <span>Feed Type</span>
-      <select name="feed_type">
-        {% for t in ['grain','hay','supplement','mineral','pasture','complete','mixed','other'] %}
-        <option value="{{ t }}">{{ t|title }}</option>
+  <form method="post" class="stack-form" id="feedLogForm">
+
+    <div class="field">
+      <span class="field-label">Date</span>
+      <input type="date" name="date" value="{{ today.isoformat() if today else '' }}" required>
+    </div>
+
+    <div class="field" id="feedSelectField">
+      <span class="field-label">What did you feed?</span>
+      <span class="field-help">Select a feed you've purchased, or add a new one to your inventory.</span>
+      <select name="feed_inventory_id" id="feedInventorySelect">
+        <option value="">— Select feed —</option>
+        {% for item in feed_inventory_items %}
+        <option value="{{ item.id }}"
+                data-type="{{ item.feed_type }}"
+                data-brand="{{ item.brand or '' }}"
+                data-bag="{{ item.bag_size_lbs or '' }}"
+                data-cost="{{ item.cost_per_bag or '' }}">
+          {{ item.name }}{% if item.brand %} ({{ item.brand }}){% endif %}
+          {% if item.cost_per_lb %} · ${{ '%.3f'|format(item.cost_per_lb) }}/lb{% endif %}
+        </option>
         {% endfor %}
+        <option value="__manual__">+ Enter manually...</option>
       </select>
-    </label>
-    <label class="field"><span>Feed Brand / Product Name</span><input type="text" name="feed_brand" placeholder="e.g. Purina Show Chow"></label>
-    <label class="field"><span>Amount (lbs)</span><input id="feedAmount" type="number" name="amount_lbs" step="0.1" required><span class="field-help">Total pounds fed today across all feedings combined.</span></label>
-    <label class="field"><span>Feedings per Day</span><input type="number" name="feedings_per_day" min="1" value="1"></label>
-    <label class="field"><span>Bag Size (lbs)</span><input id="feedBagSize" type="number" name="bag_size_lbs" step="0.1" placeholder="e.g. 50"><span class="field-help">Used to calculate cost per lb and estimate how long your supply will last.</span></label>
-    <label class="field"><span>Cost per Bag ($)</span><input id="feedCostBag" type="number" name="cost_per_bag" step="0.01" placeholder="e.g. 24.99"><span class="field-help">Helps track total feed cost on the expenses report.</span></label>
+      <a href="/projects/{{ project.id }}/feed/inventory"
+         class="field-help" style="color:var(--brand);font-weight:600;margin-top:4px;display:inline-block">
+         + Add / manage feed inventory →</a>
+    </div>
+
+    <div id="manualFeedFields" {% if feed_inventory_items %}style="display:none"{% endif %}>
+      <div class="field">
+        <span class="field-label">Feed Name / Brand</span>
+        <input type="text" name="feed_brand" placeholder="e.g. Purina Show Chow">
+      </div>
+      <div class="field">
+        <span class="field-label">Feed Type</span>
+        <select name="feed_type">
+          <option value="grain">Grain / Pellets</option>
+          <option value="hay">Hay / Forage</option>
+          <option value="supplement">Supplement</option>
+          <option value="mineral">Mineral / Salt</option>
+          <option value="complete">Complete Feed</option>
+          <option value="mixed">Mixed Ration</option>
+          <option value="pasture">Pasture</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="field-label">Amount Fed</span>
+      <span class="field-help">How much did you feed? Enter a number and choose the unit.</span>
+      <div style="display:flex;gap:8px">
+        <input type="number" name="amount_lbs" id="feedAmount" step="0.25" min="0" required
+               placeholder="e.g. 2" style="flex:1">
+        <select name="amount_unit" id="feedAmountUnit" style="width:110px">
+          <option value="lbs">lbs</option>
+          <option value="scoops">scoops</option>
+          <option value="flakes">flakes</option>
+          <option value="cups">cups</option>
+          <option value="kg">kg</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="field-label">Feedings Today</span>
+      <input type="number" name="feedings_per_day" min="1" value="1" step="1">
+    </div>
+
     <div id="feedCostPreview" class="feed-cost-preview"></div>
-    <label class="field"><span>Notes</span><textarea name="notes"></textarea></label>
-    <button class="btn-primary" type="submit">Log Feed Entry</button>
+
+    <div class="field">
+      <span class="field-label">Notes (optional)</span>
+      <textarea name="notes" rows="2" placeholder="e.g. Animal seemed hungry, ate well"></textarea>
+    </div>
+
+    <button class="submit-btn" type="submit">Log Feeding</button>
   </form>
 </section>
 {% endblock %}

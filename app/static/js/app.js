@@ -135,6 +135,19 @@
           } else {
             avatarRound.innerHTML = `<img src="/uploads/${data.filename}?v=${Date.now()}" alt="${tile.dataset.profileName}" class="profile-avatar-img">`;
           }
+          // Update top bar avatar
+          document.querySelectorAll('.top-avatar-img').forEach(img => {
+            if (img.closest('[data-profile-id]')?.dataset.profileId
+                == tile.dataset.profileId ||
+                !img.closest('[data-profile-id]')) {
+              img.src = `/uploads/${data.filename}?v=${Date.now()}`;
+            }
+          });
+          // Update sidebar avatar
+          const sidebarAvatar = document.querySelector('.nav-profile-avatar img');
+          if (sidebarAvatar) {
+            sidebarAvatar.src = `/uploads/${data.filename}?v=${Date.now()}`;
+          }
           avatarInput.value = '';
         });
 
@@ -305,7 +318,7 @@
         div.dataset.goalId = data.id;
         div.innerHTML = `<button type="button" class="goal-check">
           <svg viewBox="0 0 24 24" width="18" height="18">
-            <circle cx="12" cy="12" r="9" stroke="var(--muted)" stroke-width="1.5" fill="none"/>
+            <circle cx="12" cy="12" r="9" stroke="var(--text-muted)" stroke-width="1.5" fill="none"/>
           </svg></button><span>${data.text}</span>`;
         goalsList.appendChild(div);
         attachGoalToggle(div);
@@ -643,6 +656,175 @@
       const selected = exportForm.querySelector('input[name="project_id"]:checked');
       if (!selected) return;
       window.location.href = `/reports/export/${selected.value}`;
+    });
+  }
+})();
+
+(() => {
+  // Edit profile avatar upload
+  const editAvatarInput = document.getElementById('editAvatarInput');
+  if (editAvatarInput) {
+    editAvatarInput.addEventListener('change', async () => {
+      const file = editAvatarInput.files?.[0];
+      if (!file) return;
+      const profileId = document.getElementById('editProfileMeta')?.dataset.profileId;
+      if (!profileId) return;
+      const form = new FormData();
+      form.append('avatar', file);
+      const resp = await fetch(`/profiles/${profileId}/avatar`, {method:'POST', body:form});
+      const data = await resp.json();
+      if (data.success) {
+        const preview = document.getElementById('editAvatarPreview');
+        if (preview) {
+          preview.innerHTML = `<img src="/uploads/${data.filename}?v=${Date.now()}" class="profile-avatar-img" alt="avatar">`;
+        }
+      }
+    });
+  }
+
+  // Feed inventory select — show/hide manual entry fields
+  const feedInvSelect = document.getElementById('feedInventorySelect');
+  const manualFeedFields = document.getElementById('manualFeedFields');
+  if (feedInvSelect) {
+    feedInvSelect.addEventListener('change', () => {
+      const val = feedInvSelect.value;
+      if (val === '__manual__' || val === '') {
+        if (manualFeedFields) manualFeedFields.style.display = '';
+      } else {
+        if (manualFeedFields) manualFeedFields.style.display = 'none';
+      }
+    });
+  }
+
+  // Smart log sheet (2-step)
+  const logBackdrop = document.getElementById('logBackdrop');
+  const openLogBtn = document.getElementById('openLogSheet');
+  const closeLogBtn = document.getElementById('closeLogSheet');
+  const logTypeStep = document.getElementById('logTypeStep');
+  const logDetailStep = document.getElementById('logDetailStep');
+  const logSheetTitle = document.getElementById('logSheetTitle');
+  const logBackBtn = document.getElementById('logBackBtn');
+  const logSubmitBtn = document.getElementById('logSubmitBtn');
+  const PROJECT_ID = document.body.dataset.projectId;
+  let currentTaskType = null;
+
+  const TYPE_LABELS = {
+    feed:'Log Feeding', weigh:'Log Weight',
+    water:'Log Water', walk:'Log Exercise',
+    groom:'Log Grooming', note:'Log Note'
+  };
+
+  function openLogSheet() {
+    if (logBackdrop) {
+      logBackdrop.classList.add('open');
+      if (logTypeStep) logTypeStep.style.display = '';
+      if (logDetailStep) logDetailStep.style.display = 'none';
+      if (logSheetTitle) logSheetTitle.textContent = 'Log Activity';
+      currentTaskType = null;
+    }
+  }
+
+  function closeLogSheet() {
+    if (logBackdrop) logBackdrop.classList.remove('open');
+  }
+
+  if (openLogBtn) openLogBtn.addEventListener('click', openLogSheet);
+  if (closeLogBtn) closeLogBtn.addEventListener('click', closeLogSheet);
+  if (logBackBtn) logBackBtn.addEventListener('click', () => {
+    if (logTypeStep) logTypeStep.style.display = '';
+    if (logDetailStep) logDetailStep.style.display = 'none';
+    if (logSheetTitle) logSheetTitle.textContent = 'Log Activity';
+  });
+
+  async function loadFeedInventory() {
+    if (!PROJECT_ID) return;
+    const sel = document.getElementById('logFeedSelect');
+    if (!sel) return;
+    try {
+      const resp = await fetch(`/api/feed-inventory/${PROJECT_ID}`);
+      const items = await resp.json();
+      sel.innerHTML = items.length
+        ? items.map(i =>
+            `<option value="${i.id}" data-type="${i.feed_type}">`
+            + `${i.name}${i.brand ? ' ('+i.brand+')' : ''}`
+            + `${i.cost_per_lb ? ' · $'+i.cost_per_lb.toFixed(3)+'/lb' : ''}`
+            + `</option>`).join('')
+            + `<option value="">-- Enter manually --</option>`
+        : `<option value="">No feed in inventory — add some first</option>`;
+    } catch(e) {
+      console.error('Feed inventory load error', e);
+    }
+  }
+
+  document.querySelectorAll('.log-type').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const type = btn.dataset.taskType;
+      currentTaskType = type;
+      if (logSheetTitle) logSheetTitle.textContent = TYPE_LABELS[type] || 'Log';
+
+      document.querySelectorAll('.log-fields').forEach(el => {
+        el.style.display = 'none';
+      });
+      const typeField = document.querySelector(`.log-fields[data-for-type="${type}"]`);
+      if (typeField) typeField.style.display = '';
+
+      const sharedNotes = document.querySelector('.log-shared-notes');
+      if (sharedNotes) {
+        sharedNotes.style.display = ['water','walk','groom'].includes(type) ? '' : 'none';
+      }
+
+      if (type === 'feed') await loadFeedInventory();
+
+      if (logTypeStep) logTypeStep.style.display = 'none';
+      if (logDetailStep) logDetailStep.style.display = '';
+    });
+  });
+
+  if (logSubmitBtn) {
+    logSubmitBtn.addEventListener('click', async () => {
+      if (!currentTaskType || !PROJECT_ID) return;
+      logSubmitBtn.disabled = true;
+      logSubmitBtn.textContent = 'Saving...';
+
+      const payload = {task_type: currentTaskType};
+
+      if (currentTaskType === 'weigh') {
+        const w = parseFloat(document.getElementById('logWeight')?.value);
+        if (w) payload.weight_lbs = w;
+      } else if (currentTaskType === 'feed') {
+        const invId = document.getElementById('logFeedSelect')?.value;
+        const amt = parseFloat(document.getElementById('logFeedAmount')?.value);
+        const unit = document.getElementById('logFeedUnit')?.value || 'lbs';
+        if (invId) payload.feed_inventory_id = parseInt(invId);
+        if (amt) payload.amount_lbs = amt;
+        payload.amount_unit = unit;
+      } else {
+        const dur = parseFloat(document.getElementById('logDuration')?.value);
+        if (dur) payload.duration_minutes = dur * 1;
+        const notes = document.getElementById('logNotes')?.value?.trim()
+            || document.getElementById('logNotesShort')?.value?.trim();
+        if (notes) payload.notes = notes;
+      }
+
+      try {
+        await fetch(`/projects/${PROJECT_ID}/tasks/log`, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(payload)
+        });
+        closeLogSheet();
+        window.location.reload();
+      } catch(e) {
+        logSubmitBtn.disabled = false;
+        logSubmitBtn.textContent = 'Log It';
+        alert('Error saving — try again');
+      }
+    });
+  }
+
+  if (logBackdrop) {
+    logBackdrop.addEventListener('click', (e) => {
+      if (e.target === logBackdrop) closeLogSheet();
     });
   }
 })();
