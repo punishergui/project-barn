@@ -1,20 +1,22 @@
 services:
-  barn-backend:
+  backend:
     build:
       context: .
       dockerfile: Dockerfile
     image: ghcr.io/punishergui/project-barn-backend:local
-    container_name: barn-backend
+    container_name: project-barn-backend
     restart: unless-stopped
+    networks:
+      - proxy
+    ports:
+      - "5000:5000"
     environment:
-      TZ: ${TZ:-America/Chicago}
+      TZ: America/Chicago
       SECRET_KEY: ${SECRET_KEY}
       BARN_DB_PATH: ${BARN_DB_PATH:-/data/barn.db}
       BARN_UPLOAD_DIR: ${BARN_UPLOAD_DIR:-/data/uploads}
     volumes:
       - ./data:/data
-    networks:
-      - proxy
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.barn-api.rule=Host(`barn.white-house.cc`) && PathPrefix(`/api`)"
@@ -23,28 +25,28 @@ services:
       - "traefik.http.routers.barn-api.priority=100"
       - "traefik.http.services.barn-api.loadbalancer.server.port=5000"
 
-  barn-frontend:
+  frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     image: ghcr.io/punishergui/project-barn-frontend:local
-    container_name: barn-frontend
+    container_name: project-barn-frontend
     restart: unless-stopped
     depends_on:
-      - barn-backend
-    environment:
-      BACKEND_ORIGIN: http://barn-backend:5000
+      - backend
     networks:
       - proxy
+    ports:
+      - "3000:3000"
+    environment:
+      BACKEND_ORIGIN: http://backend:5000
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.barn.rule=Host(`barn.white-house.cc`)"
       - "traefik.http.routers.barn.entrypoints=websecure"
       - "traefik.http.routers.barn.tls=true"
-      - "traefik.http.routers.barn.priority=1"
       - "traefik.http.services.barn.loadbalancer.server.port=3000"
 
 networks:
   proxy:
-    external: true
-    name: proxy
+    driver: bridge

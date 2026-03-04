@@ -109,7 +109,7 @@ EXPENSE_CATEGORIES = {
 
 @dashboard_bp.before_app_request
 def require_session():
-    if request.path.startswith("/static") or request.path.startswith("/profiles") or request.path.startswith("/uploads"):
+    if request.path.startswith("/static") or request.path.startswith("/profiles") or request.path.startswith("/uploads") or request.path.startswith("/api"):
         return
     if request.endpoint == "auth.logout":
         return
