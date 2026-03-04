@@ -9,6 +9,13 @@
       {% if project_photos.get(project.id) %}<img src="/uploads/{{ project_photos[project.id].filename }}" alt="{{ project.name }}" class="list-thumb">{% else %}<span class="task-emoji">{{ project_emoji.get(project.type, '📋') }}</span>{% endif %}
       <div class="task-info"><strong>{{ project.name }}</strong><span>{{ profiles[project.owner_id].name }} · {{ project.type|capitalize }}</span></div>
     </a>
+    {% else %}
+    <div class="empty-state">
+      <span class="empty-state-icon">🐄</span>
+      <h3>No Projects Yet</h3>
+      <p>Add your first animal or 4-H project to start tracking feed, health, and show results.</p>
+      <a class="empty-state-btn" href="/projects/add">+ Add First Project</a>
+    </div>
     {% endfor %}
   </div>
 </section>

@@ -24,10 +24,19 @@
       {% endif %}
     </a>
     {% else %}
-    <p class="empty-state" data-empty-shows>No shows yet</p>
+    <div class="empty-state" data-empty-shows>
+      <span class="empty-state-icon">🏆</span>
+      <h3>No Shows Scheduled</h3>
+      <p>Add a fair or show to track entry deadlines, compliance paperwork, and results.</p>
+      <a class="empty-state-btn" href="/shows/add">+ Add a Show</a>
+    </div>
     {% endfor %}
     {% if shows %}
-    <p class="empty-state" data-empty-shows hidden>No shows yet</p>
+    <div class="empty-state" data-empty-shows hidden>
+      <span class="empty-state-icon">🏆</span>
+      <h3>No Shows Match</h3>
+      <p>Try switching between Upcoming and Past filters.</p>
+    </div>
     {% endif %}
   </div>
 </section>

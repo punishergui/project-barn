@@ -12,7 +12,7 @@
         {% endfor %}
       </select>
     </label>
-    <label class="field"><span>Product / Treatment Name</span><input type="text" name="product_name" placeholder="e.g. CD-T Vaccine, Ivermectin, LA-200" required></label>
+    <label class="field"><span>Product / Treatment Name</span><input type="text" name="product_name" placeholder="e.g. CD-T Vaccine, Ivermectin, LA-200" required><span class="field-help">Exact brand or generic name as it appears on the label.</span></label>
     <label class="field"><span>Dosage</span><input type="text" name="dosage" placeholder="e.g. 2ml per 100lbs"></label>
     <label class="field" id="routeField"><span>Route</span>
       <select name="route">
@@ -21,10 +21,11 @@
         <option value="{{ r }}">{{ r }}</option>
         {% endfor %}
       </select>
+      <span class="field-help">IM = intramuscular · SQ = subcutaneous · IV = intravenous · PO = oral.</span>
     </label>
-    <label class="field"><span>Lot Number</span><input type="text" name="lot_number" placeholder="e.g. 12345A"></label>
+    <label class="field"><span>Lot Number</span><input type="text" name="lot_number" placeholder="e.g. 12345A"><span class="field-help">From the product label — needed for VCPR and show health records.</span></label>
     <label class="field"><span>Administered By</span><input type="text" name="administered_by" placeholder="e.g. Dr. Smith, Self"></label>
-    <label class="field"><span>Withdrawal Days</span><input id="withdrawalDays" type="number" name="withdrawal_days" placeholder="e.g. 28"></label>
+    <label class="field"><span>Withdrawal Days</span><input id="withdrawalDays" type="number" name="withdrawal_days" placeholder="e.g. 28"><span class="field-help">Days after treatment before the animal can be shown or sold for food — shown as a warning on the health log.</span></label>
     <div id="withdrawalPreview" class="feed-cost-preview"></div>
     <div id="fairDateWarning" class="withdrawal-warning" style="display:none"></div>
     <label class="field"><span>Cost ($)</span><input type="number" name="cost" step="0.01" placeholder="Will auto-create a vet expense"></label>

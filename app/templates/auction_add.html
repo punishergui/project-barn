@@ -16,10 +16,10 @@
       </select>
     </label>
     <label class="field"><span>Weight at Sale (lbs)</span><input type="number" step="0.1" name="weight_at_sale"></label>
-    <label class="field"><span>Price per lb ($)</span><input type="number" step="0.01" name="price_per_lb"></label>
+    <label class="field"><span>Price per lb ($)</span><input type="number" step="0.01" name="price_per_lb"><span class="field-help">Used to auto-calculate total if you enter the sale weight.</span></label>
     <label class="field"><span>Flat Price ($)</span><input type="number" step="0.01" name="flat_price"></label>
     <label class="field"><span>Total Price ($)</span><input type="number" step="0.01" name="total_price"></label>
-    <label class="field"><span>Add-ons ($)</span><input type="number" step="0.01" name="addon_amount" value="0"></label>
+    <label class="field"><span>Add-ons ($)</span><input type="number" step="0.01" name="addon_amount" value="0"><span class="field-help">Extra buyer premium on top of the sale price — counts toward total income.</span></label>
     <label class="field"><span>Deductions ($)</span><input type="number" step="0.01" name="deductions" value="0"></label>
     <label class="field"><span>Notes</span><textarea name="notes"></textarea></label>
     <button class="submit-btn" type="submit">Save Sale</button>

@@ -5,8 +5,8 @@
   <div class="form-card">
     <p class="section-label">SUMMARY</p>
     <h2 style="margin:0">{{ project.name }}</h2>
-    <p style="margin:6px 0 0;color:var(--muted)">Total net proceeds: ${{ '%.2f'|format(total_proceeds) }}</p>
-    <p style="margin:4px 0 0;color:var(--muted)">Unsent thank-yous: {{ unsent|length }}</p>
+    <p style="margin:6px 0 0;color:var(--text-muted)">Total net proceeds: ${{ '%.2f'|format(total_proceeds) }}</p>
+    <p style="margin:4px 0 0;color:var(--text-muted)">Unsent thank-yous: {{ unsent|length }}</p>
     <a class="inline-link-btn" href="/projects/{{ project.id }}/auction/add" style="margin-top:10px;display:inline-block">Add Sale</a>
   </div>
 
@@ -33,7 +33,12 @@
       </div>
     </article>
     {% else %}
-    <p class="empty-state">No auction sales yet.</p>
+    <div class="empty-state">
+      <span class="empty-state-icon">🤝</span>
+      <h3>No Auction Sales Yet</h3>
+      <p>Record your sale results, buyer info, and add-ons — then track thank-you letters sent.</p>
+      <a class="empty-state-btn" href="/projects/{{ project.id }}/auction/add">+ Add Sale</a>
+    </div>
     {% endfor %}
   </div>
 </section>

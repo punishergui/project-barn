@@ -45,7 +45,12 @@
       </div>
     </article>
     {% else %}
-    <p class="empty-state">🌾 No feed entries yet</p>
+    <div class="empty-state">
+      <span class="empty-state-icon">🌾</span>
+      <h3>No Feed Logged Yet</h3>
+      <p>Log each feeding to track total consumption, cost per pound, and feed conversion ratio.</p>
+      <a class="empty-state-btn" href="/projects/{{ project.id }}/feed/add">+ Log First Feeding</a>
+    </div>
     {% endfor %}
   </div>
 </section>

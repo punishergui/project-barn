@@ -42,7 +42,12 @@
       </div>
     </article>
   {% else %}
-    <p class="empty-state">No expenses yet</p>
+    <div class="empty-state">
+      <span class="empty-state-icon">💸</span>
+      <h3>No Expenses Logged</h3>
+      <p>Track feed, vet bills, entry fees, and supplies to build your project financial record.</p>
+      <a class="empty-state-btn" href="/">View Projects</a>
+    </div>
   {% endif %}
 </section>
 {% endblock %}

@@ -1227,3 +1227,138 @@ h1, h2, h3 { font-family: "Playfair Display", serif; }
   body.profiles-page-body .bottom-nav { display: none; }
   body.profiles-page-body .content { margin-left: 0; }
 }
+
+/* ── Utility / Alias Classes ── */
+.card {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--divider);
+  padding: 16px;
+}
+.card-compact {
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--divider);
+  padding: 13px 14px;
+}
+/* form-card = card container for form sections */
+.form-card {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  border: 1px solid var(--divider);
+  box-shadow: var(--shadow-sm);
+  padding: 14px 16px;
+  display: grid;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+/* btn-primary = alias for submit-btn */
+.btn-primary {
+  width: 100%;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--green);
+  color: var(--text-inv);
+  padding: 13px 14px;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+}
+.btn-primary:hover { background: var(--green-2); }
+
+/* ── Getting Started Card ── */
+.getting-started-card {
+  background: linear-gradient(135deg, var(--green-dark), var(--green));
+  border-radius: var(--radius);
+  padding: 20px;
+  color: var(--text-inv);
+  margin-bottom: 16px;
+}
+.getting-started-card h2 { color: var(--text-inv); font-size: 20px; margin: 0 0 8px; }
+.getting-started-card p { color: rgba(244,247,242,.85); font-size: 14px; line-height: 1.5; margin: 0 0 16px; }
+.getting-started-btn {
+  background: #fff;
+  color: var(--green-dark);
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 10px 20px;
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+  display: inline-block;
+  cursor: pointer;
+}
+
+/* ── Admin Quick-Link ── */
+.admin-quick-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+  color: var(--text);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.admin-quick-link:hover { background: var(--bg-card-2); }
+.admin-quick-link svg { width: 22px; height: 22px; stroke: var(--green); fill: none; stroke-width: 1.8; flex-shrink: 0; }
+.admin-quick-link .admin-link-chevron { margin-left: auto; stroke: var(--text-muted); }
+
+/* ── Tab Count Badge ── */
+.tab-count {
+  display: inline-block;
+  background: var(--green);
+  color: #fff;
+  border-radius: 20px;
+  font-size: 9px;
+  padding: 1px 5px;
+  margin-left: 3px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+/* ── Rate of Gain Table ── */
+.rog-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.rog-table th {
+  text-align: left; font-size: 10px; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--text-muted); font-weight: 700;
+  padding: 6px 0; border-bottom: 1px solid var(--divider);
+}
+.rog-table td { padding: 9px 0; border-bottom: 1px solid var(--divider); color: var(--text); }
+.adg-value { color: var(--green); font-weight: 700; }
+
+/* ── Auction ── */
+.auction-net { font-family: "Playfair Display", serif; font-size: 20px; color: var(--green); font-weight: 700; }
+.thankyou-btn {
+  background: none; border: 1.5px solid var(--gold); color: var(--gold);
+  border-radius: var(--radius-sm); padding: 5px 12px; font-size: 12px; font-weight: 700;
+  cursor: pointer;
+}
+.thankyou-sent { font-size: 12px; color: var(--green); font-weight: 600; }
+
+/* ── Rich Empty State ── */
+.empty-state-icon { font-size: 40px; margin-bottom: 10px; display: block; }
+.empty-state h3 { color: var(--green-dark); font-size: 18px; margin: 0 0 8px; }
+.empty-state p { font-size: 14px; line-height: 1.5; margin: 0 0 16px; color: var(--text-muted); }
+.empty-state-btn {
+  display: inline-block;
+  background: var(--green);
+  color: var(--text-inv);
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 10px 22px;
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* ── Show compliance status ── */
+.cvi-valid { color: var(--green); font-weight: 700; }
+.cvi-review { color: var(--red); font-weight: 700; }

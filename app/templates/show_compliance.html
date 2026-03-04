@@ -5,13 +5,13 @@
   <div class="form-card">
     <p class="section-label">SHOW</p>
     <h2 style="margin:0 0 4px">{{ show.name }}</h2>
-    <p style="margin:0 0 4px;color:var(--muted)">{{ project.name }}{% if project.type %} · {{ project.type|title }}{% endif %}</p>
-    <p style="margin:0;color:var(--muted)">Class: {{ entry.class_name or 'Not set' }}</p>
+    <p style="margin:0 0 4px;color:var(--text-muted)">{{ project.name }}{% if project.type %} · {{ project.type|title }}{% endif %}</p>
+    <p style="margin:0;color:var(--text-muted)">Class: {{ entry.class_name or 'Not set' }}</p>
   </div>
 
   <form method="post" class="form-card">
     <p class="section-label">PRE-SHOW PAPERWORK</p>
-    <label class="field"><span>CVI Date</span><input type="date" name="cvi_date" value="{{ compliance.cvi_date.isoformat() if compliance and compliance.cvi_date else '' }}"></label>
+    <label class="field"><span>CVI Date</span><input type="date" name="cvi_date" value="{{ compliance.cvi_date.isoformat() if compliance and compliance.cvi_date else '' }}"><span class="field-help">Certificate of Veterinary Inspection — required at most shows. Valid period varies by state (usually 30 days).</span></label>
     <label class="field"><span>CVI Issuing Vet</span><input type="text" name="cvi_vet" value="{{ compliance.cvi_vet if compliance and compliance.cvi_vet else '' }}"></label>
     <label class="field"><span>CVI Expiry Date</span><input type="date" name="cvi_expiry" value="{{ compliance.cvi_expiry.isoformat() if compliance and compliance.cvi_expiry else '' }}"></label>
     {% set cvi_ok = compliance and compliance.cvi_expiry and compliance.cvi_expiry >= today %}
@@ -23,7 +23,8 @@
       <span style="color:#ffb4a8;font-weight:700">⚠ Review</span>
       {% endif %}
     </p>
-    <label style="display:flex;gap:8px;align-items:center;margin:6px 0 10px"><input type="checkbox" name="yqca_verified" {% if compliance and compliance.yqca_verified %}checked{% endif %}> <span>YQCA certification confirmed</span></label>
+    <label style="display:flex;gap:8px;align-items:center;margin:6px 0 4px"><input type="checkbox" name="yqca_verified" {% if compliance and compliance.yqca_verified %}checked{% endif %}> <span>YQCA certification confirmed</span></label>
+    <span class="field-help" style="margin-bottom:10px;display:block">Youth for the Quality Care of Animals — most states require a current certificate to show.</span>
     <label style="display:flex;gap:8px;align-items:center;margin:6px 0 10px"><input type="checkbox" name="entry_fee_paid" {% if compliance and compliance.entry_fee_paid %}checked{% endif %}> <span>Entry Fee Paid</span></label>
 
     <p class="section-label" style="margin-top:12px">HEALTH TESTING</p>
@@ -32,7 +33,7 @@
     <label class="field"><span>Health Test Result</span><input type="text" name="health_test_result" placeholder="e.g. Negative, Clean" value="{{ compliance.health_test_result if compliance and compliance.health_test_result else '' }}"></label>
 
     <p class="section-label" style="margin-top:12px">WEIGH-IN</p>
-    <label class="field"><span>Weigh-In Time</span><input type="text" name="weigh_in_time" placeholder="e.g. 7:30 AM" value="{{ compliance.weigh_in_time if compliance and compliance.weigh_in_time else '' }}"></label>
+    <label class="field"><span>Weigh-In Time</span><input type="text" name="weigh_in_time" placeholder="e.g. 7:30 AM" value="{{ compliance.weigh_in_time if compliance and compliance.weigh_in_time else '' }}"><span class="field-help">Official weigh-in determines your class and starts the ADG calculation.</span></label>
     <label class="field"><span>Weigh-In Weight (lbs)</span><input type="number" step="0.1" name="weigh_in_weight" value="{{ compliance.weigh_in_weight if compliance and compliance.weigh_in_weight is not none else '' }}"></label>
     <label style="display:flex;gap:8px;align-items:center;margin:6px 0 10px"><input type="checkbox" name="weigh_in_official" {% if compliance and compliance.weigh_in_official %}checked{% endif %}> <span>Official weigh-in completed</span></label>
 

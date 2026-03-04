@@ -3,7 +3,8 @@
 {% block content %}
 <section class="form-page">
   <div class="stack-form">
-    <a class="inline-link-btn" href="/settings/profiles/add">+ Add Profile</a>
+    <p style="color:var(--text-muted);font-size:14px;margin:0 0 12px">Add family members and manage their access. Kids can log tasks and view projects. Parents have full access including admin.</p>
+    <a class="submit-btn" href="/settings/profiles/add" style="text-decoration:none;display:block;text-align:center;margin-bottom:8px">+ Add Profile</a>
     {% for profile in profiles %}
     {% set age = ((today - profile.birthdate).days // 365) if profile.birthdate else None %}
     <article class="task-card {% if profile.archived %}is-archived{% endif %}">

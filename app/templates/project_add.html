@@ -25,12 +25,14 @@
         <option value="photography">Photography / Arts</option>
         <option value="other">Other Project</option>
       </select>
+      <span class="field-help">Determines which livestock fields appear below.</span>
     </div>
     <div class="field" id="subTypeField" style="display:none">
       <span>Sub-type / Class</span>
       <select name="sub_type" id="subType">
         <option value="">Select sub-type...</option>
       </select>
+      <span class="field-help">e.g. Market, Breeding, Show — check your premium book for class rules.</span>
     </div>
     <label class="field"><span>Owner</span>
       <select name="owner_id">
@@ -44,19 +46,20 @@
       <select name="breed" id="breedSelect">
         <option value="">Select breed...</option>
       </select>
+      <span class="field-help">Used in CVI paperwork and show registration.</span>
     </div>
     <div class="field livestock-only" style="display:none"><span>Sex</span><select name="sex"><option value="">Select...</option><option value="male">Male</option><option value="female">Female</option><option value="wether">Wether (castrated male)</option><option value="barrow">Barrow (castrated male swine)</option><option value="gilt">Gilt (young female swine)</option></select></div>
     <div class="field livestock-only" style="display:none"><span>Animal Date of Birth</span><input type="date" name="animal_dob"></div>
-    <div class="field livestock-only" style="display:none"><span>Initial / Purchase Weight (lbs)</span><input type="number" name="initial_weight" step="0.1" min="0" placeholder="e.g. 55"></div>
-    <div class="field livestock-only" style="display:none"><span>Target Fair Weight (lbs)</span><input type="number" name="target_weight" step="0.1" min="0" placeholder="e.g. 280"></div>
-    <div class="field livestock-only" style="display:none"><span>Target / Fair Date</span><input type="date" name="target_date"></div>
-    <div class="field livestock-only" style="display:none"><span>Ear Tag #</span><input type="text" name="ear_tag" placeholder="e.g. 42"></div>
+    <div class="field livestock-only" style="display:none"><span>Initial / Purchase Weight (lbs)</span><input type="number" name="initial_weight" step="0.1" min="0" placeholder="e.g. 55"><span class="field-help">Weight when you purchased or started the animal.</span></div>
+    <div class="field livestock-only" style="display:none"><span>Target Fair Weight (lbs)</span><input type="number" name="target_weight" step="0.1" min="0" placeholder="e.g. 280"><span class="field-help">Your goal weight at the fair or show.</span></div>
+    <div class="field livestock-only" style="display:none"><span>Target / Fair Date</span><input type="date" name="target_date"><span class="field-help">Used to calculate ADG and days remaining on feed.</span></div>
+    <div class="field livestock-only" style="display:none"><span>Ear Tag #</span><input type="text" name="ear_tag" placeholder="e.g. 42"><span class="field-help">Color + number on the physical ear tag.</span></div>
     <div class="field livestock-only" style="display:none"><span>Tattoo</span><input type="text" name="tattoo" placeholder="e.g. ABC123"></div>
-    <div class="field livestock-only" style="display:none"><span>RFID / 840 EID Tag</span><input type="text" name="rfid_tag" placeholder="e.g. 840003012345678"></div>
+    <div class="field livestock-only" style="display:none"><span>RFID / 840 EID Tag</span><input type="text" name="rfid_tag" placeholder="e.g. 840003012345678"><span class="field-help">15-digit national ID starting with 840 — from the RFID tag.</span></div>
     <div class="field livestock-only" style="display:none"><span>Registration Number</span><input type="text" name="registration_number" placeholder="e.g. AAA12345678"></div>
-    <div class="field" id="scrapieField" style="display:none"><span>Scrapie Tag # (sheep/goats)</span><input type="text" name="scrapie_tag" placeholder="e.g. US-TX-1234"></div>
+    <div class="field" id="scrapieField" style="display:none"><span>Scrapie Tag # (sheep/goats)</span><input type="text" name="scrapie_tag" placeholder="e.g. US-TX-1234"><span class="field-help">Federal ID required for sheep &amp; goats leaving the premises.</span></div>
     <div class="field" id="cogginsField" style="display:none"><span>Coggins Test Date (horses)</span><input type="date" name="coggins_date"></div>
-    <div class="field livestock-only" style="display:none"><span>YQCA Certification #</span><input type="text" name="yqca_number" placeholder="e.g. YQCA-12345"></div>
+    <div class="field livestock-only" style="display:none"><span>YQCA Certification #</span><input type="text" name="yqca_number" placeholder="e.g. YQCA-12345"><span class="field-help">From your YQCA certificate — required to show in most states.</span></div>
     <div class="field livestock-only" style="display:none"><span>YQCA Expiry Date</span><input type="date" name="yqca_expiry"></div>
     <label class="field"><span>Start Date</span><input name="start_date" type="date"></label>
     <label class="field"><span>Purchase Date</span><input name="purchase_date" type="date"></label>

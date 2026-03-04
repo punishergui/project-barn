@@ -581,6 +581,9 @@
       case 'd':
       case 'D':
         window.location.href = '/'; break;
+      case 'a':
+      case 'A':
+        window.location.href = '/admin'; break;
       case '?':
         break;
     }

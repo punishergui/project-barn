@@ -7,7 +7,7 @@
     {% if photos %}
     <div class="project-hero-large hero-photo" style="background-image:url('/uploads/{{ photos[-1].filename }}')"></div>
     {% else %}
-    <div class="project-hero-large">{{ project_emoji.get(project.type, '📋') }}</div>
+    <div class="project-hero-large" style="background:linear-gradient(160deg,var(--green-dark),var(--green))">{{ project_emoji.get(project.type, '📋') }}</div>
     {% endif %}
     <div class="hero-overlay">
       {% if active_profile.role == "parent" or active_profile.id == project.owner_id %}<a class="hero-edit-link" href="/projects/{{ project.id }}/edit">Edit</a>{% endif %}
@@ -173,13 +173,13 @@
   {% endif %}
 
   <div class="tabs-row">
-    <button type="button" class="tab-btn" data-tab="timeline">Timeline</button>
-    <button type="button" class="tab-btn" data-tab="expenses">Expenses</button>
-    <button type="button" class="tab-btn" data-tab="shows">Shows</button>
-    <button type="button" class="tab-btn" data-tab="gallery">Gallery</button>
-    <button type="button" class="tab-btn" data-tab="goals">Goals</button>
-    <button type="button" class="tab-btn" data-tab="feed">Feed</button>
-    <button type="button" class="tab-btn" data-tab="health">Health</button>
+    <button type="button" class="tab-btn" data-tab="timeline">Timeline{% if tasks %}<span class="tab-count">{{ tasks|length }}</span>{% endif %}</button>
+    <button type="button" class="tab-btn" data-tab="expenses">Expenses{% if expenses %}<span class="tab-count">{{ expenses|length }}</span>{% endif %}</button>
+    <button type="button" class="tab-btn" data-tab="shows">Shows{% if entries %}<span class="tab-count">{{ entries|length }}</span>{% endif %}</button>
+    <button type="button" class="tab-btn" data-tab="gallery">Gallery{% if photos %}<span class="tab-count">{{ photos|length }}</span>{% endif %}</button>
+    <button type="button" class="tab-btn" data-tab="goals">Goals{% if goals %}<span class="tab-count">{{ goals|length }}</span>{% endif %}</button>
+    <button type="button" class="tab-btn" data-tab="feed">Feed{% if recent_feed_logs %}<span class="tab-count">{{ recent_feed_logs|length }}</span>{% endif %}</button>
+    <button type="button" class="tab-btn" data-tab="health">Health{% if recent_health_records %}<span class="tab-count">{{ recent_health_records|length }}</span>{% endif %}</button>
   </div>
 
   <div class="tab-panel" data-tab-content="timeline">
