@@ -176,6 +176,24 @@ class Notification(db.Model):
     link = db.Column(db.String(255), nullable=True)
 
 
+class FeedInventory(db.Model):
+    """A bag/bale of feed purchased — reusable across feed logs."""
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer,
+        db.ForeignKey('project.id'), nullable=False)
+    logged_by_id = db.Column(db.Integer,
+        db.ForeignKey('profile.id'), nullable=False)
+    name = db.Column(db.String(120), nullable=False)
+    brand = db.Column(db.String(120), nullable=True)
+    feed_type = db.Column(db.String(20), nullable=False, default='grain')
+    bag_size_lbs = db.Column(db.Float, nullable=True)
+    cost_per_bag = db.Column(db.Float, nullable=True)
+    cost_per_lb = db.Column(db.Float, nullable=True)
+    purchase_date = db.Column(db.Date, nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    active = db.Column(db.Boolean, default=True, nullable=False)
+
+
 class FeedLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     project_id = db.Column(db.Integer, db.ForeignKey('project.id'),
@@ -190,6 +208,9 @@ class FeedLog(db.Model):
     cost_per_bag = db.Column(db.Float, nullable=True)
     bag_size_lbs = db.Column(db.Float, nullable=True)
     notes = db.Column(db.Text, nullable=True)
+    feed_inventory_id = db.Column(db.Integer,
+        db.ForeignKey('feed_inventory.id'), nullable=True)
+    amount_unit = db.Column(db.String(20), nullable=True, default='lbs')
 
     __table_args__ = (
         CheckConstraint(

@@ -9,7 +9,7 @@ from flask import Blueprint, current_app, jsonify, redirect, render_template, re
 from app import save_upload
 from app.data.breeds import BREEDS
 from app.data.project_types import PROJECT_TYPE_CONFIG
-from app.models import AuctionSale, Expense, FeedLog, Goal, HealthRecord, IncomeRecord, InventoryItem, Notification, Photo, Profile, Project, ProjectActivity, ProjectMaterial, ProjectNarrative, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowEntry, SkillsChecklist, Task, db
+from app.models import AuctionSale, Expense, FeedInventory, FeedLog, Goal, HealthRecord, IncomeRecord, InventoryItem, Notification, Photo, Profile, Project, ProjectActivity, ProjectMaterial, ProjectNarrative, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowEntry, SkillsChecklist, Task, db
 
 
 dashboard_bp = Blueprint("dashboard", __name__)
@@ -410,6 +410,8 @@ def project_detail(project_id: int):
         'fcr': fcr
     } if feed_logs_all else None
 
+    is_livestock = type_config.get('is_livestock', False)
+
     return render_template(
         "project_detail.html",
         active_profile=active_profile,
@@ -446,6 +448,7 @@ def project_detail(project_id: int):
         skills_total=skills_total,
         skills_done=skills_done,
         has_narrative=has_narrative,
+        is_livestock=is_livestock,
     )
 
 
@@ -698,6 +701,28 @@ def project_task_log(project_id: int):
         logged_at=datetime.now(),
     )
     db.session.add(task)
+
+    feed_inventory_id = payload.get('feed_inventory_id')
+    amount_unit = payload.get('amount_unit', 'lbs')
+    amount_lbs = payload.get('amount_lbs')
+    if feed_inventory_id and amount_lbs:
+        inv = FeedInventory.query.get(feed_inventory_id)
+        if inv:
+            feed_entry = FeedLog(
+                project_id=project.id,
+                logged_by_id=session['active_profile_id'],
+                date=datetime.now().date(),
+                feed_brand=inv.brand or inv.name,
+                feed_type=inv.feed_type,
+                amount_lbs=amount_lbs,
+                feedings_per_day=1,
+                cost_per_bag=inv.cost_per_bag,
+                bag_size_lbs=inv.bag_size_lbs,
+                feed_inventory_id=feed_inventory_id,
+                amount_unit=amount_unit,
+            )
+            db.session.add(feed_entry)
+
     db.session.commit()
     return jsonify({"success": True})
 
@@ -1064,10 +1089,27 @@ def reports_page():
     for project in projects:
         expenses = Expense.query.filter_by(project_id=project.id).order_by(Expense.date.desc(), Expense.id.desc()).all()
         category_totals = defaultdict(float)
+        total_spent = 0.0
         for expense in expenses:
             category_totals[expense.category] += expense.amount
+            total_spent += expense.amount
             grand_total += expense.amount
-        expense_summary.append({"project": project, "category_totals": dict(category_totals), "total": sum(category_totals.values())})
+        total_income = (
+            (db.session.query(db.func.sum(IncomeRecord.amount))
+             .filter_by(project_id=project.id).scalar() or 0.0)
+            +
+            (db.session.query(db.func.sum(AuctionSale.net_proceeds))
+             .filter_by(project_id=project.id).scalar() or 0.0)
+        )
+        net_pl = round(total_income - total_spent, 2)
+        expense_summary.append({
+            'project': project,
+            'category_totals': dict(category_totals),
+            'total': total_spent,
+            'total_spent': round(total_spent, 2),
+            'total_income': round(total_income, 2),
+            'net_pl': net_pl,
+        })
 
     leaderboard_counts = defaultdict(int)
     for task in Task.query.all():
@@ -1815,13 +1857,13 @@ def settings_profiles_edit(profile_id: int):
         new_pin_confirm = (request.form.get("new_pin_confirm") or "").strip()
         if new_pin:
             if new_pin != new_pin_confirm:
-                return render_template("settings_profile_edit.html", active_profile=active_profile, profile=profile, colors=colors, error="PINs do not match", page_title="Edit Profile", back_url=url_for("dashboard.settings_profiles"))
+                return render_template("settings_profile_edit.html", active_profile=active_profile, profile=profile, colors=colors, error="PINs do not match", page_title="Edit Profile", back_url=url_for("dashboard.settings_profiles"), edit_profile_id=profile.id)
             profile.pin_hash = bcrypt.hashpw(new_pin.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
         db.session.commit()
         return redirect(url_for("dashboard.settings_profiles"))
 
-    return render_template("settings_profile_edit.html", active_profile=active_profile, profile=profile, colors=colors, page_title="Edit Profile", back_url=url_for("dashboard.settings_profiles"))
+    return render_template("settings_profile_edit.html", active_profile=active_profile, profile=profile, colors=colors, page_title="Edit Profile", back_url=url_for("dashboard.settings_profiles"), edit_profile_id=profile.id)
 
 
 @dashboard_bp.post("/settings/profiles/<int:profile_id>/archive")
@@ -1973,26 +2015,49 @@ def feed_log_add(project_id):
     require_project_access(project)
     if request.method == 'POST':
         from datetime import date as date_cls
+        feed_inventory_id_raw = request.form.get('feed_inventory_id', '')
+        feed_brand = request.form.get('feed_brand', '').strip() or None
+        feed_type = request.form.get('feed_type', 'grain')
+        cost_per_bag = float(request.form.get('cost_per_bag') or 0) or None
+        bag_size_lbs = float(request.form.get('bag_size_lbs') or 0) or None
+        feed_inventory_id = None
+        if feed_inventory_id_raw and feed_inventory_id_raw != '__manual__':
+            try:
+                feed_inventory_id = int(feed_inventory_id_raw)
+                inv = FeedInventory.query.get(feed_inventory_id)
+                if inv:
+                    feed_brand = inv.brand or inv.name
+                    feed_type = inv.feed_type
+                    cost_per_bag = inv.cost_per_bag
+                    bag_size_lbs = inv.bag_size_lbs
+            except (ValueError, TypeError):
+                feed_inventory_id = None
         log = FeedLog(
             project_id=project_id,
             logged_by_id=session['active_profile_id'],
             date=parse_date(request.form.get('date')) or date_cls.today(),
-            feed_brand=request.form.get('feed_brand', '').strip() or None,
-            feed_type=request.form.get('feed_type', 'grain'),
+            feed_brand=feed_brand,
+            feed_type=feed_type,
             amount_lbs=float(request.form.get('amount_lbs') or 0),
             feedings_per_day=int(request.form.get('feedings_per_day') or 1),
-            cost_per_bag=float(request.form.get('cost_per_bag') or 0) or None,
-            bag_size_lbs=float(request.form.get('bag_size_lbs') or 0) or None,
+            cost_per_bag=cost_per_bag,
+            bag_size_lbs=bag_size_lbs,
             notes=request.form.get('notes', '').strip() or None,
+            feed_inventory_id=feed_inventory_id,
+            amount_unit=request.form.get('amount_unit', 'lbs') or 'lbs',
         )
         db.session.add(log)
         db.session.commit()
         return redirect(f'/projects/{project_id}/feed')
+    feed_inventory_items = FeedInventory.query.filter_by(
+        project_id=project_id, active=True).order_by(
+        FeedInventory.name).all()
     return render_template('feed_log_add.html',
         project=project,
         page_title='Log Feed', back_url=f'/projects/{project_id}/feed',
         active_profile=Profile.query.get(session['active_profile_id']),
-        today=date.today().isoformat())
+        today=date.today(),
+        feed_inventory_items=feed_inventory_items)
 
 
 @dashboard_bp.post('/projects/<int:project_id>/feed/<int:log_id>/delete')
@@ -2005,6 +2070,82 @@ def feed_log_delete(project_id, log_id):
     db.session.delete(log)
     db.session.commit()
     return redirect(f'/projects/{project_id}/feed')
+
+
+@dashboard_bp.get('/projects/<int:project_id>/feed/inventory')
+@dashboard_bp.post('/projects/<int:project_id>/feed/inventory')
+def feed_inventory(project_id):
+    project = Project.query.get_or_404(project_id)
+    require_project_access(project)
+    items = FeedInventory.query.filter_by(
+        project_id=project_id,
+        active=True).order_by(
+        FeedInventory.purchase_date.desc()).all()
+    if request.method == 'POST':
+        from datetime import date as dc
+        bag_size = float(request.form.get('bag_size_lbs') or 0) or None
+        cost_bag = float(request.form.get('cost_per_bag') or 0) or None
+        cost_lb = round(cost_bag / bag_size, 4) \
+            if cost_bag and bag_size else None
+        item = FeedInventory(
+            project_id=project_id,
+            logged_by_id=session['active_profile_id'],
+            name=request.form.get('name', '').strip(),
+            brand=request.form.get('brand', '').strip() or None,
+            feed_type=request.form.get('feed_type', 'grain'),
+            bag_size_lbs=bag_size,
+            cost_per_bag=cost_bag,
+            cost_per_lb=cost_lb,
+            purchase_date=parse_date(
+                request.form.get('purchase_date')) or dc.today(),
+            notes=request.form.get('notes', '').strip() or None,
+        )
+        db.session.add(item)
+        if cost_bag:
+            expense = Expense(
+                project_id=project_id,
+                logged_by_id=session['active_profile_id'],
+                amount=cost_bag,
+                category='feed',
+                date=item.purchase_date,
+                notes=f'Feed purchase: {item.name}',
+                vendor=item.brand,
+            )
+            db.session.add(expense)
+        db.session.commit()
+        return redirect(f'/projects/{project_id}/feed/inventory')
+    return render_template('feed_inventory.html',
+        project=project, items=items,
+        page_title='Feed Inventory',
+        back_url=f'/projects/{project_id}/feed',
+        active_profile=Profile.query.get(session['active_profile_id']),
+        today=date.today())
+
+
+@dashboard_bp.post('/projects/<int:project_id>/feed/inventory'
+                   '/<int:item_id>/delete')
+def feed_inventory_delete(project_id, item_id):
+    item = FeedInventory.query.filter_by(
+        id=item_id, project_id=project_id).first_or_404()
+    item.active = False
+    db.session.commit()
+    return redirect(f'/projects/{project_id}/feed/inventory')
+
+
+@dashboard_bp.get('/api/feed-inventory/<int:project_id>')
+def api_feed_inventory(project_id):
+    items = FeedInventory.query.filter_by(
+        project_id=project_id, active=True).order_by(
+        FeedInventory.name).all()
+    return jsonify([{
+        'id': i.id,
+        'name': i.name,
+        'brand': i.brand,
+        'feed_type': i.feed_type,
+        'bag_size_lbs': i.bag_size_lbs,
+        'cost_per_bag': i.cost_per_bag,
+        'cost_per_lb': i.cost_per_lb,
+    } for i in items])
 
 
 @dashboard_bp.get('/projects/<int:project_id>/health')
