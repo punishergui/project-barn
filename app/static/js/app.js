@@ -682,18 +682,64 @@
     });
   }
 
-  // Feed inventory select — show/hide manual entry fields
-  const feedInvSelect = document.getElementById('feedInventorySelect');
-  const manualFeedFields = document.getElementById('manualFeedFields');
-  if (feedInvSelect) {
-    feedInvSelect.addEventListener('change', () => {
-      const val = feedInvSelect.value;
-      if (val === '__manual__' || val === '') {
-        if (manualFeedFields) manualFeedFields.style.display = '';
-      } else {
-        if (manualFeedFields) manualFeedFields.style.display = 'none';
-      }
+  // Feed inventory options cache
+  let feedInventoryOptions = [];
+
+  async function loadFeedInventoryOptions() {
+    if (!window.PROJECT_ID && !document.body.dataset.projectId) return;
+    const pid = window.PROJECT_ID || document.body.dataset.projectId;
+    try {
+      const resp = await fetch(`/api/feed-inventory/${pid}`);
+      feedInventoryOptions = await resp.json();
+    } catch(e) { feedInventoryOptions = []; }
+  }
+
+  function buildFeedSelect(selectEl) {
+    const opts = feedInventoryOptions.length
+      ? feedInventoryOptions.map(i =>
+          `<option value="${i.id}">${i.name}`
+          + `${i.brand ? ' (' + i.brand + ')' : ''}`
+          + `${i.cost_per_lb ? ' · $' + i.cost_per_lb.toFixed(3) + '/lb' : ''}`
+          + `</option>`).join('')
+          + `<option value="">— manual/other —</option>`
+      : `<option value="">No inventory — add first</option>`;
+    selectEl.innerHTML = opts;
+  }
+
+  function addFeedItem() {
+    const template = document.getElementById('feedItemTemplate');
+    const list = document.getElementById('feedItemsList');
+    if (!template || !list) return;
+    const clone = template.content.cloneNode(true);
+    const row = clone.querySelector('.feed-item-row');
+    const sel = clone.querySelector('.feed-inv-select');
+    buildFeedSelect(sel);
+    clone.querySelector('.remove-feed-item')
+        .addEventListener('click', () => {
+      if (list.querySelectorAll('.feed-item-row').length > 1) row.remove();
     });
+    list.appendChild(clone);
+  }
+
+  const addFeedItemBtn = document.getElementById('addFeedItemBtn');
+  if (addFeedItemBtn) {
+    addFeedItemBtn.addEventListener('click', addFeedItem);
+  }
+
+  function collectFeedItems() {
+    const rows = document.querySelectorAll('#feedItemsList .feed-item-row');
+    const items = [];
+    rows.forEach(row => {
+      const invId = row.querySelector('.feed-inv-select')?.value;
+      const amt = parseFloat(row.querySelector('.feed-amt-input')?.value);
+      const unit = row.querySelector('.feed-unit-select')?.value || 'lbs';
+      if (amt > 0) items.push({
+        feed_inventory_id: invId ? parseInt(invId, 10) : null,
+        amount_lbs: amt,
+        amount_unit: unit
+      });
+    });
+    return items;
   }
 
   // Smart log sheet (2-step)
@@ -706,6 +752,7 @@
   const logBackBtn = document.getElementById('logBackBtn');
   const logSubmitBtn = document.getElementById('logSubmitBtn');
   const PROJECT_ID = document.body.dataset.projectId;
+  window.PROJECT_ID = PROJECT_ID;
   let currentTaskType = null;
 
   const TYPE_LABELS = {
@@ -736,25 +783,6 @@
     if (logSheetTitle) logSheetTitle.textContent = 'Log Activity';
   });
 
-  async function loadFeedInventory() {
-    if (!PROJECT_ID) return;
-    const sel = document.getElementById('logFeedSelect');
-    if (!sel) return;
-    try {
-      const resp = await fetch(`/api/feed-inventory/${PROJECT_ID}`);
-      const items = await resp.json();
-      sel.innerHTML = items.length
-        ? items.map(i =>
-            `<option value="${i.id}" data-type="${i.feed_type}">`
-            + `${i.name}${i.brand ? ' ('+i.brand+')' : ''}`
-            + `${i.cost_per_lb ? ' · $'+i.cost_per_lb.toFixed(3)+'/lb' : ''}`
-            + `</option>`).join('')
-            + `<option value="">-- Enter manually --</option>`
-        : `<option value="">No feed in inventory — add some first</option>`;
-    } catch(e) {
-      console.error('Feed inventory load error', e);
-    }
-  }
 
   document.querySelectorAll('.log-type').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -773,7 +801,14 @@
         sharedNotes.style.display = ['water','walk','groom'].includes(type) ? '' : 'none';
       }
 
-      if (type === 'feed') await loadFeedInventory();
+      if (type === 'feed') {
+        await loadFeedInventoryOptions();
+        const list = document.getElementById('feedItemsList');
+        if (list) {
+          list.innerHTML = '';
+          addFeedItem();
+        }
+      }
 
       if (logTypeStep) logTypeStep.style.display = 'none';
       if (logDetailStep) logDetailStep.style.display = '';
@@ -792,12 +827,19 @@
         const w = parseFloat(document.getElementById('logWeight')?.value);
         if (w) payload.weight_lbs = w;
       } else if (currentTaskType === 'feed') {
-        const invId = document.getElementById('logFeedSelect')?.value;
-        const amt = parseFloat(document.getElementById('logFeedAmount')?.value);
-        const unit = document.getElementById('logFeedUnit')?.value || 'lbs';
-        if (invId) payload.feed_inventory_id = parseInt(invId);
-        if (amt) payload.amount_lbs = amt;
-        payload.amount_unit = unit;
+        const items = collectFeedItems();
+        if (items.length === 0) {
+          alert('Add at least one feed item with an amount.');
+          logSubmitBtn.disabled = false;
+          logSubmitBtn.textContent = 'Log It';
+          return;
+        }
+        payload.feed_items = items;
+        if (items[0]) {
+          payload.feed_inventory_id = items[0].feed_inventory_id;
+          payload.amount_lbs = items[0].amount_lbs;
+          payload.amount_unit = items[0].amount_unit;
+        }
       } else {
         const dur = parseFloat(document.getElementById('logDuration')?.value);
         if (dur) payload.duration_minutes = dur * 1;

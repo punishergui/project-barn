@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{{ show.name }} — Packing Checklist{% endblock %}
+{% block content %}
+<section class="reports-page">
+  <h1 class="show-title">{{ show.name }} — Packing Checklist</h1>
+  <p class="show-subtitle">{{ completed_count }} of {{ items|length }} items packed</p>
+
+  <form method="post" action="/shows/{{ show.id }}/checklist/load-template" class="stack-form">
+    <label class="field"><span>Load from Template</span><select name="template_id">{% for tpl in templates %}<option value="{{ tpl.id }}">{{ tpl.name }}</option>{% endfor %}</select></label>
+    <button class="submit-btn" type="submit">Load</button>
+  </form>
+
+  <div class="task-list">
+  {% for item in items %}
+    <form method="post" action="/shows/{{ show.id }}/checklist/toggle" class="task-card {% if item.completed %}done{% endif %}">
+      <input type="hidden" name="item_id" value="{{ item.id }}">
+      <button type="submit" class="check">{% if item.completed %}✓{% endif %}</button>
+      <div class="task-info"><strong>{% if item.completed %}<s>{{ item.item_name }}</s>{% else %}{{ item.item_name }}{% endif %}</strong></div>
+    </form>
+  {% else %}
+    <p class="empty-state">📦 <strong>No Checklist Yet</strong><br>Load a packing list template or add items manually. Templates let you reuse the same checklist for every show.</p>
+  {% endfor %}
+  </div>
+
+  <form method="post" action="/shows/{{ show.id }}/checklist/add" class="stack-form">
+    <label class="field"><span>+ Add Item</span><input name="item_name" required></label>
+    <button class="secondary-btn" type="submit">Add Item</button>
+  </form>
+</section>
+{% endblock %}

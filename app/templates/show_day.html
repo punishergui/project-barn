@@ -29,26 +29,72 @@
   </div>
 
   <p class="section-label">ANIMALS TODAY</p>
+  <div class="owner-jump-row"
+       style="display:flex;gap:8px;flex-wrap:wrap;
+       margin-bottom:12px">
+    {% for owner_id, owner_entries in entries_by_owner.items() %}
+    {% set owner = profiles.get(owner_id) %}
+    <a href="#owner-{{ owner_id }}"
+       class="filter-chip"
+       style="background:{{ owner.color if owner else
+       'var(--brand)' }};color:#fff;
+       border-color:transparent">
+      {{ owner.name if owner else 'Unknown' }}
+      ({{ owner_entries|length }})
+    </a>
+    {% endfor %}
+  </div>
   <div class="task-list">
-    {% for entry in entries %}
-    {% set project = projects.get(entry.project_id) %}
-    <form method="post" action="/shows/{{ show.id }}/entries/{{ entry.id }}/result" class="result-card">
-      <input type="hidden" name="day_number" value="{{ day_num }}">
-      <p><span class="task-emoji">{{ project_emoji.get(project.type, '📋') if project else '📋' }}</span> <strong>{{ project.name if project else 'Project' }}</strong></p>
-      <label class="field"><span>Class</span><input type="text" name="class_name" value="{{ entry.class_name or '' }}" placeholder="Market, Showmanship, etc"></label>
-      <label class="field"><span>Ring #</span><input type="text" name="ring" value="{{ entry.ring or '' }}" placeholder="Ring A"></label>
-      <label class="field"><span>Placing</span><input type="text" name="placing" value="{{ entry.placing or '' }}" placeholder="1st, 2nd, 3rd"></label>
-      <label class="field"><span>Ribbon</span>
-        <select name="ribbon_color">
-          <option value="" {% if not entry.ribbon_color %}selected{% endif %}>None</option>
-          {% for key in ['blue','red','white','yellow','purple','grand','reserve'] %}
-          <option value="{{ key }}" {% if entry.ribbon_color == key %}selected{% endif %}>{{ ribbon_labels.get(key, key|capitalize) }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label class="field"><span>Judge Notes</span><textarea name="judge_notes" rows="3" placeholder="Judge feedback">{{ entry.judge_notes or '' }}</textarea></label>
-      <button type="submit" class="submit-btn">Save Result</button>
-    </form>
+    {% for owner_id, owner_entries in entries_by_owner.items() %}
+    {% set owner = profiles.get(owner_id) %}
+    <div class="show-day-owner-section" id="owner-{{ owner_id }}">
+      <div class="show-day-owner-header">
+        <div class="avatar-round"
+             style="width:32px;height:32px;font-size:14px;
+             background:{{ owner.color if owner else '#C97B2A' }};
+             display:inline-grid;place-items:center;
+             border-radius:50%;color:#fff;font-weight:700;
+             flex-shrink:0">
+          {% if owner and owner.avatar_path %}
+          <img src="/uploads/{{ owner.avatar_path }}"
+               style="width:32px;height:32px;
+               border-radius:50%;object-fit:cover">
+          {% elif owner %}
+          {{ owner.name[0] }}
+          {% endif %}
+        </div>
+        <strong>{{ owner.name if owner else 'Unknown' }}</strong>
+        <span style="font-size:12px;color:var(--text-muted)">
+          {{ owner_entries|length }}
+          animal{{ 's' if owner_entries|length != 1 else '' }}
+        </span>
+      </div>
+
+      {% for entry in owner_entries %}
+      {% set project = projects.get(entry.project_id) %}
+      <form method="post"
+            action="/shows/{{ show.id }}/entries/{{ entry.id }}/result"
+            class="result-card">
+        <input type="hidden" name="day_number" value="{{ day_num }}">
+        <p><span class="task-emoji">{{ project_emoji.get(project.type, '📋') if project else '📋' }}</span> <strong>{{ project.name if project else 'Project' }}</strong></p>
+        <label class="field"><span>Class</span><input type="text" name="class_name" value="{{ entry.class_name or '' }}" placeholder="Market, Showmanship, etc"></label>
+        <label class="field"><span>Ring #</span><input type="text" name="ring" value="{{ entry.ring or '' }}" placeholder="Ring A"></label>
+        <label class="field"><span>Placing</span><input type="text" name="placing" value="{{ entry.placing or '' }}" placeholder="1st, 2nd, 3rd"></label>
+        <label class="field"><span>Ribbon</span>
+          <select name="ribbon_color">
+            <option value="" {% if not entry.ribbon_color %}selected{% endif %}>None</option>
+            {% for key in ['blue','red','white','yellow','purple','grand','reserve'] %}
+            <option value="{{ key }}" {% if entry.ribbon_color == key %}selected{% endif %}>{{ ribbon_labels.get(key, key|capitalize) }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="field"><span>Judge Notes</span><textarea name="judge_notes" rows="3" placeholder="Judge feedback">{{ entry.judge_notes or '' }}</textarea></label>
+        <button type="submit" class="submit-btn">Save Result</button>
+      </form>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-state">No animals entered in this show yet.</p>
     {% endfor %}
   </div>
 

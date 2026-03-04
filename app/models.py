@@ -111,11 +111,16 @@ class ShowDay(db.Model):
 
 class ShowDayCheck(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    show_day_id = db.Column(db.Integer, db.ForeignKey("show_day.id"), nullable=False)
+    show_day_id = db.Column(db.Integer, db.ForeignKey("show_day.id"), nullable=True)
+    show_id = db.Column(db.Integer, db.ForeignKey('show.id'), nullable=True)
     item_name = db.Column(db.String(80), nullable=False)
     completed = db.Column(db.Boolean, nullable=False, default=False)
     completed_by_id = db.Column(db.Integer, db.ForeignKey("profile.id"), nullable=True)
     completed_at = db.Column(db.DateTime, nullable=True)
+    template_item_id = db.Column(db.Integer,
+        db.ForeignKey('packing_list_item.id'), nullable=True)
+    project_id = db.Column(db.Integer,
+        db.ForeignKey('project.id'), nullable=True)
 
 
 class Expense(db.Model):
@@ -211,6 +216,8 @@ class FeedLog(db.Model):
     feed_inventory_id = db.Column(db.Integer,
         db.ForeignKey('feed_inventory.id'), nullable=True)
     amount_unit = db.Column(db.String(20), nullable=True, default='lbs')
+    task_id = db.Column(db.Integer,
+        db.ForeignKey('task.id'), nullable=True)
 
     __table_args__ = (
         CheckConstraint(
@@ -388,3 +395,50 @@ class ProjectNarrative(db.Model):
     updated_at = db.Column(db.DateTime,
         default=datetime.utcnow, nullable=False,
         onupdate=datetime.utcnow)
+
+
+class EquipmentItem(db.Model):
+    """Reusable equipment/asset tracked across years."""
+    id = db.Column(db.Integer, primary_key=True)
+    logged_by_id = db.Column(db.Integer,
+        db.ForeignKey('profile.id'), nullable=False)
+    name = db.Column(db.String(120), nullable=False)
+    category = db.Column(db.String(30), nullable=False,
+        default='equipment')
+    description = db.Column(db.Text, nullable=True)
+    purchase_date = db.Column(db.Date, nullable=True)
+    purchase_price = db.Column(db.Float, nullable=True)
+    useful_life_years = db.Column(db.Integer,
+        nullable=True, default=5)
+    current_value = db.Column(db.Float, nullable=True)
+    vendor = db.Column(db.String(120), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    active = db.Column(db.Boolean, default=True,
+        nullable=False)
+    created_at = db.Column(db.DateTime,
+        default=datetime.utcnow)
+
+
+class PackingListTemplate(db.Model):
+    """A reusable packing list (e.g. 'Pig Show Checklist')."""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    project_type = db.Column(db.String(20), nullable=True)
+    created_by_id = db.Column(db.Integer,
+        db.ForeignKey('profile.id'), nullable=False)
+    created_at = db.Column(db.DateTime,
+        default=datetime.utcnow)
+
+
+class PackingListItem(db.Model):
+    """One item in a packing list template."""
+    id = db.Column(db.Integer, primary_key=True)
+    template_id = db.Column(db.Integer,
+        db.ForeignKey('packing_list_template.id'),
+        nullable=False)
+    item_name = db.Column(db.String(120), nullable=False)
+    category = db.Column(db.String(40), nullable=True)
+    quantity = db.Column(db.String(20), nullable=True)
+    sort_order = db.Column(db.Integer, default=0)
+    notes = db.Column(db.Text, nullable=True)

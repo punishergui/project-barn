@@ -9,7 +9,7 @@ from flask import Blueprint, current_app, jsonify, redirect, render_template, re
 from app import save_upload
 from app.data.breeds import BREEDS
 from app.data.project_types import PROJECT_TYPE_CONFIG
-from app.models import AuctionSale, Expense, FeedInventory, FeedLog, Goal, HealthRecord, IncomeRecord, InventoryItem, Notification, Photo, Profile, Project, ProjectActivity, ProjectMaterial, ProjectNarrative, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowEntry, SkillsChecklist, Task, db
+from app.models import AuctionSale, EquipmentItem, Expense, FeedInventory, FeedLog, Goal, HealthRecord, IncomeRecord, InventoryItem, Notification, PackingListItem, PackingListTemplate, Photo, Profile, Project, ProjectActivity, ProjectMaterial, ProjectNarrative, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowEntry, SkillsChecklist, Task, db
 
 
 dashboard_bp = Blueprint("dashboard", __name__)
@@ -75,6 +75,20 @@ def require_project_access(project):
 
 
 VIDEO_EXTS = {'.mp4', '.mov', '.avi', '.webm'}
+
+EQUIPMENT_CATEGORIES = {
+    'show_box':  'Show Box / Tack Box',
+    'halter':    'Halter / Lead',
+    'clippers':  'Clippers / Blower',
+    'scale':     'Scale',
+    'trailer':   'Trailer / Transport',
+    'grooming':  'Grooming Supplies',
+    'clothing':  'Show Clothing',
+    'cage':      'Cage / Crate',
+    'tack':      'Tack / Saddle',
+    'equipment': 'General Equipment',
+    'other':     'Other',
+}
 
 EXPENSE_CATEGORIES = {
     "feed": "Feed (Grain / Complete)",
@@ -201,12 +215,12 @@ def dashboard_home():
         "dashboard.html",
         active_profile=active_profile,
         projects=projects,
+        profiles=profiles,
         project_count=len(projects),
         tasks_today=tasks_today,
         shows_upcoming=shows_upcoming,
         upcoming_preview=upcoming_preview,
         greeting=greeting,
-        profiles=profiles,
         task_icons=TASK_ICONS,
         recent_activity=recent_activity,
         project_map=project_map,
@@ -690,6 +704,14 @@ def expense_add(project_id: int):
 def project_task_log(project_id: int):
     project = Project.query.get_or_404(project_id)
     payload = request.get_json(silent=True) or {}
+    feed_items = payload.get('feed_items', [])
+
+    if not feed_items and payload.get('amount_lbs'):
+        feed_items = [{
+            'feed_inventory_id': payload.get('feed_inventory_id'),
+            'amount_lbs': payload.get('amount_lbs'),
+            'amount_unit': payload.get('amount_unit', 'lbs'),
+        }]
 
     task = Task(
         project_id=project.id,
@@ -701,30 +723,40 @@ def project_task_log(project_id: int):
         logged_at=datetime.now(),
     )
     db.session.add(task)
+    db.session.commit()
 
-    feed_inventory_id = payload.get('feed_inventory_id')
-    amount_unit = payload.get('amount_unit', 'lbs')
-    amount_lbs = payload.get('amount_lbs')
-    if feed_inventory_id and amount_lbs:
-        inv = FeedInventory.query.get(feed_inventory_id)
-        if inv:
-            feed_entry = FeedLog(
+    if task.task_type == 'feed' and feed_items:
+        for item in feed_items:
+            inv_id = item.get('feed_inventory_id')
+            try:
+                amt = float(item.get('amount_lbs', 0))
+            except (TypeError, ValueError):
+                amt = 0
+            unit = item.get('amount_unit', 'lbs')
+            if amt <= 0:
+                continue
+            inv = FeedInventory.query.get(inv_id) if inv_id else None
+            fl = FeedLog(
                 project_id=project.id,
                 logged_by_id=session['active_profile_id'],
                 date=datetime.now().date(),
-                feed_brand=inv.brand or inv.name,
-                feed_type=inv.feed_type,
-                amount_lbs=amount_lbs,
+                feed_brand=(inv.brand or inv.name) if inv else None,
+                feed_type=inv.feed_type if inv else 'grain',
+                amount_lbs=amt,
                 feedings_per_day=1,
-                cost_per_bag=inv.cost_per_bag,
-                bag_size_lbs=inv.bag_size_lbs,
-                feed_inventory_id=feed_inventory_id,
-                amount_unit=amount_unit,
+                cost_per_bag=inv.cost_per_bag if inv else None,
+                bag_size_lbs=inv.bag_size_lbs if inv else None,
+                feed_inventory_id=inv_id,
+                amount_unit=unit,
+                task_id=task.id,
             )
-            db.session.add(feed_entry)
+            db.session.add(fl)
+        db.session.commit()
 
-    db.session.commit()
-    return jsonify({"success": True})
+    return jsonify({
+        'success': True,
+        'feed_items_logged': len(feed_items) if task.task_type == 'feed' else 0
+    })
 
 
 @dashboard_bp.get("/shows")
@@ -843,6 +875,12 @@ def show_day(show_id: int, day_num: int):
     project_ids = [entry.project_id for entry in entries]
     projects = {project.id: project for project in Project.query.filter(Project.id.in_(project_ids)).all()} if project_ids else {}
     day_photos = Photo.query.filter_by(show_day_id=show_day_record.id).order_by(Photo.uploaded_at.desc()).all()
+    profiles = {profile.id: profile for profile in Profile.query.all()}
+    entries_by_owner = defaultdict(list)
+    for entry in entries:
+        proj = projects.get(entry.project_id)
+        if proj:
+            entries_by_owner[proj.owner_id].append(entry)
 
     return render_template(
         "show_day.html",
@@ -854,6 +892,8 @@ def show_day(show_id: int, day_num: int):
         checks=checks,
         entries=entries,
         projects=projects,
+        entries_by_owner=dict(entries_by_owner),
+        profiles=profiles,
         project_emoji=PROJECT_EMOJI,
         ribbon_labels=RIBBON_LABELS,
         day_photos=day_photos,
@@ -972,12 +1012,21 @@ def family_timeline():
 
     next_page_events = query.order_by(Task.logged_at.desc(), Task.id.desc()).limit(per_page).offset(page * per_page).all()
 
+    task_ids = [e.id for e in events if e.task_type == "feed"]
+    feed_log_map = {}
+    if task_ids:
+        feed_logs = FeedLog.query.filter(FeedLog.task_id.in_(task_ids)).all()
+        for fl in feed_logs:
+            if fl.task_id:
+                feed_log_map.setdefault(fl.task_id, []).append(fl)
+
     return render_template(
         "timeline.html",
         active_profile=active_profile,
         events=events,
         profiles=profiles,
         project_map=project_map,
+        feed_log_map=feed_log_map,
         filter_profile_id=filter_profile_id,
         filter_project_id=filter_project_id,
         filter_type=filter_type,
@@ -1886,6 +1935,195 @@ def settings_profiles_restore(profile_id: int):
     profile.archived = False
     db.session.commit()
     return redirect(url_for("dashboard.settings_profiles"))
+
+
+
+
+@dashboard_bp.route('/equipment', methods=['GET', 'POST'])
+def equipment_list():
+    active_profile = Profile.query.get_or_404(session['active_profile_id'])
+    if request.method == 'POST':
+        purchase_date = parse_date(request.form.get('purchase_date'))
+        purchase_price = float(request.form.get('purchase_price') or 0) or None
+        useful_life = int(request.form.get('useful_life_years') or 0) or 5
+        current_value = purchase_price
+        if purchase_price and purchase_date and useful_life:
+            years_owned = (date.today() - purchase_date).days / 365
+            depreciated = purchase_price * (years_owned / useful_life)
+            current_value = max(0, purchase_price - depreciated)
+        item = EquipmentItem(
+            logged_by_id=active_profile.id,
+            name=request.form.get('name', '').strip(),
+            category=request.form.get('category', 'equipment'),
+            description=request.form.get('description', '').strip() or None,
+            purchase_date=purchase_date,
+            purchase_price=purchase_price,
+            useful_life_years=useful_life,
+            current_value=current_value,
+            vendor=request.form.get('vendor', '').strip() or None,
+            notes=request.form.get('notes', '').strip() or None,
+            active=True,
+        )
+        db.session.add(item)
+        db.session.commit()
+        return redirect('/equipment')
+
+    items = EquipmentItem.query.filter_by(active=True).order_by(EquipmentItem.category.asc(), EquipmentItem.name.asc()).all()
+    total_value = sum((i.current_value if i.current_value is not None else (i.purchase_price or 0)) for i in items)
+    total_depreciation = sum(((i.purchase_price or 0) / i.useful_life_years) for i in items if i.purchase_price and i.useful_life_years)
+    grouped = defaultdict(list)
+    for i in items:
+        grouped[i.category].append(i)
+    return render_template('equipment.html', active_profile=active_profile, items=items, grouped_items=dict(grouped), categories=EQUIPMENT_CATEGORIES, total_value=total_value, total_depreciation=total_depreciation, page_title='Equipment & Assets', back_url='/admin')
+
+
+@dashboard_bp.route('/equipment/<int:item_id>/edit', methods=['GET', 'POST'])
+def equipment_edit(item_id):
+    active_profile = Profile.query.get_or_404(session['active_profile_id'])
+    if active_profile.role != 'parent':
+        return redirect('/equipment')
+    item = EquipmentItem.query.get_or_404(item_id)
+    if request.method == 'POST':
+        item.name = request.form.get('name', '').strip()
+        item.category = request.form.get('category', 'equipment')
+        item.description = request.form.get('description', '').strip() or None
+        item.purchase_date = parse_date(request.form.get('purchase_date'))
+        item.purchase_price = float(request.form.get('purchase_price') or 0) or None
+        item.useful_life_years = int(request.form.get('useful_life_years') or 0) or 5
+        if item.purchase_price and item.purchase_date and item.useful_life_years:
+            years_owned = (date.today() - item.purchase_date).days / 365
+            item.current_value = max(0, item.purchase_price - (item.purchase_price * (years_owned / item.useful_life_years)))
+        else:
+            item.current_value = item.purchase_price
+        item.vendor = request.form.get('vendor', '').strip() or None
+        item.notes = request.form.get('notes', '').strip() or None
+        db.session.commit()
+        return redirect('/equipment')
+    return render_template('equipment_edit.html', active_profile=active_profile, item=item, categories=EQUIPMENT_CATEGORIES, page_title='Edit Equipment', back_url='/equipment')
+
+
+@dashboard_bp.post('/equipment/<int:item_id>/delete')
+def equipment_delete(item_id):
+    active_profile = Profile.query.get_or_404(session['active_profile_id'])
+    if active_profile.role != 'parent':
+        return redirect('/equipment')
+    item = EquipmentItem.query.get_or_404(item_id)
+    item.active = False
+    db.session.commit()
+    return redirect('/equipment')
+
+
+@dashboard_bp.get('/packing-lists')
+def packing_lists():
+    active_profile = Profile.query.get_or_404(session['active_profile_id'])
+    if active_profile.role != 'parent':
+        return redirect('/')
+    templates = PackingListTemplate.query.order_by(PackingListTemplate.name.asc()).all()
+    return render_template('packing_lists.html', active_profile=active_profile, templates=templates, page_title='Packing Lists', back_url='/admin')
+
+
+@dashboard_bp.route('/packing-lists/add', methods=['GET', 'POST'])
+def packing_list_add():
+    active_profile = Profile.query.get_or_404(session['active_profile_id'])
+    if active_profile.role != 'parent':
+        return redirect('/')
+    if request.method == 'POST':
+        tpl = PackingListTemplate(name=request.form.get('name','').strip(), description=request.form.get('description','').strip() or None, project_type=request.form.get('project_type') or None, created_by_id=active_profile.id)
+        db.session.add(tpl)
+        db.session.flush()
+        raw_items = (request.form.get('items') or '').replace(',', '\n').splitlines()
+        for idx, item in enumerate([i.strip() for i in raw_items if i.strip()]):
+            db.session.add(PackingListItem(template_id=tpl.id, item_name=item, sort_order=idx))
+        db.session.commit()
+        return redirect(f'/packing-lists/{tpl.id}')
+    return render_template('packing_list_add.html', active_profile=active_profile, page_title='Add Packing List', back_url='/packing-lists')
+
+
+@dashboard_bp.route('/packing-lists/<int:template_id>')
+def packing_list_detail(template_id):
+    active_profile = Profile.query.get_or_404(session['active_profile_id'])
+    if active_profile.role != 'parent':
+        return redirect('/')
+    template = PackingListTemplate.query.get_or_404(template_id)
+    items = PackingListItem.query.filter_by(template_id=template_id).order_by(PackingListItem.sort_order.asc(), PackingListItem.id.asc()).all()
+    grouped = defaultdict(list)
+    for item in items:
+        grouped[item.category or 'other'].append(item)
+    return render_template('packing_list_detail.html', active_profile=active_profile, template=template, items=items, grouped_items=dict(grouped), page_title='Packing List', back_url='/packing-lists')
+
+
+@dashboard_bp.post('/packing-lists/<int:template_id>/items/add')
+def packing_list_item_add(template_id):
+    template = PackingListTemplate.query.get_or_404(template_id)
+    name = request.form.get('item_name','').strip()
+    if name:
+        max_order = db.session.query(db.func.max(PackingListItem.sort_order)).filter_by(template_id=template.id).scalar() or 0
+        db.session.add(PackingListItem(template_id=template.id, item_name=name, category=request.form.get('category') or 'other', quantity=request.form.get('quantity') or None, notes=request.form.get('notes') or None, sort_order=max_order + 1))
+        db.session.commit()
+    return redirect(f'/packing-lists/{template.id}')
+
+
+@dashboard_bp.post('/packing-lists/<int:template_id>/items/<int:item_id>/delete')
+def packing_list_item_delete(template_id, item_id):
+    item = PackingListItem.query.filter_by(id=item_id, template_id=template_id).first_or_404()
+    db.session.delete(item)
+    db.session.commit()
+    return redirect(f'/packing-lists/{template_id}')
+
+
+@dashboard_bp.post('/packing-lists/<int:template_id>/delete')
+def packing_list_delete(template_id):
+    template = PackingListTemplate.query.get_or_404(template_id)
+    PackingListItem.query.filter_by(template_id=template.id).delete()
+    db.session.delete(template)
+    db.session.commit()
+    return redirect('/packing-lists')
+
+
+@dashboard_bp.route('/shows/<int:show_id>/checklist', methods=['GET', 'POST'])
+def show_checklist(show_id):
+    active_profile = Profile.query.get_or_404(session['active_profile_id'])
+    show = Show.query.get_or_404(show_id)
+    templates = PackingListTemplate.query.order_by(PackingListTemplate.name.asc()).all()
+    items = ShowDayCheck.query.filter_by(show_id=show.id, show_day_id=None).order_by(ShowDayCheck.id.asc()).all()
+    grouped = defaultdict(list)
+    for item in items:
+        grouped[(item.item_name or 'other').split(':')[0] if ':' in (item.item_name or '') else 'other'].append(item)
+    completed_count = sum(1 for i in items if i.completed)
+    return render_template('show_checklist.html', active_profile=active_profile, show=show, items=items, grouped_items=dict(grouped), templates=templates, completed_count=completed_count, page_title='Packing Checklist', back_url=f'/shows/{show.id}')
+
+
+@dashboard_bp.post('/shows/<int:show_id>/checklist/load-template')
+def show_checklist_load_template(show_id):
+    show = Show.query.get_or_404(show_id)
+    template_id = request.form.get('template_id', type=int)
+    template_items = PackingListItem.query.filter_by(template_id=template_id).order_by(PackingListItem.sort_order.asc()).all()
+    for item in template_items:
+        db.session.add(ShowDayCheck(show_id=show.id, show_day_id=None, item_name=item.item_name, template_item_id=item.id, completed=False))
+    db.session.commit()
+    return redirect(f'/shows/{show.id}/checklist')
+
+
+@dashboard_bp.post('/shows/<int:show_id>/checklist/toggle')
+def show_checklist_toggle(show_id):
+    payload = request.get_json(silent=True) or request.form
+    item_id = int(payload.get('item_id'))
+    item = ShowDayCheck.query.filter_by(id=item_id, show_id=show_id, show_day_id=None).first_or_404()
+    item.completed = not item.completed
+    item.completed_by_id = session['active_profile_id'] if item.completed else None
+    item.completed_at = datetime.now() if item.completed else None
+    db.session.commit()
+    return jsonify({'success': True, 'completed': item.completed})
+
+
+@dashboard_bp.post('/shows/<int:show_id>/checklist/add')
+def show_checklist_add_item(show_id):
+    show = Show.query.get_or_404(show_id)
+    name = request.form.get('item_name', '').strip()
+    if name:
+        db.session.add(ShowDayCheck(show_id=show.id, show_day_id=None, item_name=name, completed=False))
+        db.session.commit()
+    return redirect(f'/shows/{show.id}/checklist')
 
 
 @dashboard_bp.post('/settings/profiles/<int:profile_id>/delete')
