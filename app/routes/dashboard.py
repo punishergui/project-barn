@@ -1067,7 +1067,19 @@ def reports_page():
         for expense in expenses:
             category_totals[expense.category] += expense.amount
             grand_total += expense.amount
-        expense_summary.append({"project": project, "category_totals": dict(category_totals), "total": sum(category_totals.values())})
+        total_spent = sum(category_totals.values())
+        income_total = db.session.query(db.func.sum(IncomeRecord.amount)).filter_by(project_id=project.id).scalar() or 0
+        auction_total = db.session.query(db.func.sum(AuctionSale.net_proceeds)).filter_by(project_id=project.id).scalar() or 0
+        total_income = income_total + auction_total
+        net_pl = round(total_income - total_spent, 2)
+        expense_summary.append({
+            "project": project,
+            "category_totals": dict(category_totals),
+            "total": total_spent,
+            "total_spent": round(total_spent, 2),
+            "total_income": round(float(total_income), 2),
+            "net_pl": net_pl,
+        })
 
     leaderboard_counts = defaultdict(int)
     for task in Task.query.all():
