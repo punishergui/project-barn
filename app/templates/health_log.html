@@ -42,7 +42,12 @@
       </div>
     </article>
     {% else %}
-    <p class="empty-state">💉 No health records yet</p>
+    <div class="empty-state">
+      <span class="empty-state-icon">💉</span>
+      <h3>No Health Records Yet</h3>
+      <p>Log vaccinations, medications, and vet visits to maintain a complete health history for shows and VCPR compliance.</p>
+      <a class="empty-state-btn" href="/projects/{{ project.id }}/health/add">+ Add Health Record</a>
+    </div>
     {% endfor %}
   </div>
 </section>

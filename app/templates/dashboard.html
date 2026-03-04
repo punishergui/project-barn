@@ -7,6 +7,24 @@
     <h1><a href="/profiles/{{ active_profile.id }}/summary" class="profile-summary-link">{{ active_profile.name }}</a></h1>
   </div>
 
+  {% if project_count == 0 %}
+  <div class="getting-started-card">
+    <h2>Welcome to Project Barn! 🌾</h2>
+    <p>Add your first animal or project to get started tracking your 4-H or FFA work.</p>
+    <a class="getting-started-btn" href="/projects/add">+ Add Your First Project</a>
+  </div>
+  {% endif %}
+
+  {% if active_profile.role == 'parent' %}
+  <a class="admin-quick-link" href="/admin">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8.8A3.2 3.2 0 1 0 12 15.2 3.2 3.2 0 0 0 12 8.8Zm9 3.2-2.05-.74c-.08-.27-.18-.53-.32-.78l.93-1.97-2.12-2.12-1.97.93c-.25-.14-.51-.24-.78-.32L14 3h-4l-.69 2c-.27.08-.53.18-.78.32l-1.97-.93L4.44 6.5l.93 1.97c-.14.25-.24.51-.32.78L3 12l2.05.74c.08.27.18.53.32.78l-.93 1.97 2.12 2.12 1.97-.93c.25.14.51.24.78.32L10 21h4l.69-2c.27-.08.53-.18.78-.32l1.97.93 2.12-2.12-.93-1.97c.14-.25.24-.51.32-.78Z"/></svg>
+    <div>
+      <strong>Admin Panel</strong>
+      <span>Manage profiles &amp; settings</span>
+    </div>
+  </a>
+  {% endif %}
+
   {% set animal_types = ['cow','pig','goat','sheep','chicken','rabbit'] %}
   {% set animal_count = projects | selectattr('type','in',animal_types) | list | length %}
   <div class="chips-row">

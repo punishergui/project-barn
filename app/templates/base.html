@@ -7,19 +7,19 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Project Barn">
   <link rel="apple-touch-icon" href="/static/icons/icon-192.svg">
-  <meta name="theme-color" content="#3B1A08">
+  <meta name="theme-color" content="#2D6A4F">
   <title>{% block title %}Project Barn{% endblock %}</title>
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 {% set profiles_view = request.path == '/profiles' %}
 <body{% if profiles_view %} class="profiles-page-body"{% endif %}>
   {% set route_path = request.path %}
   {% if not profiles_view and not hide_top_bar %}
-  {% set avatar_href = '/admin' if active_profile and active_profile.role == 'parent' else '/profiles' %}
+  {% set avatar_href = '/profiles' %}
   {% if page_title and back_url %}
   <header class="top-bar top-bar-detail">
     <a class="back-link" href="{{ back_url }}" aria-label="Back">
@@ -41,25 +41,24 @@
         {% else %}
         {{ active_profile.name[0] if active_profile else "?" }}
         {% endif %}
-        {% if active_profile and active_profile.role == 'parent' %}
-        <span class="avatar-gear-badge"><svg viewBox="0 0 24 24"><path d="M12 8.8A3.2 3.2 0 1 0 12 15.2 3.2 3.2 0 0 0 12 8.8Zm9 3.2-2.05-.74c-.08-.27-.18-.53-.32-.78l.93-1.97-2.12-2.12-1.97.93c-.25-.14-.51-.24-.78-.32L14 3h-4l-.69 2c-.27.08-.53.18-.78.32l-1.97-.93L4.44 6.5l.93 1.97c-.14.25-.24.51-.32.78L3 12l2.05.74c.08.27.18.53.32.78l-.93 1.97 2.12 2.12 1.97-.93c.25.14.51.24.78.32L10 21h4l.69-2c.27-.08.53-.18.78-.32l1.97.93 2.12-2.12-.93-1.97c.14-.25.24-.51.32-.78Z"/></svg></span>
-        {% endif %}
       </a>
     </div>
   </header>
   {% else %}
   <header class="top-bar">
     <div class="brand">
-      <svg class="barn-mark" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M3 10.5 12 4l9 6.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-        <rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/>
-        <path d="M11 20v-6h2v6" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      <svg class="barn-mark" viewBox="0 0 24 24" aria-hidden="true" fill="none">
+        <path d="M3 11h18v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V11z" stroke="currentColor" stroke-width="1.7"/>
+        <path d="M1 12L12 3l11 9" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        <rect x="5.5" y="13" width="3" height="3" rx="0.5" stroke="currentColor" stroke-width="1.4"/>
+        <rect x="15.5" y="13" width="3" height="3" rx="0.5" stroke="currentColor" stroke-width="1.4"/>
+        <path d="M10.5 22v-4.5a1.5 1.5 0 0 1 3 0V22" stroke="currentColor" stroke-width="1.5"/>
       </svg>
-      <span>PROJECT BARN</span>
+      <span>Project Barn</span>
     </div>
     <div class="top-bar-right">
       <button class="notif-bell" id="notifBell" aria-label="Notifications">
-        <svg viewBox="0 0 24 24" width="22" height="22">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/>
         </svg>
         {% if unread_count and unread_count > 0 %}
@@ -71,9 +70,6 @@
         <img src="/uploads/{{ active_profile.avatar_path }}" alt="{{ active_profile.name }}" class="top-avatar-img">
         {% else %}
         {{ active_profile.name[0] if active_profile else "?" }}
-        {% endif %}
-        {% if active_profile and active_profile.role == 'parent' %}
-        <span class="avatar-gear-badge"><svg viewBox="0 0 24 24"><path d="M12 8.8A3.2 3.2 0 1 0 12 15.2 3.2 3.2 0 0 0 12 8.8Zm9 3.2-2.05-.74c-.08-.27-.18-.53-.32-.78l.93-1.97-2.12-2.12-1.97.93c-.25-.14-.51-.24-.78-.32L14 3h-4l-.69 2c-.27.08-.53.18-.78.32l-1.97-.93L4.44 6.5l.93 1.97c-.14.25-.24.51-.32.78L3 12l2.05.74c.08.27.18.53.32.78l-.93 1.97 2.12 2.12 1.97-.93c.25.14.51.24.78.32L10 21h4l.69-2c.27-.08.53-.18.78-.32l1.97.93 2.12-2.12-.93-1.97c.14-.25.24-.51.32-.78Z"/></svg></span>
         {% endif %}
       </a>
     </div>
@@ -102,12 +98,20 @@
 
   <nav class="bottom-nav" aria-label="Primary">
     {% if active_profile %}
+    <a class="nav-logo" href="/">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none">
+        <path d="M3 11h18v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V11z" stroke="currentColor" stroke-width="1.7"/>
+        <path d="M1 12L12 3l11 9" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        <rect x="5.5" y="13" width="3" height="3" rx="0.5" stroke="currentColor" stroke-width="1.4"/>
+        <rect x="15.5" y="13" width="3" height="3" rx="0.5" stroke="currentColor" stroke-width="1.4"/>
+        <path d="M10.5 22v-4.5a1.5 1.5 0 0 1 3 0V22" stroke="currentColor" stroke-width="1.5"/>
+      </svg>
+      <span>Project Barn</span>
+    </a>
     <div class="nav-profile-card">
-      <div class="nav-profile-avatar"
-           style="--avatar-color: {{ active_profile.color }}">
+      <div class="nav-profile-avatar" style="--avatar-color: {{ active_profile.color }}">
         {% if active_profile.avatar_path %}
-        <img src="/uploads/{{ active_profile.avatar_path }}"
-             alt="{{ active_profile.name }}">
+        <img src="/uploads/{{ active_profile.avatar_path }}" alt="{{ active_profile.name }}">
         {% else %}
         {{ active_profile.name[0] }}
         {% endif %}
@@ -118,11 +122,14 @@
       </div>
     </div>
     {% endif %}
-    <a class="nav-item {% if route_path == '/' %}active{% endif %}" href="/"><svg viewBox="0 0 24 24"><path d="M4 11 12 5l8 6v8H4z"/></svg><span>Dashboard</span></a>
-    <a class="nav-item {% if route_path.startswith('/reports') %}active{% endif %}" href="/reports"><svg viewBox="0 0 24 24"><path d="M5 19V9m7 10V5m7 14v-7"/></svg><span>Reports</span></a>
-    <a class="nav-item {% if route_path.startswith('/expenses') %}active{% endif %}" href="/expenses"><svg viewBox="0 0 24 24"><path d="M4 8h16M6 8l1 11h10l1-11"/></svg><span>Expenses</span></a>
-    <a class="nav-item {% if route_path.startswith('/shows') %}active{% endif %}" href="/shows"><svg viewBox="0 0 24 24"><path d="M3 7h18M8 3v4m8-4v4M5 11h14v10H5z"/></svg><span>Shows</span></a>
-    <a class="nav-item {% if route_path.startswith('/projects') %}active{% endif %}" href="/projects"><svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/></svg><span>Projects</span></a>
+    <a class="nav-item {% if route_path == '/' %}active{% endif %}" href="/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11 12 5l8 6v8H4z"/></svg><span>Dashboard</span></a>
+    <a class="nav-item {% if route_path.startswith('/shows') %}active{% endif %}" href="/shows"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7h18M8 3v4m8-4v4M5 11h14v10H5z"/></svg><span>Shows</span></a>
+    <a class="nav-item {% if route_path.startswith('/projects') %}active{% endif %}" href="/projects"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7l9-4 9 4v10l-9 4-9-4V7z"/></svg><span>Projects</span></a>
+    <a class="nav-item {% if route_path.startswith('/reports') %}active{% endif %}" href="/reports"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 19V9m7 10V5m7 14v-7"/></svg><span>Reports</span></a>
+    {% if active_profile and active_profile.role == 'parent' %}
+    <a class="nav-item nav-admin-item {% if route_path.startswith('/admin') or route_path.startswith('/settings') %}active{% endif %}" href="/admin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8.8A3.2 3.2 0 1 0 12 15.2 3.2 3.2 0 0 0 12 8.8Zm9 3.2-2.05-.74c-.08-.27-.18-.53-.32-.78l.93-1.97-2.12-2.12-1.97.93c-.25-.14-.51-.24-.78-.32L14 3h-4l-.69 2c-.27.08-.53.18-.78.32l-1.97-.93L4.44 6.5l.93 1.97c-.14.25-.24.51-.32.78L3 12l2.05.74c.08.27.18.53.32.78l-.93 1.97 2.12 2.12 1.97-.93c.25.14.51.24.78.32L10 21h4l.69-2c.27-.08.53-.18.78-.32l1.97.93 2.12-2.12-.93-1.97c.14-.25.24-.51.32-.78Z"/></svg><span>Admin</span></a>
+    {% endif %}
+    <a class="nav-item nav-switch-profile {% if route_path == '/profiles' %}active{% endif %}" href="/profiles"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Switch Profile</span></a>
   </nav>
   {% endif %}
 

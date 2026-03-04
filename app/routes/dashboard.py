@@ -201,6 +201,7 @@ def dashboard_home():
         "dashboard.html",
         active_profile=active_profile,
         projects=projects,
+        project_count=len(projects),
         tasks_today=tasks_today,
         shows_upcoming=shows_upcoming,
         upcoming_preview=upcoming_preview,

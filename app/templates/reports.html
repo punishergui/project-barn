@@ -9,36 +9,36 @@
     ⬇ Export All Record Books (ZIP)
   </a>
   {% endif %}
-  <article class="report-card" data-report-toggle="expense-summary">
+  <p class="section-label">PROJECT REPORTS</p>
+  {% for section in expense_summary %}
+  <article class="report-card">
     <div class="report-head">
-      <h2>Expense Summary</h2>
-      <span>Tap to expand</span>
+      <h2>{{ section.project.name }}</h2>
     </div>
-    <div class="report-body" data-report-body="expense-summary" hidden>
-      {% for section in expense_summary %}
-      <div class="report-project-section">
-        <h3>{{ section.project.name }}</h3>
-        <a href="/reports/export/{{ section.project.id }}"
-           class="inline-link-btn">⬇ PDF</a>
-        <a href="/projects/{{ section.project.id }}/financial"
-           class="inline-link-btn">📊 Financials</a>
-        <a href="/projects/{{ section.project.id }}/expenses/csv"
-           class="inline-link-btn">⬇ CSV</a>
-        <table class="report-table">
-          <thead><tr><th>Category</th><th>Amount</th></tr></thead>
-          <tbody>
-            {% for category, amount in section.category_totals.items() %}
-            <tr><td>{{ expense_categories.get(category, category) }}</td><td>${{ '%.2f'|format(amount) }}</td></tr>
-            {% else %}
-            <tr><td colspan="2">No expenses</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% endfor %}
-      <div class="report-grand-total"><strong>Grand Total</strong><strong>${{ '%.2f'|format(grand_total) }}</strong></div>
+    <div class="chips-row" style="margin:8px 0 12px;flex-wrap:wrap;gap:8px">
+      <article class="chip chip-sm"><strong>${{ '%.2f'|format(section.total_spent) }}</strong><span>SPENT</span></article>
+      {% if section.total_income is defined and section.total_income %}<article class="chip chip-sm"><strong>${{ '%.2f'|format(section.total_income) }}</strong><span>INCOME</span></article>{% endif %}
+      {% if section.net_pl is defined %}<article class="chip chip-sm"><strong style="color:{% if section.net_pl >= 0 %}var(--green){% else %}var(--red){% endif %}">{% if section.net_pl >= 0 %}+{% endif %}${{ '%.0f'|format(section.net_pl|abs) }}</strong><span>NET P/L</span></article>{% endif %}
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <a href="/reports/export/{{ section.project.id }}" class="inline-link-btn">⬇ PDF</a>
+      <a href="/projects/{{ section.project.id }}/financial" class="inline-link-btn">📊 Financials</a>
+      <a href="/projects/{{ section.project.id }}/expenses/csv" class="inline-link-btn">⬇ CSV</a>
     </div>
   </article>
+  {% else %}
+  <div class="empty-state">
+    <span class="empty-state-icon">📊</span>
+    <h3>No Projects Yet</h3>
+    <p>Add your first project to start generating reports.</p>
+    <a class="empty-state-btn" href="/projects/add">+ Add Project</a>
+  </div>
+  {% endfor %}
+  {% if expense_summary %}
+  <article class="report-card" style="background:var(--bg-card-2)">
+    <div class="report-head"><h2>Grand Total</h2><strong>${{ '%.2f'|format(grand_total) }}</strong></div>
+  </article>
+  {% endif %}
 
   <article class="report-card">
     <div class="report-head"><h2>Helper Leaderboard</h2></div>

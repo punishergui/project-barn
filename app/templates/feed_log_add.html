@@ -13,10 +13,10 @@
       </select>
     </label>
     <label class="field"><span>Feed Brand / Product Name</span><input type="text" name="feed_brand" placeholder="e.g. Purina Show Chow"></label>
-    <label class="field"><span>Amount (lbs)</span><input id="feedAmount" type="number" name="amount_lbs" step="0.1" required></label>
+    <label class="field"><span>Amount (lbs)</span><input id="feedAmount" type="number" name="amount_lbs" step="0.1" required><span class="field-help">Total pounds fed today across all feedings combined.</span></label>
     <label class="field"><span>Feedings per Day</span><input type="number" name="feedings_per_day" min="1" value="1"></label>
-    <label class="field"><span>Bag Size (lbs)</span><input id="feedBagSize" type="number" name="bag_size_lbs" step="0.1" placeholder="e.g. 50"></label>
-    <label class="field"><span>Cost per Bag ($)</span><input id="feedCostBag" type="number" name="cost_per_bag" step="0.01" placeholder="e.g. 24.99"></label>
+    <label class="field"><span>Bag Size (lbs)</span><input id="feedBagSize" type="number" name="bag_size_lbs" step="0.1" placeholder="e.g. 50"><span class="field-help">Used to calculate cost per lb and estimate how long your supply will last.</span></label>
+    <label class="field"><span>Cost per Bag ($)</span><input id="feedCostBag" type="number" name="cost_per_bag" step="0.01" placeholder="e.g. 24.99"><span class="field-help">Helps track total feed cost on the expenses report.</span></label>
     <div id="feedCostPreview" class="feed-cost-preview"></div>
     <label class="field"><span>Notes</span><textarea name="notes"></textarea></label>
     <button class="btn-primary" type="submit">Log Feed Entry</button>
