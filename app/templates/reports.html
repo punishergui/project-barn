@@ -34,6 +34,19 @@
     <a class="empty-state-btn" href="/projects/add">+ Add Project</a>
   </div>
   {% endfor %}
+  <p class="section-label">EQUIPMENT & ASSETS</p>
+  <article class="report-card">
+    <div class="report-head">
+      <h2>Equipment Inventory</h2>
+    </div>
+    <p style="font-size:13px;color:var(--text-muted);
+       margin:0 0 10px">
+      Track reusable equipment for record book depreciation.
+    </p>
+    <a href="/equipment" class="inline-link-btn">
+      View Equipment →</a>
+  </article>
+
   {% if expense_summary %}
   <article class="report-card" style="background:var(--bg-card-2)">
     <div class="report-head"><h2>Grand Total</h2><strong>${{ '%.2f'|format(grand_total) }}</strong></div>

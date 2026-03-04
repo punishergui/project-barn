@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{{ template.name }} · Packing List{% endblock %}
+{% block content %}
+<section class="reports-page">
+  <h1 class="show-title">{{ template.name }}</h1>
+  <p class="show-subtitle">{{ template.description or '' }}</p>
+  <a href="/shows?apply_template={{ template.id }}" class="inline-link-btn">Apply to Show</a>
+  {% for cat, items in grouped_items.items() %}
+  <p class="section-label">{{ cat|replace('_',' ')|title }}</p>
+  <div class="task-list">
+    {% for item in items %}
+    <article class="task-card"><div class="task-info"><strong>{{ item.item_name }}</strong><span>{{ item.quantity or '' }} {{ item.notes or '' }}</span></div><form method="post" action="/packing-lists/{{ template.id }}/items/{{ item.id }}/delete"><button class="danger-btn" type="submit">×</button></form></article>
+    {% endfor %}
+  </div>
+  {% endfor %}
+  <form method="post" action="/packing-lists/{{ template.id }}/items/add" class="stack-form">
+    <label class="field"><span>Name</span><input name="item_name" required></label>
+    <label class="field"><span>Category</span><input name="category"></label>
+    <label class="field"><span>Quantity</span><input name="quantity"></label>
+    <label class="field"><span>Notes</span><input name="notes"></label>
+    <button class="submit-btn" type="submit">Add Item</button>
+  </form>
+</section>
+{% endblock %}

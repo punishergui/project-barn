@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Packing Lists · Project Barn{% endblock %}
+{% block content %}
+<section class="reports-page">
+  <a href="/packing-lists/add" class="submit-btn" style="text-decoration:none;text-align:center;display:block">+ New Template</a>
+  <div class="task-list">
+  {% for template in templates %}
+    <a class="task-card" href="/packing-lists/{{ template.id }}"><div class="task-info"><strong>{{ template.name }}</strong><span>{{ template.project_type or 'All projects' }}</span></div></a>
+  {% else %}
+    <p class="empty-state">No templates yet</p>
+  {% endfor %}
+  </div>
+</section>
+{% endblock %}

@@ -23,10 +23,32 @@
     <article class="timeline-entry">
       <div class="timeline-entry-icon {% if task.task_type == 'show' %}show{% endif %}">{{ task_icons.get(task.task_type, '📝') }}</div>
       <div>
-        <strong>{{ profiles.get(task.logged_by_id).name if profiles.get(task.logged_by_id) else 'Someone' }} logged {{ task.task_type }} for {{ project_map.get(task.project_id).name if project_map.get(task.project_id) else 'Project' }}</strong>
+        {% set who = profiles.get(task.logged_by_id).name if profiles.get(task.logged_by_id) else 'Someone' %}
+        {% if task.task_type == 'feed' and feed_log_map.get(task.id) %}
+        {% set fls = feed_log_map[task.id] %}
+        <strong>{{ who }} fed
+          {{ project_map.get(task.project_id).name
+             if project_map.get(task.project_id) else 'Project' }}
+          — {{ fls|length }} item{{ 's' if fls|length > 1 else '' }}
+        </strong>
+        {% else %}
+        <strong>{{ who }} logged {{ task.task_type }} for
+          {{ project_map.get(task.project_id).name
+          if project_map.get(task.project_id) else 'Project' }}
+        </strong>
+        {% endif %}
         {% if task.notes %}<p class="muted-copy">{{ task.notes }}</p>{% endif %}
         {% if task.weight_lbs %}<span class="mini-chip">⚖️ {{ task.weight_lbs }} lbs</span>{% endif %}
         {% if task.duration_minutes %}<span class="mini-chip">{{ task.duration_minutes }} min</span>{% endif %}
+        {% if task.task_type == 'feed'
+              and feed_log_map.get(task.id) %}
+        {% for fl in feed_log_map[task.id] %}
+        <span class="mini-chip">
+          🌾 {{ fl.amount_lbs }} {{ fl.amount_unit or 'lbs' }}
+          {% if fl.feed_brand %} {{ fl.feed_brand }}{% endif %}
+        </span>
+        {% endfor %}
+        {% endif %}
       </div>
       <div class="timeline-entry-time">{{ task.logged_at.strftime('%b %-d') }}<br>{{ task.logged_at.strftime('%-I:%M %p') }}</div>
     </article>

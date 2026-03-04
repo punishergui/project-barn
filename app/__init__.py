@@ -6,7 +6,7 @@ import bcrypt
 from flask import Flask
 from sqlalchemy import text
 
-from app.models import AuctionSale, Expense, FeedInventory, FeedLog, Goal, HealthRecord, IncomeRecord, InventoryItem, Notification, Photo, Profile, Project, ProjectActivity, ProjectMaterial, ProjectNarrative, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowEntry, SkillsChecklist, Task, db
+from app.models import AuctionSale, EquipmentItem, Expense, FeedInventory, FeedLog, Goal, HealthRecord, IncomeRecord, InventoryItem, Notification, PackingListItem, PackingListTemplate, Photo, Profile, Project, ProjectActivity, ProjectMaterial, ProjectNarrative, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowEntry, SkillsChecklist, Task, db
 
 
 def create_app() -> Flask:
@@ -36,6 +36,7 @@ def create_app() -> Flask:
         db.create_all()
         run_migrations()
         seed_if_empty()
+        seed_default_packing_lists(app)
 
     return app
 
@@ -97,6 +98,10 @@ def run_migrations() -> None:
         "ALTER TABLE profile ADD COLUMN years_in_4h INTEGER",
         "ALTER TABLE feed_log ADD COLUMN feed_inventory_id INTEGER REFERENCES feed_inventory(id)",
         "ALTER TABLE feed_log ADD COLUMN amount_unit TEXT DEFAULT 'lbs'",
+        "ALTER TABLE feed_log ADD COLUMN task_id INTEGER REFERENCES task(id)",
+        "ALTER TABLE show_day_check ADD COLUMN template_item_id INTEGER REFERENCES packing_list_item(id)",
+        "ALTER TABLE show_day_check ADD COLUMN project_id INTEGER REFERENCES project(id)",
+        "ALTER TABLE show_day_check ADD COLUMN show_id INTEGER REFERENCES show(id)",
     ]
 
     with db.engine.connect() as conn:
@@ -163,3 +168,48 @@ def save_upload(file_storage, upload_dir: str) -> str:
     filename = f"{uuid.uuid4().hex}.{extension}"
     file_storage.save(os.path.join(upload_dir, filename))
     return filename
+
+
+def seed_default_packing_lists(app) -> None:
+    if PackingListTemplate.query.count() != 0:
+        return
+    parent = Profile.query.filter_by(role='parent').first()
+    if not parent:
+        return
+
+    base_items = [
+        ('Health papers / CVI', 'documents'), ('YQCA certificate', 'documents'),
+        ('Entry confirmation / premium book', 'documents'), ('W-9 form', 'documents'),
+        ('Emergency vet contact', 'documents'), ('Feed for show days', 'animal_care'),
+        ('Water buckets (2)', 'animal_care'), ('Shavings / bedding (2 bags)', 'animal_care'),
+        ('Feed scoop', 'animal_care'), ('Halter + lead rope', 'animal_care'),
+        ('Grooming supplies bag', 'animal_care'), ('Hoof trimmer / brush', 'animal_care'),
+        ('Show sheen / coat spray', 'animal_care'), ('Fly spray', 'animal_care'),
+        ('First aid kit', 'animal_care'), ('Show box / tack box', 'show_supplies'),
+        ('Show stick', 'show_supplies'), ('Zip ties + bailing twine', 'show_supplies'),
+        ('Fan + extension cord', 'show_supplies'), ('Stall sign materials', 'show_supplies'),
+        ('Thank you note cards + stamps', 'show_supplies'), ('Show clothes (washed + pressed)', 'clothing'),
+        ('Show boots (polished)', 'clothing'), ('Belt', 'clothing'), ('Back number holder', 'clothing'),
+    ]
+
+    templates = [
+        ('Livestock Show Essentials', None, list(base_items) + []),
+        ('Pig Show', 'pig', list(base_items) + [
+            ('Pig oil / show sheen', 'animal_care'), ('Show whip / cane', 'animal_care'),
+            ('Ear tag pliers (backup)', 'animal_care'), ('Extra ear tags', 'animal_care'),
+            ('Pig board / sorting panel', 'show_supplies'),
+        ]),
+        ('Goat Show', 'goat', list(base_items) + [
+            ('Fitting stand + chains', 'animal_care'), ('Horn weights (if needed)', 'animal_care'),
+            ('Blanket / coat (if clipped)', 'animal_care'), ('Leg/hoof paint (white)', 'animal_care'),
+            ('Milk stand (if dairy)', 'show_supplies'), ('Bracing practice notes', 'show_supplies'),
+        ]),
+    ]
+
+    for name, ptype, items in templates:
+        tpl = PackingListTemplate(name=name, description='Default template', project_type=ptype, created_by_id=parent.id)
+        db.session.add(tpl)
+        db.session.flush()
+        for idx, (item_name, category) in enumerate(items):
+            db.session.add(PackingListItem(template_id=tpl.id, item_name=item_name, category=category, sort_order=idx))
+    db.session.commit()
