@@ -20,14 +20,19 @@ No backend models or legacy templates were removed.
 
 ### Frontend only
 1. From repo root: `cd frontend`
-2. Install deps: `npm install`
-3. Run dev server: `npm run dev`
+2. Copy env template: `cp .env.example .env.local`
+3. Install deps: `npm install`
+4. Run dev server: `npm run dev`
 
-### Full stack with Docker Compose (Phase 0)
+### Full stack with Docker Compose + Traefik (split stack)
 1. Copy env template: `cp .env.example .env`
-2. Start both services: `docker compose up --build`
-3. Open frontend at `http://localhost:3000`
-4. Backend remains available at `http://localhost:5000`
+2. Ensure external Docker network exists: `docker network create proxy` (one-time).
+3. Start both services: `docker compose up -d --build`
+4. Route traffic through Traefik host rules for `barn.white-house.cc`:
+   - `/api` -> `barn-backend` (Flask on port 5000 inside container)
+   - all other paths -> `barn-frontend` (Next.js on port 3000 inside container)
+
+Rollback option: `docker compose -f docker-compose.legacy.yml up -d`
 
 Environment variables:
 
