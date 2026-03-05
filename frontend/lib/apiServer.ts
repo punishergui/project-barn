@@ -2,10 +2,25 @@ import "server-only";
 
 import { headers } from "next/headers";
 
-import { API_BASE_URL } from "@/lib/api";
+function getApiOrigin() {
+  const incomingHeaders = headers();
+  const forwardedProto = incomingHeaders.get("x-forwarded-proto");
+  const forwardedHost = incomingHeaders.get("x-forwarded-host");
+  const host = incomingHeaders.get("host");
+
+  const protocol = forwardedProto ?? (host?.includes("localhost") ? "http" : "https");
+  const resolvedHost = forwardedHost ?? host;
+
+  if (!resolvedHost) {
+    throw new Error("Unable to resolve API host for server-side fetch.");
+  }
+
+  return `${protocol}://${resolvedHost}`;
+}
 
 export async function apiFetchServer(path: string, init?: RequestInit): Promise<Response> {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const apiUrl = new URL(`/api${normalizedPath}`, getApiOrigin());
   const incomingHeaders = headers();
   const requestHeaders = new Headers(init?.headers);
 
@@ -34,14 +49,13 @@ export async function apiFetchServer(path: string, init?: RequestInit): Promise<
     requestHeaders.set("host", host);
   }
 
-  return fetch(`${API_BASE_URL}${normalizedPath}`, {
+  return fetch(apiUrl, {
     credentials: "include",
     cache: "no-store",
     ...init,
     headers: requestHeaders
   });
 }
-
 
 async function parseJson<T>(response: Response): Promise<T> {
   const body = await response.json().catch(() => ({}));
