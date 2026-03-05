@@ -101,6 +101,7 @@ class ShowEntry(db.Model):
     day_number = db.Column(db.Integer, nullable=True)
     notes = db.Column(db.Text, nullable=True)
     judge_notes = db.Column(db.Text, nullable=True)
+    division = db.Column(db.String(120), nullable=True)
 
 
 class ShowDay(db.Model):
@@ -109,6 +110,45 @@ class ShowDay(db.Model):
     day_number = db.Column(db.Integer, nullable=False)
     notes = db.Column(db.Text, nullable=True)
     date = db.Column(db.Date, nullable=True)
+    label = db.Column(db.String(80), nullable=True)
+
+
+class Placing(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    entry_id = db.Column(db.Integer, db.ForeignKey("show_entry.id"), nullable=False)
+    show_day_id = db.Column(db.Integer, db.ForeignKey("show_day.id"), nullable=False)
+    ring = db.Column(db.String(40), nullable=True)
+    placing_text = db.Column(db.String(80), nullable=False)
+    points = db.Column(db.Float, nullable=True)
+    judge = db.Column(db.String(120), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+
+
+class TaskItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
+    title = db.Column(db.String(255), nullable=False)
+    due_date = db.Column(db.Date, nullable=True)
+    recurrence = db.Column(db.String(20), nullable=False, default="none")
+    assigned_profile_id = db.Column(db.Integer, db.ForeignKey("profile.id"), nullable=True)
+    status = db.Column(db.String(20), nullable=False, default="open")
+    priority = db.Column(db.String(20), nullable=False, default="normal")
+    notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    completed_at = db.Column(db.DateTime, nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("recurrence IN ('none','daily','weekly')", name="ck_task_item_recurrence"),
+        CheckConstraint("status IN ('open','done')", name="ck_task_item_status"),
+        CheckConstraint("priority IN ('low','normal','high')", name="ck_task_item_priority"),
+    )
+
+
+class AppSetting(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    family_name = db.Column(db.String(120), nullable=True)
+    allow_kid_task_toggle = db.Column(db.Boolean, default=False, nullable=False)
 
 
 class ShowDayCheck(db.Model):

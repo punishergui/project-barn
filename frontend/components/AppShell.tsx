@@ -11,6 +11,8 @@ const links = [
   { href: "/projects", label: "Projects" },
   { href: "/expenses", label: "Expenses" },
   { href: "/shows", label: "Shows" },
+  { href: "/tasks", label: "Tasks" },
+  { href: "/settings", label: "Settings" },
   { href: "/more", label: "More" }
 ];
 
@@ -50,7 +52,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <select className="rounded bg-neutral-900 px-2 py-1" value={profile?.id ?? ""} onChange={(e) => switchProfile(Number(e.target.value))}>
               {profiles.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
-            <Link href="/more" className="rounded border border-white/20 px-2 py-1">Settings</Link>
+            <Link href="/settings" className="rounded border border-white/20 px-2 py-1">Settings</Link>
           </div>
         </div>
       </header>

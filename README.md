@@ -47,6 +47,16 @@ No backend models or legacy templates were removed.
 
 Rollback option: `docker compose -f docker-compose.legacy.yml up -d`
 
+
+### Docker volumes
+
+Uploads must persist in a mounted volume for the backend container.
+
+- Recommended mount: `barn_uploads:/data/uploads`
+- Database mount: `barn_data:/data`
+
+This keeps media files and SQLite data across restarts.
+
 ### Recommended deploy flow
 
 Use this sequence for stable deployments:
@@ -61,6 +71,7 @@ Environment variables:
 - `BARN_DB_PATH` (default: `/data/barn.db`)
 - `BARN_UPLOAD_DIR` (default: `/data/uploads`)
 - `BACKEND_ORIGIN` (default: `http://backend:5000`)
+- `INTERNAL_API_BASE_URL` (frontend server-to-server proxy base, default: `http://barn-backend:5000/api`)
 
 
 ## API migration plan (Phase 1 target)
@@ -89,3 +100,11 @@ Idempotency behavior:
 - `/shows` and `/more` placeholders
 
 Parent admin actions are protected by backend PIN unlock endpoints under `/api/auth/*`.
+
+
+### Full stack local dev quickstart
+
+1. `cp .env.example .env`
+2. `docker compose up --build`
+3. Open `http://localhost` or your configured Traefik host.
+4. Frontend calls only same-origin `/api/*` via `frontend/app/api/[...path]/route.ts`.

@@ -6,7 +6,7 @@ import bcrypt
 from flask import Flask
 from sqlalchemy import text
 
-from app.models import AuctionSale, EquipmentItem, Expense, FeedInventory, FeedLog, Goal, HealthRecord, IncomeRecord, InventoryItem, Notification, PackingListItem, PackingListTemplate, Photo, Profile, Project, ProjectActivity, ProjectMaterial, ProjectNarrative, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowEntry, SkillsChecklist, Task, db
+from app.models import AppSetting, AuctionSale, EquipmentItem, Expense, FeedInventory, FeedLog, Goal, HealthRecord, IncomeRecord, InventoryItem, Notification, PackingListItem, PackingListTemplate, Photo, Placing, Profile, Project, ProjectActivity, ProjectMaterial, ProjectNarrative, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowEntry, SkillsChecklist, Task, TaskItem, db
 
 
 def create_app() -> Flask:
@@ -39,6 +39,9 @@ def create_app() -> Flask:
     with app.app_context():
         db.create_all()
         run_migrations()
+        if AppSetting.query.count() == 0:
+            db.session.add(AppSetting(family_name="", allow_kid_task_toggle=False))
+            db.session.commit()
         seed_if_empty()
         seed_default_packing_lists(app)
 
@@ -52,6 +55,8 @@ def run_migrations() -> None:
         "ALTER TABLE show_entry ADD COLUMN class_name TEXT",
         "ALTER TABLE show_day ADD COLUMN date DATE",
         "ALTER TABLE show_day ADD COLUMN notes TEXT",
+        "ALTER TABLE show_day ADD COLUMN label TEXT",
+        "ALTER TABLE show_entry ADD COLUMN division TEXT",
         "ALTER TABLE photo ADD COLUMN caption TEXT",
         "ALTER TABLE photo ADD COLUMN photo_type TEXT DEFAULT 'photo'",
         "ALTER TABLE photo ADD COLUMN show_day_id INTEGER",
@@ -119,12 +124,22 @@ def run_migrations() -> None:
                 conn.execute(text(statement))
             except Exception:
                 pass
+        try:
+            conn.execute(text("CREATE TABLE IF NOT EXISTS placing (id INTEGER PRIMARY KEY, entry_id INTEGER NOT NULL REFERENCES show_entry(id), show_day_id INTEGER NOT NULL REFERENCES show_day(id), ring TEXT, placing_text TEXT NOT NULL, points REAL, judge TEXT, notes TEXT)"))
+            conn.execute(text("CREATE TABLE IF NOT EXISTS task_item (id INTEGER PRIMARY KEY, project_id INTEGER REFERENCES project(id), title TEXT NOT NULL, due_date DATE, recurrence TEXT NOT NULL DEFAULT 'none', assigned_profile_id INTEGER REFERENCES profile(id), status TEXT NOT NULL DEFAULT 'open', priority TEXT NOT NULL DEFAULT 'normal', notes TEXT, created_at DATETIME, updated_at DATETIME, completed_at DATETIME)"))
+            conn.execute(text("CREATE TABLE IF NOT EXISTS app_setting (id INTEGER PRIMARY KEY, family_name TEXT, allow_kid_task_toggle BOOLEAN NOT NULL DEFAULT 0)"))
+        except Exception:
+            pass
         conn.commit()
 
 
 def seed_if_empty() -> None:
     if Profile.query.count() != 0:
         return
+
+    if AppSetting.query.count() == 0:
+        db.session.add(AppSetting(family_name="", allow_kid_task_toggle=False))
+        db.session.commit()
 
     mom_pin = bcrypt.hashpw(b"1234", bcrypt.gensalt()).decode("utf-8")
 
