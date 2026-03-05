@@ -1,24 +1,10 @@
-const isServer = typeof window === "undefined";
-
-function trimTrailingSlash(value: string): string {
-  return value.endsWith("/") ? value.slice(0, -1) : value;
-}
-
-function getServerApiBaseUrl(): string {
-  const configuredBase = process.env.INTERNAL_API_BASE_URL;
-  if (configuredBase) {
-    if (configuredBase.startsWith("http://") || configuredBase.startsWith("https://")) {
-      return trimTrailingSlash(configuredBase);
-    }
-
-    return `http://barn-backend:5000${configuredBase.startsWith("/") ? configuredBase : `/${configuredBase}`}`;
+export function getApiBase(): string {
+  if (typeof window === "undefined") {
+    return process.env.INTERNAL_API_BASE_URL ?? "http://barn-backend:5000/api";
   }
 
-  const backendOrigin = process.env.BACKEND_ORIGIN ?? "http://barn-backend:5000";
-  return `${trimTrailingSlash(backendOrigin)}/api`;
+  return "/api";
 }
-
-export const API_BASE_URL = isServer ? getServerApiBaseUrl() : "/api";
 
 export type SessionResponse = {
   active_profile: { id: number | null; name: string | null; role: string | null; avatar_url: string | null };
@@ -54,8 +40,7 @@ export type ProjectDetail = {
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-
-  const response = await fetch(`${API_BASE_URL}${normalizedPath}`, {
+  const response = await fetch(`${getApiBase()}${normalizedPath}`, {
     credentials: "include",
     cache: "no-store",
     ...init
