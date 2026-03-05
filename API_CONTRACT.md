@@ -1,161 +1,122 @@
 # Project Barn API Contract (Phase 1)
 
-This contract defines baseline `/api` behavior for the split frontend/backend architecture.
+This contract defines the read-only JSON endpoints consumed by the Next.js frontend.
 
 ## Global API Rules
 - All `/api/*` endpoints return JSON.
-- No HTML redirects for API requests.
-- Errors must return appropriate HTTP status codes.
-- Frontend must consume these endpoints and must not bypass backend data access.
+- `/api/*` endpoints never redirect to HTML routes.
+- Use HTTP status codes for success/failure (2xx/4xx/5xx).
 
 ## Endpoints
 
 ### GET `/api/health`
-**Purpose:** Liveness/health check for backend API.
-
-**200 OK**
 ```json
 {
   "status": "ok",
-  "service": "barn-backend",
-  "version": "phase-1"
+  "service": "project-barn-backend"
 }
 ```
 
 ### GET `/api/session`
-**Purpose:** Return active session/profile context.
-
-**200 OK**
 ```json
 {
-  "authenticated": true,
   "active_profile": {
     "id": 1,
     "name": "Mom",
-    "role": "parent"
+    "role": "parent",
+    "avatar_url": "/uploads/avatar.png"
+  },
+  "family": {
+    "id": null,
+    "name": null
   }
-}
-```
-
-**401 Unauthorized**
-```json
-{
-  "error": "unauthorized",
-  "message": "No active session"
 }
 ```
 
 ### GET `/api/profiles`
-**Purpose:** List available profiles for switching/sign-in UI.
-
-**200 OK**
 ```json
-{
-  "profiles": [
-    {
-      "id": 1,
-      "name": "Mom",
-      "role": "parent",
-      "avatar_path": "/uploads/avatars/mom.png"
-    },
-    {
-      "id": 2,
-      "name": "Ava",
-      "role": "kid",
-      "avatar_path": "/uploads/avatars/ava.png"
-    }
-  ]
-}
+[
+  {
+    "id": 1,
+    "name": "Mom",
+    "role": "parent",
+    "avatar_url": null
+  }
+]
 ```
 
 ### GET `/api/projects`
-**Purpose:** Return projects visible to the active profile.
+```json
+[
+  {
+    "id": 1,
+    "name": "Bluebonnet",
+    "animal_type": "cow",
+    "owner_profile": { "id": 3, "name": "Ava" },
+    "hero_image_url": "https://placehold.co/1200x675/png?text=Steer+Hero",
+    "updated_at": "2026-01-20T00:00:00",
+    "total_cost": 107.5,
+    "ribbon_count": 1
+  }
+]
+```
 
-**200 OK**
+### GET `/api/projects/<id>`
 ```json
 {
-  "projects": [
+  "id": 1,
+  "name": "Bluebonnet",
+  "animal_type": "cow",
+  "owner_profile": { "id": 3, "name": "Ava" },
+  "hero_image_url": "https://placehold.co/1200x675/png?text=Steer+Hero",
+  "summary": {
+    "total_cost": 107.5,
+    "expenses_count": 2,
+    "photos_count": 0,
+    "shows_count": 1
+  },
+  "recent_activity": [
     {
-      "id": 101,
-      "name": "Spring Steer",
-      "type": "beef",
-      "owner_id": 2,
-      "breed": "Angus"
-    },
-    {
-      "id": 102,
-      "name": "Market Lamb",
-      "type": "sheep",
-      "owner_id": 3,
-      "breed": "Hampshire"
+      "id": 1,
+      "date": "2026-01-19T00:00:00",
+      "type": "Daily training and handling",
+      "note": "Practiced showmanship fundamentals."
     }
   ]
-}
-```
-
-### GET `/api/projects/{id}`
-**Purpose:** Return detailed data for a single project.
-
-**200 OK**
-```json
-{
-  "project": {
-    "id": 101,
-    "name": "Spring Steer",
-    "type": "beef",
-    "owner_id": 2,
-    "breed": "Angus",
-    "purchase_price": 1200.0,
-    "notes": "Focus on halter training this month."
-  }
-}
-```
-
-**404 Not Found**
-```json
-{
-  "error": "not_found",
-  "message": "Project not found"
 }
 ```
 
 ### GET `/api/dashboard`
-**Purpose:** Aggregate summary cards/data for the main dashboard.
-
-**200 OK**
 ```json
 {
-  "summary": {
-    "active_projects": 4,
-    "open_tasks": 7,
-    "upcoming_shows": 2,
-    "monthly_expenses": 642.5
+  "counts": {
+    "projects": 3,
+    "profiles": 5,
+    "expenses": 6,
+    "shows": 1,
+    "tasks": 4
   },
-  "recent_tasks": [
+  "recent_activity": [
     {
-      "id": 9001,
-      "project_id": 101,
-      "task_type": "weight",
-      "logged_at": "2026-01-20T18:42:00Z"
+      "kind": "expense",
+      "label": "Expense: $72.50",
+      "date": "2026-01-20T00:00:00",
+      "project_id": 1
+    }
+  ],
+  "upcoming": [
+    {
+      "kind": "show",
+      "label": "White House Barn Spring Jackpot",
+      "date": "2026-02-10T00:00:00",
+      "project_id": null
     }
   ]
 }
 ```
 
-## Error Envelope Guidance
-Use consistent JSON errors with HTTP status codes, for example:
-
-```json
-{
-  "error": "validation_error",
-  "message": "Invalid request payload",
-  "details": {
-    "field": "name"
-  }
-}
+## Example curl
+```bash
+curl -sk https://barn.white-house.cc/api/projects
+curl -sk https://barn.white-house.cc/api/dashboard
 ```
-
-## Non-Negotiable Contract Constraints
-- `/api` is the only backend interface used by frontend.
-- Backend must never return template-rendered HTML for `/api` routes.
-- Backend must never redirect `/api` requests to non-API routes.
