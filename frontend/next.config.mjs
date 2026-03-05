@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async rewrites() {
-    const backendOrigin = process.env.BACKEND_ORIGIN || "http://backend:5000";
+    const backendOrigin = process.env.BACKEND_ORIGIN || "http://barn-backend:5000";
 
     return [
       {
