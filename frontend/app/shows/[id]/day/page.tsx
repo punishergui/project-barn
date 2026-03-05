@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 
-import { apiClientJson, Profile, Project, Show } from "@/lib/api";
+import { apiClientJson, Profile, Project, SessionResponse, Show } from "@/lib/api";
 
 const statusItems = ["Weighed-in", "Checked-in", "Washed", "Clipped", "In-ring", "Placed"];
 const checklistTemplates: Record<string, string[]> = {
@@ -22,17 +22,20 @@ export default function ShowDayPage() {
   const [selectedDayId, setSelectedDayId] = useState<number | null>(null);
   const [localByEntry, setLocalByEntry] = useState<Record<number, LocalState>>({});
 
-  const storageKey = `show-day-${params.id}`;
+  const [activeProfileId, setActiveProfileId] = useState<number | null>(null);
+  const storageKey = `show-day-${params.id}-${activeProfileId ?? "anon"}`;
 
   const load = async () => {
-    const [showData, projectData, profileData] = await Promise.all([
+    const [showData, projectData, profileData, sessionData] = await Promise.all([
       apiClientJson<Show>(`/shows/${params.id}`),
       apiClientJson<Project[]>("/projects"),
-      apiClientJson<Profile[]>("/profiles")
+      apiClientJson<Profile[]>("/profiles"),
+      apiClientJson<SessionResponse>("/session").catch(() => ({ active_profile: null, family: { id: null, name: null } }))
     ]);
     setShow(showData);
     setProjects(projectData);
     setProfiles(profileData);
+    setActiveProfileId(sessionData.active_profile?.id ?? null);
     setSelectedDayId(showData.days[0]?.id ?? null);
   };
 
@@ -40,7 +43,7 @@ export default function ShowDayPage() {
     load().catch(() => undefined);
     const saved = window.localStorage.getItem(storageKey);
     if (saved) setLocalByEntry(JSON.parse(saved));
-  }, [params.id]);
+  }, [params.id, storageKey]);
 
   useEffect(() => {
     window.localStorage.setItem(storageKey, JSON.stringify(localByEntry));
