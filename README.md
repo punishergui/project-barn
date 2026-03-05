@@ -60,3 +60,15 @@ Environment variables:
 - API endpoints will be introduced under `/api` on the existing Flask backend.
 - Proposed location: `app/routes/api.py` registered from `app/routes/__init__.py` as a dedicated blueprint (for example `api_bp`).
 - Legacy Jinja routes/templates remain untouched during migration; frontend will call backend JSON APIs incrementally.
+
+## Dev Seeding
+
+Use the Flask CLI command to create a reusable development dataset in the backend database:
+
+- `docker compose exec barn-backend flask seed-dev`
+- `docker compose exec barn-backend flask seed-dev --reset`
+
+Idempotency behavior:
+- Default run is safe to repeat: if seeded data for the selected family already exists, the command exits without duplicating records.
+- `--reset` removes previously seeded dev records (tagged by the seed command) and recreates them.
+- Optional family override: `--family-name "Your Barn Name"`.
