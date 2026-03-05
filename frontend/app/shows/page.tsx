@@ -24,6 +24,7 @@ export default function ShowsPage() {
       <h1 className="text-xl font-semibold">Shows</h1>
       {auth?.role === "parent" && auth.is_unlocked ? <Link href="/shows/new" className="rounded bg-red-700 px-3 py-2">New Show</Link> : null}
     </div>
+    {shows.length === 0 ? <p className="rounded border border-white/10 bg-neutral-900 p-4 text-sm text-neutral-300">No shows scheduled yet.</p> : null}
     <div className="space-y-2">
       {shows.map((show) => <Link key={show.id} className="block rounded border border-white/10 bg-neutral-900 p-3" href={`/shows/${show.id}`}>
         <p className="font-medium">{show.name}</p>
