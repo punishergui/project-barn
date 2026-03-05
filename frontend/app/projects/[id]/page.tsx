@@ -159,7 +159,18 @@ export default function ProjectDetailPage() {
           <Link href={upcomingShow ? `/shows/${upcomingShow.id}/day` : "/shows"} className="rounded bg-neutral-800 px-4 py-3 text-center font-medium">{upcomingShow ? "Open Show Day Mode" : "Show Day Unavailable"}</Link>
           <button onClick={() => setActiveSection("media")} className="rounded bg-neutral-800 px-4 py-3 font-medium">View Media</button>
         </div>
-      </header>
+      
+
+        <div className="mt-4 rounded-lg border border-white/10 bg-neutral-800 p-3">
+          <p className="mb-2 text-xs uppercase text-neutral-400">Quick Actions</p>
+          <div className="flex flex-wrap gap-2 text-sm">
+            <Link href={`/projects/${project.id}/tasks`} className="rounded bg-neutral-700 px-3 py-1">Tasks</Link>
+            <Link href={`/projects/${project.id}/weights`} className="rounded bg-neutral-700 px-3 py-1">Weights</Link>
+            <Link href={`/projects/${project.id}/health`} className="rounded bg-neutral-700 px-3 py-1">Health</Link>
+            <Link href={`/projects/${project.id}/feed`} className="rounded bg-neutral-700 px-3 py-1">Feed</Link>
+          </div>
+        </div>
+</header>
 
       <div className="flex gap-2 overflow-x-auto">
         {sections.map((section) => <button key={section} onClick={() => setActiveSection(section)} className={`rounded-full px-3 py-1.5 text-sm capitalize ${activeSection === section ? "bg-red-700" : "bg-neutral-800"}`}>{section}</button>)}

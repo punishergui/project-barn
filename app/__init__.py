@@ -6,7 +6,7 @@ import bcrypt
 from flask import Flask
 from sqlalchemy import text
 
-from app.models import AppSetting, AuctionSale, EquipmentItem, Expense, ExpenseAllocation, ExpenseReceipt, FeedInventory, FeedLog, Goal, HealthRecord, IncomeRecord, InventoryItem, Media, Notification, PackingListItem, PackingListTemplate, Photo, Placing, Profile, Project, ProjectActivity, ProjectMaterial, ProjectNarrative, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowEntry, SkillsChecklist, Task, TaskItem, TimelineEntry, db
+from app.models import AppSetting, AuctionSale, EquipmentItem, Expense, ExpenseAllocation, ExpenseReceipt, FeedEntry, FeedInventory, FeedInventorySimple, FeedLog, Goal, HealthEntry, HealthRecord, IncomeRecord, InventoryItem, Media, Notification, PackingListItem, PackingListTemplate, Photo, Placing, Profile, Project, ProjectActivity, ProjectMaterial, ProjectNarrative, ProjectTask, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowEntry, SkillsChecklist, Task, TaskItem, TimelineEntry, WeightEntry, db
 
 
 def create_app() -> Flask:
@@ -138,6 +138,11 @@ def run_migrations() -> None:
             conn.execute(text("CREATE TABLE IF NOT EXISTS media (id INTEGER PRIMARY KEY, project_id INTEGER REFERENCES project(id), show_id INTEGER REFERENCES show(id), show_day_id INTEGER REFERENCES show_day(id), file_name TEXT NOT NULL, url TEXT NOT NULL, caption TEXT, created_at DATETIME NOT NULL)"))
             conn.execute(text("CREATE TABLE IF NOT EXISTS expense_receipt (id INTEGER PRIMARY KEY, expense_id INTEGER NOT NULL REFERENCES expense(id), file_name TEXT NOT NULL, url TEXT NOT NULL, caption TEXT, created_at DATETIME NOT NULL)"))
             conn.execute(text("CREATE TABLE IF NOT EXISTS expense_allocation (id INTEGER PRIMARY KEY, expense_id INTEGER NOT NULL REFERENCES expense(id), project_id INTEGER NOT NULL REFERENCES project(id), amount_cents INTEGER NOT NULL, created_at DATETIME NOT NULL)"))
+            conn.execute(text("CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL REFERENCES project(id), title TEXT NOT NULL, due_date DATE, is_daily BOOLEAN NOT NULL DEFAULT 0, is_completed BOOLEAN NOT NULL DEFAULT 0, completed_at DATETIME, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)"))
+            conn.execute(text("CREATE TABLE IF NOT EXISTS weight_entries (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL REFERENCES project(id), recorded_at DATE NOT NULL, weight_lbs REAL NOT NULL, notes TEXT)"))
+            conn.execute(text("CREATE TABLE IF NOT EXISTS health_entries (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL REFERENCES project(id), recorded_at DATE NOT NULL, category TEXT NOT NULL, description TEXT NOT NULL, cost_cents INTEGER, vendor TEXT, attachment_receipt_url TEXT)"))
+            conn.execute(text("CREATE TABLE IF NOT EXISTS feed_entries (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL REFERENCES project(id), recorded_at DATE NOT NULL, feed_type TEXT NOT NULL, amount REAL NOT NULL, unit TEXT NOT NULL, cost_cents INTEGER, notes TEXT)"))
+            conn.execute(text("CREATE TABLE IF NOT EXISTS feed_inventory_item (id INTEGER PRIMARY KEY, name TEXT NOT NULL, unit TEXT NOT NULL, qty_on_hand REAL NOT NULL DEFAULT 0, updated_at DATETIME NOT NULL)"))
         except Exception:
             pass
         conn.commit()

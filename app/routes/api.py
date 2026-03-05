@@ -9,7 +9,7 @@ from sqlalchemy import func
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app import save_upload
-from app.models import AppSetting, Expense, ExpenseAllocation, ExpenseReceipt, Media, Placing, Profile, Project, Show, ShowDay, ShowEntry, Task, TaskItem, TimelineEntry, db
+from app.models import AppSetting, Expense, ExpenseAllocation, ExpenseReceipt, FeedEntry, FeedInventorySimple, HealthEntry, Media, Placing, Profile, Project, ProjectTask, Show, ShowDay, ShowEntry, Task, TaskItem, TimelineEntry, WeightEntry, db
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 UNLOCK_DURATION_MINUTES = 15
@@ -701,6 +701,56 @@ def _media_payload(item: Media) -> dict[str, object]:
     }
 
 
+def _project_task_payload(task: ProjectTask) -> dict[str, object]:
+    return {
+        "id": task.id,
+        "project_id": task.project_id,
+        "title": task.title,
+        "due_date": _iso(task.due_date),
+        "is_daily": bool(task.is_daily),
+        "is_completed": bool(task.is_completed),
+        "completed_at": _iso(task.completed_at),
+        "created_at": _iso(task.created_at),
+        "updated_at": _iso(task.updated_at),
+    }
+
+
+def _weight_entry_payload(entry: WeightEntry) -> dict[str, object]:
+    return {"id": entry.id, "project_id": entry.project_id, "recorded_at": _iso(entry.recorded_at), "weight_lbs": entry.weight_lbs, "notes": entry.notes}
+
+
+def _health_entry_payload(entry: HealthEntry) -> dict[str, object]:
+    return {
+        "id": entry.id,
+        "project_id": entry.project_id,
+        "recorded_at": _iso(entry.recorded_at),
+        "category": entry.category,
+        "description": entry.description,
+        "cost_cents": entry.cost_cents,
+        "cost": (entry.cost_cents / 100.0) if entry.cost_cents is not None else None,
+        "vendor": entry.vendor,
+        "attachment_receipt_url": entry.attachment_receipt_url,
+    }
+
+
+def _feed_entry_payload(entry: FeedEntry) -> dict[str, object]:
+    return {
+        "id": entry.id,
+        "project_id": entry.project_id,
+        "recorded_at": _iso(entry.recorded_at),
+        "feed_type": entry.feed_type,
+        "amount": entry.amount,
+        "unit": entry.unit,
+        "cost_cents": entry.cost_cents,
+        "cost": (entry.cost_cents / 100.0) if entry.cost_cents is not None else None,
+        "notes": entry.notes,
+    }
+
+
+def _feed_inventory_payload(item: FeedInventorySimple) -> dict[str, object]:
+    return {"id": item.id, "name": item.name, "unit": item.unit, "qty_on_hand": item.qty_on_hand, "updated_at": _iso(item.updated_at)}
+
+
 @api_bp.get('/shows')
 def api_shows():
     shows = Show.query.order_by(Show.start_date.asc(), Show.id.asc()).all()
@@ -964,20 +1014,24 @@ def api_media_delete(media_id: int):
     return jsonify({'success': True})
 @api_bp.get('/tasks')
 def api_tasks():
-    query = TaskItem.query
-    for key in ['status', 'project_id', 'assigned_profile_id']:
+    query = ProjectTask.query
+    for key in ['project_id']:
         value = request.args.get(key)
         if value:
-            col = getattr(TaskItem, key)
-            query = query.filter(col == (int(value) if key.endswith('_id') else value))
+            query = query.filter(getattr(ProjectTask, key) == int(value))
+    status = request.args.get('status')
+    if status == 'done':
+        query = query.filter(ProjectTask.is_completed.is_(True))
+    elif status == 'open':
+        query = query.filter(ProjectTask.is_completed.is_(False))
     due_before = request.args.get('due_before')
     due_after = request.args.get('due_after')
     if due_before:
-        query = query.filter(TaskItem.due_date <= date.fromisoformat(due_before))
+        query = query.filter(ProjectTask.due_date <= date.fromisoformat(due_before))
     if due_after:
-        query = query.filter(TaskItem.due_date >= date.fromisoformat(due_after))
-    tasks = query.order_by(TaskItem.status.asc(), TaskItem.due_date.asc().nulls_last(), TaskItem.id.desc()).all()
-    return jsonify([_task_item_payload(task) for task in tasks])
+        query = query.filter(ProjectTask.due_date >= date.fromisoformat(due_after))
+    tasks = query.order_by(ProjectTask.is_completed.asc(), ProjectTask.due_date.asc().nulls_last(), ProjectTask.id.desc()).all()
+    return jsonify([_project_task_payload(task) for task in tasks])
 
 
 @api_bp.post('/tasks')
@@ -987,17 +1041,19 @@ def api_task_create():
         return error
     payload = request.get_json(silent=True) or {}
     title = str(payload.get('title', '')).strip()
-    if not title:
-        return jsonify({'error': 'title is required'}), 400
-    task = TaskItem(project_id=payload.get('project_id'), title=title, due_date=date.fromisoformat(payload['due_date']) if payload.get('due_date') else None, recurrence=payload.get('recurrence') or 'none', assigned_profile_id=payload.get('assigned_profile_id'), status=payload.get('status') or 'open', priority=payload.get('priority') or 'normal', notes=payload.get('notes'))
+    project_id = payload.get('project_id')
+    if not title or project_id is None:
+        return jsonify({'error': 'title and project_id are required'}), 400
+    now = datetime.utcnow()
+    task = ProjectTask(project_id=int(project_id), title=title, due_date=date.fromisoformat(payload['due_date']) if payload.get('due_date') else None, is_daily=(payload.get('recurrence') == 'daily' or bool(payload.get('is_daily', False))), is_completed=(payload.get('status') == 'done' or bool(payload.get('is_completed', False))), completed_at=now if (payload.get('status') == 'done' or payload.get('is_completed')) else None, created_at=now, updated_at=now)
     db.session.add(task)
     db.session.commit()
-    return jsonify(_task_item_payload(task)), 201
+    return jsonify(_project_task_payload(task)), 201
 
 
 @api_bp.get('/tasks/<int:task_id>')
 def api_task_detail(task_id: int):
-    return jsonify(_task_item_payload(TaskItem.query.get_or_404(task_id)))
+    return jsonify(_project_task_payload(ProjectTask.query.get_or_404(task_id)))
 
 
 @api_bp.patch('/tasks/<int:task_id>')
@@ -1005,23 +1061,26 @@ def api_task_update(task_id: int):
     _, error = _require_parent_unlocked()
     if error:
         return error
-    task = TaskItem.query.get_or_404(task_id)
+    task = ProjectTask.query.get_or_404(task_id)
     payload = request.get_json(silent=True) or {}
-    for key in ['title', 'recurrence', 'status', 'priority', 'notes']:
-        if key in payload:
-            setattr(task, key, payload[key])
-    for key in ['project_id', 'assigned_profile_id']:
-        if key in payload:
-            setattr(task, key, payload[key])
+    if 'title' in payload:
+        task.title = str(payload.get('title') or '').strip()
+    if 'project_id' in payload and payload['project_id'] is not None:
+        task.project_id = int(payload['project_id'])
     if 'due_date' in payload:
         task.due_date = date.fromisoformat(payload['due_date']) if payload['due_date'] else None
-    if task.status == 'done' and task.completed_at is None:
-        task.completed_at = datetime.utcnow()
-    if task.status != 'done':
-        task.completed_at = None
+    if 'recurrence' in payload:
+        task.is_daily = payload.get('recurrence') == 'daily'
+    if 'is_daily' in payload:
+        task.is_daily = bool(payload['is_daily'])
+    if 'status' in payload:
+        task.is_completed = payload['status'] == 'done'
+    if 'is_completed' in payload:
+        task.is_completed = bool(payload['is_completed'])
+    task.completed_at = datetime.utcnow() if task.is_completed else None
     task.updated_at = datetime.utcnow()
     db.session.commit()
-    return jsonify(_task_item_payload(task))
+    return jsonify(_project_task_payload(task))
 
 
 @api_bp.delete('/tasks/<int:task_id>')
@@ -1029,7 +1088,7 @@ def api_task_delete(task_id: int):
     _, error = _require_parent_unlocked()
     if error:
         return error
-    db.session.delete(TaskItem.query.get_or_404(task_id))
+    db.session.delete(ProjectTask.query.get_or_404(task_id))
     db.session.commit()
     return jsonify({'success': True})
 
@@ -1039,27 +1098,292 @@ def api_task_toggle(task_id: int):
     profile = _active_profile()
     if profile is None:
         return jsonify({'error': 'No active profile'}), 401
-    task = TaskItem.query.get_or_404(task_id)
+    task = ProjectTask.query.get_or_404(task_id)
     if profile.role == 'parent':
         if not _is_unlocked():
             return jsonify({'error': 'Parent PIN unlock required'}), 403
-    else:
-        setting = AppSetting.query.order_by(AppSetting.id.asc()).first()
-        allow = bool(setting.allow_kid_task_toggle) if setting else False
-        if not allow or task.assigned_profile_id != profile.id:
-            return jsonify({'error': 'Not allowed to toggle this task'}), 403
-    task.status = 'done' if task.status != 'done' else 'open'
-    task.completed_at = datetime.utcnow() if task.status == 'done' else None
+    task.is_completed = not bool(task.is_completed)
+    task.completed_at = datetime.utcnow() if task.is_completed else None
     task.updated_at = datetime.utcnow()
     db.session.commit()
-    return jsonify(_task_item_payload(task))
+    return jsonify(_project_task_payload(task))
 
 
 @api_bp.get('/projects/<int:project_id>/tasks')
-def api_project_tasks(project_id: int):
+def api_project_tasks_v2(project_id: int):
     Project.query.get_or_404(project_id)
-    tasks = TaskItem.query.filter_by(project_id=project_id).order_by(TaskItem.due_date.asc().nulls_last(), TaskItem.id.desc()).all()
-    return jsonify([_task_item_payload(task) for task in tasks])
+    tasks = ProjectTask.query.filter_by(project_id=project_id).order_by(ProjectTask.is_completed.asc(), ProjectTask.due_date.asc().nulls_last(), ProjectTask.id.desc()).all()
+    return jsonify([_project_task_payload(item) for item in tasks])
+
+
+@api_bp.post('/projects/<int:project_id>/tasks')
+def api_project_task_create_v2(project_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    Project.query.get_or_404(project_id)
+    payload = request.get_json(silent=True) or {}
+    title = str(payload.get('title', '')).strip()
+    if not title:
+        return jsonify({'error': 'title is required'}), 400
+    now = datetime.utcnow()
+    item = ProjectTask(project_id=project_id, title=title, due_date=date.fromisoformat(payload['due_date']) if payload.get('due_date') else None, is_daily=bool(payload.get('is_daily', False)), is_completed=bool(payload.get('is_completed', False)), completed_at=now if payload.get('is_completed') else None, created_at=now, updated_at=now)
+    db.session.add(item)
+    db.session.commit()
+    return jsonify(_project_task_payload(item)), 201
+
+
+@api_bp.post('/projects/<int:project_id>/tasks/<int:task_id>/complete')
+def api_project_task_complete(project_id: int, task_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    Project.query.get_or_404(project_id)
+    item = ProjectTask.query.filter_by(id=task_id, project_id=project_id).first_or_404()
+    item.is_completed = True
+    item.completed_at = datetime.utcnow()
+    item.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify(_project_task_payload(item))
+
+
+@api_bp.post('/projects/<int:project_id>/tasks/<int:task_id>/uncomplete')
+def api_project_task_uncomplete(project_id: int, task_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    Project.query.get_or_404(project_id)
+    item = ProjectTask.query.filter_by(id=task_id, project_id=project_id).first_or_404()
+    item.is_completed = False
+    item.completed_at = None
+    item.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify(_project_task_payload(item))
+
+
+@api_bp.get('/projects/<int:project_id>/weights')
+def api_project_weights(project_id: int):
+    Project.query.get_or_404(project_id)
+    rows = WeightEntry.query.filter_by(project_id=project_id).order_by(WeightEntry.recorded_at.desc(), WeightEntry.id.desc()).all()
+    return jsonify([_weight_entry_payload(item) for item in rows])
+
+
+@api_bp.post('/projects/<int:project_id>/weights')
+def api_project_weights_create(project_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    payload = request.get_json(silent=True) or {}
+    if payload.get('weight_lbs') is None or not payload.get('recorded_at'):
+        return jsonify({'error': 'recorded_at and weight_lbs are required'}), 400
+    row = WeightEntry(project_id=project_id, recorded_at=date.fromisoformat(payload['recorded_at']), weight_lbs=float(payload['weight_lbs']), notes=(payload.get('notes') or None))
+    db.session.add(row)
+    db.session.commit()
+    return jsonify(_weight_entry_payload(row)), 201
+
+
+@api_bp.delete('/weights/<int:entry_id>')
+def api_project_weights_delete(entry_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    row = WeightEntry.query.get_or_404(entry_id)
+    db.session.delete(row)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@api_bp.get('/projects/<int:project_id>/health')
+def api_project_health(project_id: int):
+    Project.query.get_or_404(project_id)
+    rows = HealthEntry.query.filter_by(project_id=project_id).order_by(HealthEntry.recorded_at.desc(), HealthEntry.id.desc()).all()
+    return jsonify([_health_entry_payload(item) for item in rows])
+
+
+@api_bp.post('/projects/<int:project_id>/health')
+def api_project_health_create(project_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    payload = request.get_json(silent=True) or {}
+    if not payload.get('recorded_at') or not str(payload.get('category') or '').strip() or not str(payload.get('description') or '').strip():
+        return jsonify({'error': 'recorded_at, category, and description are required'}), 400
+    cents = None
+    if payload.get('cost') not in [None, '']:
+        cents = int(round(float(payload.get('cost')) * 100))
+    elif payload.get('cost_cents') is not None:
+        cents = int(payload.get('cost_cents'))
+    row = HealthEntry(project_id=project_id, recorded_at=date.fromisoformat(payload['recorded_at']), category=str(payload['category']).strip(), description=str(payload['description']).strip(), cost_cents=cents, vendor=(str(payload.get('vendor')).strip() if payload.get('vendor') else None), attachment_receipt_url=(str(payload.get('attachment_receipt_url')).strip() if payload.get('attachment_receipt_url') else None))
+    db.session.add(row)
+    db.session.commit()
+    return jsonify(_health_entry_payload(row)), 201
+
+
+@api_bp.delete('/health/<int:entry_id>')
+def api_project_health_delete(entry_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    row = HealthEntry.query.get_or_404(entry_id)
+    db.session.delete(row)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@api_bp.get('/projects/<int:project_id>/feed')
+def api_project_feed(project_id: int):
+    Project.query.get_or_404(project_id)
+    rows = FeedEntry.query.filter_by(project_id=project_id).order_by(FeedEntry.recorded_at.desc(), FeedEntry.id.desc()).all()
+    return jsonify([_feed_entry_payload(item) for item in rows])
+
+
+@api_bp.post('/projects/<int:project_id>/feed')
+def api_project_feed_create(project_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    payload = request.get_json(silent=True) or {}
+    if not payload.get('recorded_at') or not str(payload.get('feed_type') or '').strip() or payload.get('amount') is None or not str(payload.get('unit') or '').strip():
+        return jsonify({'error': 'recorded_at, feed_type, amount, and unit are required'}), 400
+    cents = None
+    if payload.get('cost') not in [None, '']:
+        cents = int(round(float(payload.get('cost')) * 100))
+    elif payload.get('cost_cents') is not None:
+        cents = int(payload.get('cost_cents'))
+    row = FeedEntry(project_id=project_id, recorded_at=date.fromisoformat(payload['recorded_at']), feed_type=str(payload['feed_type']).strip(), amount=float(payload['amount']), unit=str(payload['unit']).strip(), cost_cents=cents, notes=(str(payload.get('notes')).strip() if payload.get('notes') else None))
+    db.session.add(row)
+    db.session.commit()
+    return jsonify(_feed_entry_payload(row)), 201
+
+
+@api_bp.delete('/feed/<int:entry_id>')
+def api_project_feed_delete(entry_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    row = FeedEntry.query.get_or_404(entry_id)
+    db.session.delete(row)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@api_bp.get('/feed-inventory')
+def api_feed_inventory_list_v2():
+    rows = FeedInventorySimple.query.order_by(FeedInventorySimple.name.asc(), FeedInventorySimple.id.asc()).all()
+    return jsonify([_feed_inventory_payload(item) for item in rows])
+
+
+@api_bp.post('/feed-inventory')
+def api_feed_inventory_create_v2():
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    payload = request.get_json(silent=True) or {}
+    name = str(payload.get('name') or '').strip()
+    unit = str(payload.get('unit') or '').strip()
+    if not name or not unit:
+        return jsonify({'error': 'name and unit are required'}), 400
+    row = FeedInventorySimple(name=name, unit=unit, qty_on_hand=float(payload.get('qty_on_hand') or 0), updated_at=datetime.utcnow())
+    db.session.add(row)
+    db.session.commit()
+    return jsonify(_feed_inventory_payload(row)), 201
+
+
+@api_bp.patch('/feed-inventory/<int:item_id>')
+def api_feed_inventory_update_v2(item_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    row = FeedInventorySimple.query.get_or_404(item_id)
+    payload = request.get_json(silent=True) or {}
+    if 'name' in payload:
+        row.name = str(payload['name']).strip()
+    if 'unit' in payload:
+        row.unit = str(payload['unit']).strip()
+    if 'qty_on_hand' in payload:
+        row.qty_on_hand = float(payload['qty_on_hand'])
+    row.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify(_feed_inventory_payload(row))
+
+
+@api_bp.get('/reports/summary')
+def api_reports_summary():
+    start_raw = request.args.get('start_date')
+    end_raw = request.args.get('end_date')
+    start = date.fromisoformat(start_raw) if start_raw else None
+    end = date.fromisoformat(end_raw) if end_raw else None
+
+    projects = Project.query.order_by(Project.name.asc()).all()
+    project_rows = {p.id: {
+        'project_id': p.id,
+        'project_name': p.name,
+        'expenses_total_cents': 0,
+        'health_total_cents': 0,
+        'feed_total_cents': 0,
+        'shows_count': 0,
+        'entries_count': 0,
+        'net_total_cents': 0,
+    } for p in projects}
+
+    expense_query = Expense.query
+    if start:
+        expense_query = expense_query.filter(Expense.date >= start)
+    if end:
+        expense_query = expense_query.filter(Expense.date <= end)
+    for expense in expense_query.all():
+        for alloc in _allocation_rows_for_expense(expense):
+            if alloc['project_id'] in project_rows:
+                project_rows[alloc['project_id']]['expenses_total_cents'] += alloc['amount_cents']
+
+    feed_query = FeedEntry.query
+    if start:
+        feed_query = feed_query.filter(FeedEntry.recorded_at >= start)
+    if end:
+        feed_query = feed_query.filter(FeedEntry.recorded_at <= end)
+    for row in feed_query.all():
+        if row.project_id in project_rows:
+            project_rows[row.project_id]['feed_total_cents'] += int(row.cost_cents or 0)
+
+    health_query = HealthEntry.query
+    if start:
+        health_query = health_query.filter(HealthEntry.recorded_at >= start)
+    if end:
+        health_query = health_query.filter(HealthEntry.recorded_at <= end)
+    for row in health_query.all():
+        if row.project_id in project_rows:
+            project_rows[row.project_id]['health_total_cents'] += int(row.cost_cents or 0)
+
+    shows = Show.query.all()
+    for show in shows:
+        in_range = True
+        if start and show.start_date < start:
+            in_range = False
+        if end and show.start_date > end:
+            in_range = False
+        if not in_range:
+            continue
+        entries = ShowEntry.query.filter_by(show_id=show.id).all()
+        for entry in entries:
+            if entry.project_id in project_rows:
+                project_rows[entry.project_id]['shows_count'] += 1
+                project_rows[entry.project_id]['entries_count'] += 1
+
+    result_rows = []
+    overall = {'expenses_total_cents': 0, 'feed_total_cents': 0, 'health_total_cents': 0, 'shows_count': 0, 'entries_count': 0, 'grand_total_cents': 0}
+    for row in project_rows.values():
+        row['net_total_cents'] = row['expenses_total_cents'] + row['feed_total_cents'] + row['health_total_cents']
+        result_rows.append({**row, 'expenses_total': row['expenses_total_cents']/100.0, 'feed_total': row['feed_total_cents']/100.0, 'health_total': row['health_total_cents']/100.0, 'net_total': row['net_total_cents']/100.0})
+        overall['expenses_total_cents'] += row['expenses_total_cents']
+        overall['feed_total_cents'] += row['feed_total_cents']
+        overall['health_total_cents'] += row['health_total_cents']
+        overall['shows_count'] += row['shows_count']
+        overall['entries_count'] += row['entries_count']
+
+    overall['grand_total_cents'] = overall['expenses_total_cents'] + overall['feed_total_cents'] + overall['health_total_cents']
+    overall.update({'expenses_total': overall['expenses_total_cents']/100.0, 'feed_total': overall['feed_total_cents']/100.0, 'health_total': overall['health_total_cents']/100.0, 'grand_total': overall['grand_total_cents']/100.0})
+    result_rows.sort(key=lambda item: item['project_name'])
+    return jsonify({'start_date': start_raw, 'end_date': end_raw, 'projects': result_rows, 'overall': overall})
 
 
 def _csv_response(filename: str, headers: list[str], rows: list[list[object]]) -> Response:
