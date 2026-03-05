@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { apiFetch, ProjectDetail } from "@/lib/api";
+import { getProject } from "@/lib/api";
 
 type Props = { params: { id: string } };
 
@@ -11,9 +11,9 @@ export default async function ProjectDetailPage({ params }: Props) {
     notFound();
   }
 
-  let project: ProjectDetail;
+  let project;
   try {
-    project = await apiFetch<ProjectDetail>(`/projects/${projectId}`);
+    project = await getProject(projectId);
   } catch {
     notFound();
   }

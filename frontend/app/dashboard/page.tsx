@@ -1,12 +1,9 @@
 import Link from "next/link";
 
-import { apiFetch, DashboardResponse, SessionResponse } from "@/lib/api";
+import { getDashboard, getSession } from "@/lib/api";
 
 export default async function DashboardPage() {
-  const [session, dashboard] = await Promise.all([
-    apiFetch<SessionResponse>("/session"),
-    apiFetch<DashboardResponse>("/dashboard")
-  ]);
+  const [session, dashboard] = await Promise.all([getSession(), getDashboard()]);
 
   return (
     <main className="min-h-screen bg-slate-950 p-4 text-slate-100 md:p-8">

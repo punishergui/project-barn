@@ -1,9 +1,9 @@
 import Link from "next/link";
 
-import { apiFetch, ProjectListItem } from "@/lib/api";
+import { getProjects } from "@/lib/api";
 
 export default async function ProjectsPage() {
-  const projects = await apiFetch<ProjectListItem[]>("/projects");
+  const projects = await getProjects();
 
   return (
     <main className="min-h-screen bg-slate-950 p-4 text-slate-100 md:p-8">
