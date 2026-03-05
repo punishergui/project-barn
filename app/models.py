@@ -158,6 +158,66 @@ class TaskItem(db.Model):
     )
 
 
+class ProjectTask(db.Model):
+    __tablename__ = "tasks"
+
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=False)
+    title = db.Column(db.Text, nullable=False)
+    due_date = db.Column(db.Date, nullable=True)
+    is_daily = db.Column(db.Boolean, nullable=False, default=False)
+    is_completed = db.Column(db.Boolean, nullable=False, default=False)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
+class WeightEntry(db.Model):
+    __tablename__ = "weight_entries"
+
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=False)
+    recorded_at = db.Column(db.Date, nullable=False)
+    weight_lbs = db.Column(db.Float, nullable=False)
+    notes = db.Column(db.Text, nullable=True)
+
+
+class HealthEntry(db.Model):
+    __tablename__ = "health_entries"
+
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=False)
+    recorded_at = db.Column(db.Date, nullable=False)
+    category = db.Column(db.Text, nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    cost_cents = db.Column(db.Integer, nullable=True)
+    vendor = db.Column(db.Text, nullable=True)
+    attachment_receipt_url = db.Column(db.Text, nullable=True)
+
+
+class FeedEntry(db.Model):
+    __tablename__ = "feed_entries"
+
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=False)
+    recorded_at = db.Column(db.Date, nullable=False)
+    feed_type = db.Column(db.Text, nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    unit = db.Column(db.Text, nullable=False)
+    cost_cents = db.Column(db.Integer, nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+
+
+class FeedInventorySimple(db.Model):
+    __tablename__ = "feed_inventory_item"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.Text, nullable=False)
+    unit = db.Column(db.Text, nullable=False)
+    qty_on_hand = db.Column(db.Float, nullable=False, default=0)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
 class AppSetting(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     family_name = db.Column(db.String(120), nullable=True)
