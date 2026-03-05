@@ -1,12 +1,44 @@
 import os
 import uuid
+import fcntl
 from datetime import date, datetime, timedelta
 
 import bcrypt
 from flask import Flask
+from sqlalchemy.exc import OperationalError
 from sqlalchemy import text
 
 from app.models import AppSetting, AuctionSale, EquipmentItem, Expense, ExpenseAllocation, ExpenseReceipt, FeedEntry, FeedInventory, FeedInventorySimple, FeedLog, Goal, HealthEntry, HealthRecord, IncomeRecord, InventoryItem, Media, Notification, PackingListItem, PackingListTemplate, Photo, Placing, Profile, Project, ProjectActivity, ProjectMaterial, ProjectNarrative, ProjectTask, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowDayTask, ShowEntry, SkillsChecklist, Task, TaskItem, TimelineEntry, WeightEntry, db
+
+
+def initialize_database_once(app: Flask, db_path: str) -> None:
+    db_name = os.path.basename(db_path) or "barn.db"
+    lock_file_path = f"/tmp/{db_name}.init.lock"
+    sentinel_file_path = f"/tmp/{db_name}.init.done"
+
+    with open(lock_file_path, "a+", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            if os.path.exists(sentinel_file_path):
+                return
+
+            with app.app_context():
+                try:
+                    db.create_all()
+                except OperationalError as exc:
+                    if "already exists" not in str(exc).lower():
+                        raise
+                run_migrations()
+                if AppSetting.query.count() == 0:
+                    db.session.add(AppSetting(family_name="", allow_kid_task_toggle=False))
+                    db.session.commit()
+                seed_if_empty()
+                seed_default_packing_lists(app)
+
+            with open(sentinel_file_path, "w", encoding="utf-8") as sentinel_file:
+                sentinel_file.write(str(os.getpid()))
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
 def create_app() -> Flask:
@@ -36,14 +68,7 @@ def create_app() -> Flask:
     app.register_blueprint(api_bp)
     init_cli(app)
 
-    with app.app_context():
-        db.create_all()
-        run_migrations()
-        if AppSetting.query.count() == 0:
-            db.session.add(AppSetting(family_name="", allow_kid_task_toggle=False))
-            db.session.commit()
-        seed_if_empty()
-        seed_default_packing_lists(app)
+    initialize_database_once(app, db_path)
 
     return app
 

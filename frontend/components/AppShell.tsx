@@ -62,7 +62,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen w-full bg-[var(--barn-bg)] text-[var(--barn-text)]">
-      <header className="fixed inset-x-0 top-0 z-50 h-[calc(56px+env(safe-area-inset-top))] border-b border-[var(--barn-border)] bg-[var(--barn-surface)] pt-[env(safe-area-inset-top)]">
+      <header className="fixed left-0 right-0 top-0 z-50 h-[calc(56px+env(safe-area-inset-top))] w-screen border-b border-[var(--barn-border)] bg-[var(--barn-surface)] pt-[env(safe-area-inset-top)]">
         <div className="flex h-14 w-full items-center justify-between px-4">
           <Link href="/dashboard" className="flex min-h-11 items-center gap-2 text-base font-semibold text-[var(--barn-text)]">
             <BarnLogo size={26} />
@@ -112,7 +112,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-50 h-[calc(64px+env(safe-area-inset-bottom))] border-t border-[var(--barn-border)] bg-[var(--barn-surface)] pb-[env(safe-area-inset-bottom)]">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 h-[calc(64px+env(safe-area-inset-bottom))] w-screen border-t border-[var(--barn-border)] bg-[var(--barn-surface)] pb-[env(safe-area-inset-bottom)]">
         <ul className="flex h-16 w-full items-center justify-between gap-1 px-2">
           {primaryLinks.map((item) => (
             <li key={item.href} className="flex flex-1 justify-center">
