@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 
 import PwaClient from "@/components/PwaClient";
-import RootShell from "@/components/RootShell";
 
 import "./globals.css";
 
@@ -19,10 +18,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en">
       <body>
-        <RootShell>
-          <PwaClient />
-          {children}
-        </RootShell>
+        <PwaClient />
+        {children}
       </body>
     </html>
   );
