@@ -190,6 +190,8 @@ class Expense(db.Model):
     receipt_url = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    receipts = db.relationship("ExpenseReceipt", backref="expense", cascade="all, delete-orphan", lazy="selectin")
+    allocations = db.relationship("ExpenseAllocation", backref="expense", cascade="all, delete-orphan", lazy="selectin")
 
     __table_args__ = (
         CheckConstraint(
@@ -199,6 +201,23 @@ class Expense(db.Model):
             name="ck_expense_category",
         ),
     )
+
+
+class ExpenseReceipt(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    expense_id = db.Column(db.Integer, db.ForeignKey("expense.id"), nullable=False)
+    file_name = db.Column(db.String(255), nullable=False)
+    url = db.Column(db.String(255), nullable=False)
+    caption = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
+class ExpenseAllocation(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    expense_id = db.Column(db.Integer, db.ForeignKey("expense.id"), nullable=False)
+    project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=False)
+    amount_cents = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
 
 class Photo(db.Model):

@@ -9,7 +9,7 @@ from sqlalchemy import func
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app import save_upload
-from app.models import AppSetting, Expense, Media, Placing, Profile, Project, Show, ShowDay, ShowEntry, Task, TaskItem, TimelineEntry, db
+from app.models import AppSetting, Expense, ExpenseAllocation, ExpenseReceipt, Media, Placing, Profile, Project, Show, ShowDay, ShowEntry, Task, TaskItem, TimelineEntry, db
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 UNLOCK_DURATION_MINUTES = 15
@@ -96,6 +96,8 @@ def _project_payload(project: Project) -> dict[str, object]:
 
 
 def _expense_payload(expense: Expense) -> dict[str, object]:
+    allocations = sorted(expense.allocations, key=lambda item: item.id)
+    receipts = sorted(expense.receipts, key=lambda item: item.id)
     return {
         "id": expense.id,
         "project_id": expense.project_id,
@@ -103,11 +105,63 @@ def _expense_payload(expense: Expense) -> dict[str, object]:
         "category": expense.category,
         "vendor": expense.vendor,
         "amount": float(expense.amount),
+        "amount_cents": int(round(float(expense.amount) * 100)),
         "note": expense.notes,
         "receipt_url": expense.receipt_url,
+        "is_split": len(allocations) > 0,
+        "allocation_count": len(allocations),
+        "receipt_count": len(receipts),
+        "allocations": [_allocation_payload(item) for item in allocations],
+        "receipts": [_receipt_payload(item) for item in receipts],
         "created_at": _iso(expense.created_at),
         "updated_at": _iso(expense.updated_at or expense.created_at),
     }
+
+
+def _receipt_payload(receipt: ExpenseReceipt) -> dict[str, object]:
+    return {
+        "id": receipt.id,
+        "expense_id": receipt.expense_id,
+        "file_name": receipt.file_name,
+        "url": receipt.url,
+        "caption": receipt.caption,
+        "created_at": _iso(receipt.created_at),
+    }
+
+
+def _allocation_payload(allocation: ExpenseAllocation) -> dict[str, object]:
+    return {
+        "id": allocation.id,
+        "expense_id": allocation.expense_id,
+        "project_id": allocation.project_id,
+        "amount_cents": allocation.amount_cents,
+        "amount": allocation.amount_cents / 100.0,
+        "created_at": _iso(allocation.created_at),
+    }
+
+
+def _expense_total_cents(expense: Expense) -> int:
+    return int(round(float(expense.amount) * 100))
+
+
+def _allocation_rows_for_expense(expense: Expense) -> list[dict[str, int]]:
+    if expense.allocations:
+        return [{"project_id": item.project_id, "amount_cents": item.amount_cents} for item in expense.allocations]
+    return [{"project_id": expense.project_id, "amount_cents": _expense_total_cents(expense)}]
+
+
+def _project_totals() -> list[dict[str, object]]:
+    projects = {project.id: project.name for project in Project.query.all()}
+    totals: dict[int, int] = {}
+    expenses = Expense.query.all()
+    for expense in expenses:
+        for row in _allocation_rows_for_expense(expense):
+            totals[row["project_id"]] = totals.get(row["project_id"], 0) + row["amount_cents"]
+    rows = []
+    for project_id, cents in totals.items():
+        rows.append({"project_id": project_id, "name": projects.get(project_id, f"Project {project_id}"), "total": cents / 100.0})
+    rows.sort(key=lambda row: row["total"], reverse=True)
+    return rows
 
 
 @api_bp.get("/health")
@@ -322,8 +376,6 @@ def api_expenses():
     start_date = request.args.get("start_date")
     end_date = request.args.get("end_date")
 
-    if project_id and project_id.isdigit():
-        query = query.filter(Expense.project_id == int(project_id))
     if category:
         query = query.filter(Expense.category == category)
     if start_date:
@@ -332,6 +384,14 @@ def api_expenses():
         query = query.filter(Expense.date <= date.fromisoformat(end_date))
 
     expenses = query.order_by(Expense.date.desc(), Expense.id.desc()).all()
+
+    if project_id and project_id.isdigit():
+        selected_project_id = int(project_id)
+        expenses = [
+            expense for expense in expenses
+            if any(row["project_id"] == selected_project_id for row in _allocation_rows_for_expense(expense))
+        ]
+
     return jsonify([_expense_payload(expense) for expense in expenses])
 
 
@@ -408,6 +468,119 @@ def api_expense_delete(expense_id: int):
     return jsonify({"success": True})
 
 
+@api_bp.post("/expenses/<int:expense_id>/receipts")
+def api_expense_receipts_create(expense_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+
+    expense = Expense.query.get_or_404(expense_id)
+    file = request.files.get("file")
+    if not file:
+        return jsonify({"error": "file is required"}), 400
+
+    original_name = file.filename or ""
+    if "." not in original_name:
+        return jsonify({"error": "Invalid file type"}), 400
+    extension = original_name.rsplit(".", 1)[1].lower()
+    if extension not in {"png", "jpg", "jpeg", "webp"}:
+        return jsonify({"error": "Invalid file type"}), 400
+
+    file.stream.seek(0, 2)
+    file_size = file.stream.tell()
+    file.stream.seek(0)
+    if file_size > 10 * 1024 * 1024:
+        return jsonify({"error": "File exceeds 10MB max size"}), 400
+
+    try:
+        filename = save_upload(file, current_app.config["BARN_UPLOAD_DIR"])
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    receipt = ExpenseReceipt(
+        expense_id=expense.id,
+        file_name=filename,
+        url=f"/uploads/{filename}",
+        caption=(request.form.get("caption") or None),
+    )
+    db.session.add(receipt)
+    db.session.commit()
+    return jsonify(_receipt_payload(receipt)), 201
+
+
+@api_bp.get("/expenses/<int:expense_id>/receipts")
+def api_expense_receipts_list(expense_id: int):
+    Expense.query.get_or_404(expense_id)
+    receipts = ExpenseReceipt.query.filter_by(expense_id=expense_id).order_by(ExpenseReceipt.id.asc()).all()
+    return jsonify([_receipt_payload(item) for item in receipts])
+
+
+@api_bp.delete("/receipts/<int:receipt_id>")
+def api_expense_receipt_delete(receipt_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+
+    receipt = ExpenseReceipt.query.get_or_404(receipt_id)
+    db.session.delete(receipt)
+    db.session.commit()
+    return jsonify({"success": True})
+
+
+@api_bp.post("/expenses/<int:expense_id>/allocations")
+def api_expense_allocations_replace(expense_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+
+    expense = Expense.query.get_or_404(expense_id)
+    payload = request.get_json(silent=True) or {}
+    allocations = payload.get("allocations")
+    if not isinstance(allocations, list) or len(allocations) == 0:
+        return jsonify({"error": "allocations must contain at least one allocation"}), 400
+
+    normalized: list[tuple[int, int]] = []
+    seen_projects: set[int] = set()
+    for item in allocations:
+        try:
+            project_id = int(item.get("project_id"))
+            amount_cents = int(item.get("amount_cents"))
+        except Exception:
+            return jsonify({"error": "Each allocation needs valid project_id and amount_cents"}), 400
+        if amount_cents < 0:
+            return jsonify({"error": "amount_cents must be >= 0"}), 400
+        if project_id in seen_projects:
+            return jsonify({"error": "Duplicate project_id values are not allowed"}), 400
+        if Project.query.get(project_id) is None:
+            return jsonify({"error": f"project_id {project_id} does not exist"}), 400
+        seen_projects.add(project_id)
+        normalized.append((project_id, amount_cents))
+
+    expected_total = _expense_total_cents(expense)
+    provided_total = sum(amount for _, amount in normalized)
+    if provided_total != expected_total:
+        return jsonify({"error": "Allocation sum must equal expense amount exactly"}), 400
+
+    ExpenseAllocation.query.filter_by(expense_id=expense.id).delete()
+    for project_id, amount_cents in normalized:
+        db.session.add(ExpenseAllocation(expense_id=expense.id, project_id=project_id, amount_cents=amount_cents))
+    expense.updated_at = datetime.utcnow()
+    db.session.commit()
+
+    rows = ExpenseAllocation.query.filter_by(expense_id=expense.id).order_by(ExpenseAllocation.id.asc()).all()
+    return jsonify([_allocation_payload(item) for item in rows])
+
+
+@api_bp.get("/expenses/<int:expense_id>/allocations")
+def api_expense_allocations_list(expense_id: int):
+    expense = Expense.query.get_or_404(expense_id)
+    rows = ExpenseAllocation.query.filter_by(expense_id=expense.id).order_by(ExpenseAllocation.id.asc()).all()
+    if rows:
+        return jsonify([_allocation_payload(item) for item in rows])
+    fallback = [{"id": None, "expense_id": expense.id, "project_id": expense.project_id, "amount_cents": _expense_total_cents(expense), "amount": expense.amount, "created_at": _iso(expense.created_at)}]
+    return jsonify(fallback)
+
+
 @api_bp.get("/summary")
 @api_bp.get("/dashboard")
 def api_summary():
@@ -420,19 +593,14 @@ def api_summary():
     }
 
     month_start = date.today().replace(day=1)
-    month_total = db.session.query(func.sum(Expense.amount)).filter(Expense.date >= month_start).scalar() or 0
-    by_project = (
-        db.session.query(Project.name, func.sum(Expense.amount).label("total"))
-        .join(Expense, Expense.project_id == Project.id)
-        .group_by(Project.id)
-        .order_by(func.sum(Expense.amount).desc())
-        .all()
-    )
+    month_total_cents = 0
+    for expense in Expense.query.filter(Expense.date >= month_start).all():
+        month_total_cents += sum(row["amount_cents"] for row in _allocation_rows_for_expense(expense))
 
     return jsonify({
         "counts": counts,
-        "month_total": float(month_total),
-        "by_project": [{"name": name, "total": float(total or 0)} for name, total in by_project],
+        "month_total": month_total_cents / 100.0,
+        "by_project": [{"name": row["name"], "total": row["total"], "project_id": row["project_id"]} for row in _project_totals()],
         "recent_activity": [],
         "upcoming": [],
     })
@@ -925,10 +1093,21 @@ def api_export_expenses_csv():
         query = query.filter(Expense.date >= date.fromisoformat(start))
     if end:
         query = query.filter(Expense.date <= date.fromisoformat(end))
-    if project_id:
-        query = query.filter(Expense.project_id == int(project_id))
     expenses = query.order_by(Expense.date.asc(), Expense.id.asc()).all()
-    rows = [[e.id, e.project_id, e.date.isoformat(), e.category, e.vendor or '', e.amount, e.notes or ''] for e in expenses]
+    rows = []
+    for e in expenses:
+        allocation_rows = _allocation_rows_for_expense(e)
+        if project_id:
+            selected_project_id = int(project_id)
+            matched = [row for row in allocation_rows if row['project_id'] == selected_project_id]
+            if not matched:
+                continue
+            amount = sum(row['amount_cents'] for row in matched) / 100.0
+            row_project_id = selected_project_id
+        else:
+            amount = e.amount
+            row_project_id = e.project_id
+        rows.append([e.id, row_project_id, e.date.isoformat(), e.category, e.vendor or '', amount, e.notes or ''])
     return _csv_response('expenses.csv', ['id', 'project_id', 'date', 'category', 'vendor', 'amount', 'notes'], rows)
 
 
@@ -955,7 +1134,11 @@ def api_export_project_pdf(project_id: int):
     if error:
         return error
     project = Project.query.get_or_404(project_id)
-    expenses_total = db.session.query(func.sum(Expense.amount)).filter(Expense.project_id == project_id).scalar() or 0
+    expenses_total = 0.0
+    for expense in Expense.query.all():
+        for row in _allocation_rows_for_expense(expense):
+            if row["project_id"] == project_id:
+                expenses_total += row["amount_cents"] / 100.0
     tasks_open = TaskItem.query.filter_by(project_id=project_id, status='open').count()
     entries = ShowEntry.query.filter_by(project_id=project_id).all()
     placements = sum(Placing.query.filter_by(entry_id=e.id).count() for e in entries)
