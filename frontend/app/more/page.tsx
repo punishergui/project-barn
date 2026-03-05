@@ -10,7 +10,9 @@ export default function MorePage() {
   const [message, setMessage] = useState<string | null>(null);
 
   const load = async () => setAuth(await apiClientJson<AuthStatus>("/auth/status"));
-  useEffect(() => { load().catch(() => undefined); }, []);
+  useEffect(() => {
+    load().catch(() => undefined);
+  }, []);
 
   const unlock = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -40,28 +42,41 @@ export default function MorePage() {
     await load();
   };
 
-  return <div className="space-y-4 pb-2">
-    <h1 className="text-2xl font-semibold">More</h1>
-    <section className="grid gap-2 sm:grid-cols-2">
-      <Link href="/family" className="rounded border border-white/10 bg-neutral-900 p-4 text-sm">👨‍👩‍👧‍👦 Family</Link>
-      <Link href="/reports" className="rounded border border-white/10 bg-neutral-900 p-4 text-sm">🧾 Tax Reports</Link>
-    </section>
-    <section className="rounded border border-white/10 bg-neutral-900 p-4 text-sm">
-      <p>Role: {auth?.role ?? "..."}</p>
-      <p>Unlocked: {auth?.is_unlocked ? "Yes" : "No"}</p>
-      {auth?.unlock_expires_at ? <p>Expires: {new Date(auth.unlock_expires_at).toLocaleTimeString()}</p> : null}
-    </section>
-    <form onSubmit={unlock} className="space-y-2 rounded border border-white/10 bg-neutral-900 p-4">
-      <h2 className="font-semibold">Unlock parent actions</h2>
-      <input name="pin" type="password" className="rounded bg-neutral-800 p-2" placeholder="PIN" />
-      <button className="rounded bg-red-700 px-3 py-2">Unlock</button>
-      <button type="button" onClick={lock} className="ml-2 rounded bg-neutral-700 px-3 py-2">Lock</button>
-    </form>
-    <form onSubmit={setPin} className="space-y-2 rounded border border-white/10 bg-neutral-900 p-4">
-      <h2 className="font-semibold">Set or rotate PIN</h2>
-      <input name="pin" type="password" className="rounded bg-neutral-800 p-2" placeholder="New PIN" />
-      <button className="rounded bg-red-700 px-3 py-2">Save PIN</button>
-    </form>
-    {message ? <p className="text-sm text-neutral-300">{message}</p> : null}
-  </div>;
+  return (
+    <div className="mx-auto w-full max-w-5xl space-y-5 px-4 pb-4">
+      <h1 className="text-2xl font-semibold">More</h1>
+      <section className="grid gap-2 sm:grid-cols-2">
+        <Link href="/family" className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-sm">
+          👨‍👩‍👧‍👦 Family
+        </Link>
+        <Link href="/reports" className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-sm">
+          🧾 Tax Reports
+        </Link>
+        <Link href="/profile-picker" className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-sm sm:col-span-2">
+          🔄 Switch Profile
+        </Link>
+      </section>
+      <section className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-sm">
+        <p>Role: {auth?.role ?? "..."}</p>
+        <p>Unlocked: {auth?.is_unlocked ? "Yes" : "No"}</p>
+        {auth?.unlock_expires_at ? <p>Expires: {new Date(auth.unlock_expires_at).toLocaleTimeString()}</p> : null}
+      </section>
+      <form onSubmit={unlock} className="space-y-2 rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4">
+        <h2 className="font-semibold">Unlock parent actions</h2>
+        <input name="pin" type="password" className="w-full rounded-lg border border-[var(--barn-border)] bg-black/20 p-2" placeholder="PIN" />
+        <div className="flex gap-2">
+          <button className="rounded-lg bg-[var(--barn-red)] px-3 py-2 text-sm">Unlock</button>
+          <button type="button" onClick={lock} className="rounded-lg bg-neutral-700 px-3 py-2 text-sm">
+            Lock
+          </button>
+        </div>
+      </form>
+      <form onSubmit={setPin} className="space-y-2 rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4">
+        <h2 className="font-semibold">Set or rotate PIN</h2>
+        <input name="pin" type="password" className="w-full rounded-lg border border-[var(--barn-border)] bg-black/20 p-2" placeholder="New PIN" />
+        <button className="rounded-lg bg-[var(--barn-red)] px-3 py-2 text-sm">Save PIN</button>
+      </form>
+      {message ? <p className="text-sm text-neutral-300">{message}</p> : null}
+    </div>
+  );
 }
