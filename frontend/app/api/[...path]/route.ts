@@ -8,48 +8,52 @@ type ProxyContext = {
   };
 };
 
+function buildForwardHeaders(request: NextRequest, hasBody: boolean) {
+  const headers = new Headers();
+  const cookie = request.headers.get("cookie");
+  const contentType = request.headers.get("content-type");
+
+  if (cookie) {
+    headers.set("cookie", cookie);
+  }
+  if (hasBody && contentType) {
+    headers.set("content-type", contentType);
+  }
+
+  return headers;
+}
+
 async function proxy(request: NextRequest, { params }: ProxyContext): Promise<NextResponse> {
   const path = (params.path ?? []).join("/");
   const targetUrl = `${API_BASE}${path ? `/${path}` : ""}${request.nextUrl.search}`;
+  const hasBody = request.method !== "GET" && request.method !== "HEAD";
 
-  const outboundHeaders = new Headers(request.headers);
-  const cookieHeader = request.headers.get("cookie");
-  if (cookieHeader) {
-    outboundHeaders.set("cookie", cookieHeader);
-  }
-
-  const init: RequestInit = {
+  const backendResponse = await fetch(targetUrl, {
     method: request.method,
-    headers: outboundHeaders,
-    redirect: "manual"
-  };
+    headers: buildForwardHeaders(request, hasBody),
+    body: hasBody ? await request.text() : undefined,
+    redirect: "manual",
+    cache: "no-store"
+  });
 
-  if (request.method !== "GET" && request.method !== "HEAD") {
-    init.body = await request.arrayBuffer();
+  const responseHeaders = new Headers();
+  const contentType = backendResponse.headers.get("content-type");
+  if (contentType) {
+    responseHeaders.set("content-type", contentType);
   }
-
-  const backendResponse = await fetch(targetUrl, init);
-  const responseHeaders = new Headers(backendResponse.headers);
 
   const setCookieValues = (backendResponse.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie?.();
   if (setCookieValues?.length) {
-    responseHeaders.delete("set-cookie");
     for (const value of setCookieValues) {
       responseHeaders.append("set-cookie", value);
     }
   }
 
-  let body: BodyInit | null = null;
-  if (backendResponse.status !== 204 && backendResponse.status !== 304) {
-    const contentType = backendResponse.headers.get("content-type") ?? "";
-    if (contentType.includes("application/json") || contentType.startsWith("text/")) {
-      body = await backendResponse.text();
-    } else {
-      body = await backendResponse.arrayBuffer();
-    }
+  if (backendResponse.status === 204 || backendResponse.status === 304) {
+    return new NextResponse(null, { status: backendResponse.status, headers: responseHeaders });
   }
 
-  return new NextResponse(body, {
+  return new NextResponse(await backendResponse.text(), {
     status: backendResponse.status,
     headers: responseHeaders
   });

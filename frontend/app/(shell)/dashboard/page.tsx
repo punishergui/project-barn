@@ -1,14 +1,15 @@
-import { Expense, Profile, Project, Show, TimelineEntry } from "@/lib/api";
+import { Expense, Profile, Project, SessionResponse, Show, TimelineEntry } from "@/lib/api";
 import { apiJsonServer } from "@/lib/apiServer";
 
 import DashboardTodayClient from "./DashboardTodayClient";
 
 export default async function DashboardPage() {
-  const [projects, shows, expenses, profiles] = await Promise.all([
+  const [projects, shows, expenses, profiles, session] = await Promise.all([
     apiJsonServer<Project[]>("/projects"),
     apiJsonServer<Show[]>("/shows"),
     apiJsonServer<Expense[]>("/expenses"),
-    apiJsonServer<Profile[]>("/profiles")
+    apiJsonServer<Profile[]>("/profiles"),
+    apiJsonServer<SessionResponse>("/session").catch(() => ({ active_profile: null, family: { id: null, name: null } }))
   ]);
 
   const todayLabel = new Date().toLocaleDateString(undefined, {
@@ -19,17 +20,8 @@ export default async function DashboardPage() {
 
   const ownerMap = new Map(profiles.map((profile) => [profile.id, profile.name]));
   const projectMap = new Map(projects.map((project) => [project.id, project.name]));
-  const kidsFromProfiles = profiles.filter((profile) => profile.role === "kid");
-  const derivedKids = [...new Set(projects.map((project) => project.owner_profile_id))]
-    .map((ownerId) => profiles.find((profile) => profile.id === ownerId))
-    .filter((profile): profile is Profile => Boolean(profile));
-  const kidOptions = (kidsFromProfiles.length > 0 ? kidsFromProfiles : derivedKids).map((kid) => ({
-    id: kid.id,
-    name: kid.name,
-    avatarUrl: kid.avatar_url
-  }));
-
   const activeProjects = projects.filter((project) => project.status === "active");
+
   const now = new Date();
   now.setHours(0, 0, 0, 0);
 
@@ -59,7 +51,7 @@ export default async function DashboardPage() {
   )
     .flat()
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 5);
+    .slice(0, 4);
 
   const activeAnimals = activeProjects.map((project) => {
     const nextShow = nextShowByProject.get(project.id);
@@ -67,25 +59,23 @@ export default async function DashboardPage() {
       id: project.id,
       name: project.name,
       species: project.species,
-      ownerId: project.owner_profile_id,
       ownerName: ownerMap.get(project.owner_profile_id) ?? "Unknown owner",
       spentTotal: expenseByProject.get(project.id) ?? 0,
-      nextShowDate: nextShow?.date ?? null,
-      nextShowLabel: nextShow ? `${nextShow.name} • ${new Date(nextShow.date).toLocaleDateString()}` : "None",
-      photoUrl: null
+      nextShowLabel: nextShow ? `${nextShow.name} • ${new Date(nextShow.date).toLocaleDateString()}` : "No show scheduled"
     };
   });
 
   const recentExpenses = [...expenses]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 5);
+    .slice(0, 4);
 
   return (
     <DashboardTodayClient
       todayLabel={todayLabel}
-      kids={kidOptions}
-      activeAnimals={activeAnimals}
-      upcomingShows={upcomingShows.slice(0, 3).map((show) => ({
+      profileName={session.active_profile?.name ?? "Barn Family"}
+      quickStats={{ projects: activeProjects.length, upcomingShows: upcomingShows.length, expenses: recentExpenses.length }}
+      activeProjects={activeAnimals}
+      upcomingShows={upcomingShows.slice(0, 4).map((show) => ({
         id: show.id,
         name: show.name,
         startDate: show.start_date,
