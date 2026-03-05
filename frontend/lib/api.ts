@@ -1,4 +1,10 @@
-export const API_BASE_URL = "/api";
+export function getApiBase(): string {
+  if (typeof window === "undefined") {
+    return process.env.INTERNAL_API_BASE_URL ?? "http://barn-backend:5000/api";
+  }
+
+  return "/api";
+}
 
 export type SessionResponse = {
   active_profile: { id: number | null; name: string | null; role: string | null; avatar_url: string | null };
@@ -32,10 +38,12 @@ export type ProjectDetail = {
   recent_activity: { id: number; date: string | null; type: string; note: string | null }[];
 };
 
-async function apiFetch<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const response = await fetch(`${getApiBase()}${normalizedPath}`, {
     credentials: "include",
-    cache: "no-store"
+    cache: "no-store",
+    ...init
   });
 
   if (!response.ok) {
