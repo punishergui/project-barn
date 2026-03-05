@@ -1,10 +1,5 @@
-export function getApiBase(): string {
-  if (typeof window === "undefined") {
-    return process.env.INTERNAL_API_BASE_URL ?? "http://barn-backend:5000/api";
-  }
-
-  return "/api";
-}
+import { apiFetchClient } from "@/lib/apiClient";
+import { apiFetchServer } from "@/lib/apiServer";
 
 export type SessionResponse = {
   active_profile: { id: number | null; name: string | null; role: string | null; avatar_url: string | null };
@@ -38,14 +33,7 @@ export type ProjectDetail = {
   recent_activity: { id: number; date: string | null; type: string; note: string | null }[];
 };
 
-export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  const response = await fetch(`${getApiBase()}${normalizedPath}`, {
-    credentials: "include",
-    cache: "no-store",
-    ...init
-  });
-
+async function parseApiResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     throw new Error(`API request failed: ${response.status}`);
   }
@@ -53,7 +41,17 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   return response.json() as Promise<T>;
 }
 
-export const getSession = () => apiFetch<SessionResponse>("/session");
-export const getDashboard = () => apiFetch<DashboardResponse>("/dashboard");
-export const getProjects = () => apiFetch<ProjectListItem[]>("/projects");
-export const getProject = (id: number) => apiFetch<ProjectDetail>(`/projects/${id}`);
+export async function apiFetchClientJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await apiFetchClient(path, init);
+  return parseApiResponse<T>(response);
+}
+
+export async function apiFetchServerJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await apiFetchServer(path, init);
+  return parseApiResponse<T>(response);
+}
+
+export const getSession = () => apiFetchServerJson<SessionResponse>("/session");
+export const getDashboard = () => apiFetchServerJson<DashboardResponse>("/dashboard");
+export const getProjects = () => apiFetchServerJson<ProjectListItem[]>("/projects");
+export const getProject = (id: number) => apiFetchServerJson<ProjectDetail>(`/projects/${id}`);
