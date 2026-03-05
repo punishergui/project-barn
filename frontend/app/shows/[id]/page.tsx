@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 
 import { apiClientJson, Project, Show } from "@/lib/api";
@@ -83,6 +84,7 @@ export default function ShowDetailPage() {
       <h1 className="text-2xl font-semibold">{show.name}</h1>
       <p className="text-sm text-neutral-300">{show.location} • {show.start_date.slice(0, 10)} - {show.end_date?.slice(0, 10) ?? "TBD"}</p>
       <p className="text-sm text-red-300">{points} total points</p>
+      <Link href={`/shows/${show.id}/day`} className="mt-2 inline-block rounded bg-red-700 px-3 py-1 text-xs">Open Show Day Mode</Link>
     </div>
 
     <section className="rounded border border-white/10 bg-neutral-900 p-3">
