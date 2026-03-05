@@ -80,3 +80,12 @@ Idempotency behavior:
 - Default run is safe to repeat: if seeded data for the selected family already exists, the command exits without duplicating records.
 - `--reset` removes previously seeded dev records (tagged by the seed command) and recreates them.
 - Optional family override: `--family-name "Your Barn Name"`.
+
+## Frontend routes (App Router)
+
+- `/dashboard`
+- `/projects`, `/projects/new`, `/projects/[id]`, `/projects/[id]/edit`
+- `/expenses`, `/expenses/new`, `/expenses/[id]/edit`
+- `/shows` and `/more` placeholders
+
+Parent admin actions are protected by backend PIN unlock endpoints under `/api/auth/*`.
