@@ -2,6 +2,19 @@
 
 Private family web app for 4-H/FFA livestock and project management.
 
+## Project Architecture
+
+Project Barn uses a split production architecture:
+- **Next.js frontend** in `/frontend` (App Router, TypeScript, Tailwind, shadcn/ui).
+- **Flask backend** in `/app` (Python, Gunicorn, SQLite access).
+- **Docker deployment** with separate `barn-frontend` and `barn-backend` services.
+- **Traefik routing** with `/` to frontend and `/api/*` to backend on `barn.white-house.cc`.
+
+Architecture references:
+- [AGENTS.md](AGENTS.md)
+- [ARCHITECTURE.md](ARCHITECTURE.md)
+- [API_CONTRACT.md](API_CONTRACT.md)
+
 ## Phase 0 migration status
 
 This repo now contains:
