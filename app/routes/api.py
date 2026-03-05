@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
+import csv
+import io
 
-from flask import Blueprint, jsonify, request, session
+from flask import Blueprint, Response, current_app, jsonify, request, session
 from sqlalchemy import func
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from app.models import Expense, Profile, Project, Show, Task, db
+from app import save_upload
+from app.models import AppSetting, Expense, Photo, Placing, Profile, Project, Show, ShowDay, ShowEntry, Task, TaskItem, db
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 UNLOCK_DURATION_MINUTES = 15
@@ -433,3 +436,498 @@ def api_summary():
         "recent_activity": [],
         "upcoming": [],
     })
+
+
+def _show_day_payload(show_day: ShowDay) -> dict[str, object]:
+    return {"id": show_day.id, "show_id": show_day.show_id, "day_date": _iso(show_day.date), "label": show_day.label or f"Day {show_day.day_number}"}
+
+
+def _placing_payload(placing: Placing) -> dict[str, object]:
+    return {
+        "id": placing.id,
+        "entry_id": placing.entry_id,
+        "show_day_id": placing.show_day_id,
+        "ring": placing.ring,
+        "placing_text": placing.placing_text,
+        "points": placing.points,
+        "judge": placing.judge,
+        "notes": placing.notes,
+    }
+
+
+def _show_entry_payload(entry: ShowEntry) -> dict[str, object]:
+    placings = Placing.query.filter_by(entry_id=entry.id).order_by(Placing.id.asc()).all()
+    return {
+        "id": entry.id,
+        "show_id": entry.show_id,
+        "project_id": entry.project_id,
+        "class_name": entry.class_name,
+        "division": entry.division,
+        "notes": entry.notes,
+        "placings": [_placing_payload(p) for p in placings],
+    }
+
+
+def _show_payload(show: Show) -> dict[str, object]:
+    days = ShowDay.query.filter_by(show_id=show.id).order_by(ShowDay.day_number.asc(), ShowDay.id.asc()).all()
+    entries = ShowEntry.query.filter_by(show_id=show.id).order_by(ShowEntry.id.asc()).all()
+    return {
+        "id": show.id,
+        "name": show.name,
+        "location": show.location,
+        "start_date": _iso(show.start_date),
+        "end_date": _iso(show.end_date),
+        "notes": show.notes,
+        "days": [_show_day_payload(day) for day in days],
+        "entries": [_show_entry_payload(entry) for entry in entries],
+    }
+
+
+def _task_item_payload(task: TaskItem) -> dict[str, object]:
+    return {
+        "id": task.id,
+        "project_id": task.project_id,
+        "title": task.title,
+        "due_date": _iso(task.due_date),
+        "recurrence": task.recurrence,
+        "assigned_profile_id": task.assigned_profile_id,
+        "status": task.status,
+        "priority": task.priority,
+        "notes": task.notes,
+        "created_at": _iso(task.created_at),
+        "updated_at": _iso(task.updated_at),
+        "completed_at": _iso(task.completed_at),
+    }
+
+
+def _media_payload(photo: Photo) -> dict[str, object]:
+    kind = "photo" if photo.photo_type in {"photo", "video", "ribbon"} else "doc"
+    return {
+        "id": photo.id,
+        "project_id": photo.project_id,
+        "show_id": photo.show_id,
+        "show_day_id": photo.show_day_id,
+        "kind": kind,
+        "filename": photo.filename,
+        "url": f"/uploads/{photo.filename}",
+        "caption": photo.caption,
+        "created_at": _iso(photo.uploaded_at),
+    }
+
+@api_bp.get('/shows')
+def api_shows():
+    shows = Show.query.order_by(Show.start_date.asc(), Show.id.asc()).all()
+    return jsonify([_show_payload(show) for show in shows])
+
+
+@api_bp.post('/shows')
+def api_create_show():
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    payload = request.get_json(silent=True) or {}
+    name = str(payload.get('name', '')).strip()
+    location = str(payload.get('location', '')).strip()
+    start_date_raw = payload.get('start_date')
+    if not name or not location or not start_date_raw:
+        return jsonify({'error': 'name, location, and start_date are required'}), 400
+    show = Show(name=name, location=location, start_date=date.fromisoformat(start_date_raw), end_date=date.fromisoformat(payload['end_date']) if payload.get('end_date') else None, notes=payload.get('notes'))
+    db.session.add(show)
+    db.session.commit()
+    return jsonify(_show_payload(show)), 201
+
+
+@api_bp.get('/shows/<int:show_id>')
+def api_show_detail(show_id: int):
+    return jsonify(_show_payload(Show.query.get_or_404(show_id)))
+
+
+@api_bp.patch('/shows/<int:show_id>')
+def api_show_update(show_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    show = Show.query.get_or_404(show_id)
+    payload = request.get_json(silent=True) or {}
+    for key in ['name', 'location', 'notes']:
+        if key in payload:
+            setattr(show, key, payload[key])
+    if 'start_date' in payload:
+        show.start_date = date.fromisoformat(payload['start_date'])
+    if 'end_date' in payload:
+        show.end_date = date.fromisoformat(payload['end_date']) if payload['end_date'] else None
+    db.session.commit()
+    return jsonify(_show_payload(show))
+
+
+@api_bp.delete('/shows/<int:show_id>')
+def api_show_delete(show_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    show = Show.query.get_or_404(show_id)
+    entries = ShowEntry.query.filter_by(show_id=show.id).all()
+    for entry in entries:
+        Placing.query.filter_by(entry_id=entry.id).delete()
+    ShowEntry.query.filter_by(show_id=show.id).delete()
+    ShowDay.query.filter_by(show_id=show.id).delete()
+    db.session.delete(show)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@api_bp.post('/shows/<int:show_id>/days')
+def api_show_day_create(show_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    Show.query.get_or_404(show_id)
+    payload = request.get_json(silent=True) or {}
+    count = ShowDay.query.filter_by(show_id=show_id).count()
+    day = ShowDay(show_id=show_id, day_number=count + 1, date=date.fromisoformat(payload['day_date']) if payload.get('day_date') else None, label=(payload.get('label') or f'Day {count + 1}'))
+    db.session.add(day)
+    db.session.commit()
+    return jsonify(_show_day_payload(day)), 201
+
+
+@api_bp.delete('/show-days/<int:show_day_id>')
+def api_show_day_delete(show_day_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    show_day = ShowDay.query.get_or_404(show_day_id)
+    Placing.query.filter_by(show_day_id=show_day.id).delete()
+    db.session.delete(show_day)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@api_bp.post('/shows/<int:show_id>/entries')
+def api_show_entry_create(show_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    Show.query.get_or_404(show_id)
+    payload = request.get_json(silent=True) or {}
+    entry = ShowEntry(show_id=show_id, project_id=int(payload.get('project_id')), class_name=payload.get('class_name'), division=payload.get('division'), notes=payload.get('notes'))
+    db.session.add(entry)
+    db.session.commit()
+    return jsonify(_show_entry_payload(entry)), 201
+
+
+@api_bp.patch('/entries/<int:entry_id>')
+def api_show_entry_update(entry_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    entry = ShowEntry.query.get_or_404(entry_id)
+    payload = request.get_json(silent=True) or {}
+    for key in ['class_name', 'division', 'notes']:
+        if key in payload:
+            setattr(entry, key, payload[key])
+    if 'project_id' in payload:
+        entry.project_id = int(payload['project_id'])
+    db.session.commit()
+    return jsonify(_show_entry_payload(entry))
+
+
+@api_bp.delete('/entries/<int:entry_id>')
+def api_show_entry_delete(entry_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    entry = ShowEntry.query.get_or_404(entry_id)
+    Placing.query.filter_by(entry_id=entry.id).delete()
+    db.session.delete(entry)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@api_bp.post('/entries/<int:entry_id>/placings')
+def api_placings_create(entry_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    ShowEntry.query.get_or_404(entry_id)
+    payload = request.get_json(silent=True) or {}
+    placing_text = str(payload.get('placing_text', '')).strip()
+    show_day_id = payload.get('show_day_id')
+    if not placing_text or not show_day_id:
+        return jsonify({'error': 'placing_text and show_day_id are required'}), 400
+    placing = Placing(entry_id=entry_id, show_day_id=int(show_day_id), ring=payload.get('ring'), placing_text=placing_text, points=float(payload['points']) if payload.get('points') is not None else None, judge=payload.get('judge'), notes=payload.get('notes'))
+    db.session.add(placing)
+    db.session.commit()
+    return jsonify(_placing_payload(placing)), 201
+
+
+@api_bp.patch('/placings/<int:placing_id>')
+def api_placings_update(placing_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    placing = Placing.query.get_or_404(placing_id)
+    payload = request.get_json(silent=True) or {}
+    for key in ['ring', 'placing_text', 'judge', 'notes']:
+        if key in payload:
+            setattr(placing, key, payload[key])
+    if 'points' in payload:
+        placing.points = float(payload['points']) if payload['points'] is not None else None
+    db.session.commit()
+    return jsonify(_placing_payload(placing))
+
+
+@api_bp.delete('/placings/<int:placing_id>')
+def api_placings_delete(placing_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    db.session.delete(Placing.query.get_or_404(placing_id))
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@api_bp.get('/projects/<int:project_id>/shows')
+def api_project_shows(project_id: int):
+    Project.query.get_or_404(project_id)
+    entries = ShowEntry.query.filter_by(project_id=project_id).all()
+    show_ids = sorted({e.show_id for e in entries})
+    shows = [Show.query.get(show_id) for show_id in show_ids]
+    return jsonify([_show_payload(show) for show in shows if show])
+
+
+@api_bp.get('/tasks')
+def api_tasks():
+    query = TaskItem.query
+    for key in ['status', 'project_id', 'assigned_profile_id']:
+        value = request.args.get(key)
+        if value:
+            col = getattr(TaskItem, key)
+            query = query.filter(col == (int(value) if key.endswith('_id') else value))
+    due_before = request.args.get('due_before')
+    due_after = request.args.get('due_after')
+    if due_before:
+        query = query.filter(TaskItem.due_date <= date.fromisoformat(due_before))
+    if due_after:
+        query = query.filter(TaskItem.due_date >= date.fromisoformat(due_after))
+    tasks = query.order_by(TaskItem.status.asc(), TaskItem.due_date.asc().nulls_last(), TaskItem.id.desc()).all()
+    return jsonify([_task_item_payload(task) for task in tasks])
+
+
+@api_bp.post('/tasks')
+def api_task_create():
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    payload = request.get_json(silent=True) or {}
+    title = str(payload.get('title', '')).strip()
+    if not title:
+        return jsonify({'error': 'title is required'}), 400
+    task = TaskItem(project_id=payload.get('project_id'), title=title, due_date=date.fromisoformat(payload['due_date']) if payload.get('due_date') else None, recurrence=payload.get('recurrence') or 'none', assigned_profile_id=payload.get('assigned_profile_id'), status=payload.get('status') or 'open', priority=payload.get('priority') or 'normal', notes=payload.get('notes'))
+    db.session.add(task)
+    db.session.commit()
+    return jsonify(_task_item_payload(task)), 201
+
+
+@api_bp.get('/tasks/<int:task_id>')
+def api_task_detail(task_id: int):
+    return jsonify(_task_item_payload(TaskItem.query.get_or_404(task_id)))
+
+
+@api_bp.patch('/tasks/<int:task_id>')
+def api_task_update(task_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    task = TaskItem.query.get_or_404(task_id)
+    payload = request.get_json(silent=True) or {}
+    for key in ['title', 'recurrence', 'status', 'priority', 'notes']:
+        if key in payload:
+            setattr(task, key, payload[key])
+    for key in ['project_id', 'assigned_profile_id']:
+        if key in payload:
+            setattr(task, key, payload[key])
+    if 'due_date' in payload:
+        task.due_date = date.fromisoformat(payload['due_date']) if payload['due_date'] else None
+    if task.status == 'done' and task.completed_at is None:
+        task.completed_at = datetime.utcnow()
+    if task.status != 'done':
+        task.completed_at = None
+    task.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify(_task_item_payload(task))
+
+
+@api_bp.delete('/tasks/<int:task_id>')
+def api_task_delete(task_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    db.session.delete(TaskItem.query.get_or_404(task_id))
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@api_bp.post('/tasks/<int:task_id>/toggle')
+def api_task_toggle(task_id: int):
+    profile = _active_profile()
+    if profile is None:
+        return jsonify({'error': 'No active profile'}), 401
+    task = TaskItem.query.get_or_404(task_id)
+    if profile.role == 'parent':
+        if not _is_unlocked():
+            return jsonify({'error': 'Parent PIN unlock required'}), 403
+    else:
+        setting = AppSetting.query.order_by(AppSetting.id.asc()).first()
+        allow = bool(setting.allow_kid_task_toggle) if setting else False
+        if not allow or task.assigned_profile_id != profile.id:
+            return jsonify({'error': 'Not allowed to toggle this task'}), 403
+    task.status = 'done' if task.status != 'done' else 'open'
+    task.completed_at = datetime.utcnow() if task.status == 'done' else None
+    task.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify(_task_item_payload(task))
+
+
+@api_bp.get('/projects/<int:project_id>/tasks')
+def api_project_tasks(project_id: int):
+    Project.query.get_or_404(project_id)
+    tasks = TaskItem.query.filter_by(project_id=project_id).order_by(TaskItem.due_date.asc().nulls_last(), TaskItem.id.desc()).all()
+    return jsonify([_task_item_payload(task) for task in tasks])
+
+
+@api_bp.post('/media/upload')
+def api_media_upload():
+    profile, error = _require_parent_unlocked()
+    if error:
+        return error
+    file = request.files.get('file')
+    try:
+        filename = save_upload(file, current_app.config['BARN_UPLOAD_DIR'])
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 400
+    media = Photo(project_id=request.form.get('project_id') or None, show_id=request.form.get('show_id') or None, show_day_id=request.form.get('show_day_id') or None, filename=filename, caption=request.form.get('caption'), photo_type='photo', uploaded_by_id=profile.id)
+    db.session.add(media)
+    db.session.commit()
+    return jsonify(_media_payload(media)), 201
+
+
+@api_bp.get('/media')
+def api_media_list():
+    query = Photo.query
+    for key in ['project_id', 'show_id', 'show_day_id']:
+        value = request.args.get(key)
+        if value:
+            query = query.filter(getattr(Photo, key) == int(value))
+    media = query.order_by(Photo.uploaded_at.desc(), Photo.id.desc()).all()
+    return jsonify([_media_payload(m) for m in media])
+
+
+@api_bp.delete('/media/<int:media_id>')
+def api_media_delete(media_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    media = Photo.query.get_or_404(media_id)
+    db.session.delete(media)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+def _csv_response(filename: str, headers: list[str], rows: list[list[object]]) -> Response:
+    stream = io.StringIO()
+    writer = csv.writer(stream)
+    writer.writerow(headers)
+    writer.writerows(rows)
+    return Response(stream.getvalue(), mimetype='text/csv', headers={'Content-Disposition': f'attachment; filename={filename}'})
+
+
+@api_bp.get('/export/projects.csv')
+def api_export_projects_csv():
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    projects = Project.query.order_by(Project.id.asc()).all()
+    rows = [[p.id, p.name, p.type, p.status, p.owner_id, p.created_at.date().isoformat() if p.created_at else ''] for p in projects]
+    return _csv_response('projects.csv', ['id', 'name', 'species', 'status', 'owner_profile_id', 'created_at'], rows)
+
+
+@api_bp.get('/export/expenses.csv')
+def api_export_expenses_csv():
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    query = Expense.query
+    start = request.args.get('start')
+    end = request.args.get('end')
+    project_id = request.args.get('project_id')
+    if start:
+        query = query.filter(Expense.date >= date.fromisoformat(start))
+    if end:
+        query = query.filter(Expense.date <= date.fromisoformat(end))
+    if project_id:
+        query = query.filter(Expense.project_id == int(project_id))
+    expenses = query.order_by(Expense.date.asc(), Expense.id.asc()).all()
+    rows = [[e.id, e.project_id, e.date.isoformat(), e.category, e.vendor or '', e.amount, e.notes or ''] for e in expenses]
+    return _csv_response('expenses.csv', ['id', 'project_id', 'date', 'category', 'vendor', 'amount', 'notes'], rows)
+
+
+@api_bp.get('/export/tasks.csv')
+def api_export_tasks_csv():
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    query = TaskItem.query
+    status = request.args.get('status')
+    assigned_profile_id = request.args.get('assigned_profile_id')
+    if status:
+        query = query.filter(TaskItem.status == status)
+    if assigned_profile_id:
+        query = query.filter(TaskItem.assigned_profile_id == int(assigned_profile_id))
+    tasks = query.order_by(TaskItem.id.asc()).all()
+    rows = [[t.id, t.project_id or '', t.title, t.status, t.priority, t.due_date.isoformat() if t.due_date else '', t.assigned_profile_id or ''] for t in tasks]
+    return _csv_response('tasks.csv', ['id', 'project_id', 'title', 'status', 'priority', 'due_date', 'assigned_profile_id'], rows)
+
+
+@api_bp.get('/export/project/<int:project_id>.pdf')
+def api_export_project_pdf(project_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    project = Project.query.get_or_404(project_id)
+    expenses_total = db.session.query(func.sum(Expense.amount)).filter(Expense.project_id == project_id).scalar() or 0
+    tasks_open = TaskItem.query.filter_by(project_id=project_id, status='open').count()
+    entries = ShowEntry.query.filter_by(project_id=project_id).all()
+    placements = sum(Placing.query.filter_by(entry_id=e.id).count() for e in entries)
+    text = f"Project Show Packet\nProject: {project.name}\nSpecies: {project.type}\nStatus: {project.status}\nTotal Expenses: ${float(expenses_total):.2f}\nOpen Tasks: {tasks_open}\nRecent Placings: {placements}\nGenerated: {datetime.utcnow().isoformat()}"
+    escaped = text.replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)')
+    stream = f"BT /F1 12 Tf 50 760 Td ({escaped.replace(chr(10), ') Tj T* (')}) Tj ET"
+    pdf = f"%PDF-1.1\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj\n4 0 obj << /Length {len(stream)} >> stream\n{stream}\nendstream endobj\n5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\nxref\n0 6\n0000000000 65535 f \n0000000010 00000 n \n0000000060 00000 n \n0000000117 00000 n \n0000000243 00000 n \n0000000000 00000 n \ntrailer << /Root 1 0 R /Size 6 >>\nstartxref\n0\n%%EOF"
+    return Response(pdf, mimetype='application/pdf', headers={'Content-Disposition': f'attachment; filename=project-{project_id}.pdf'})
+
+
+@api_bp.get('/settings')
+def api_settings_get():
+    setting = AppSetting.query.order_by(AppSetting.id.asc()).first()
+    if setting is None:
+        setting = AppSetting(family_name='', allow_kid_task_toggle=False)
+        db.session.add(setting)
+        db.session.commit()
+    return jsonify({'family_name': setting.family_name, 'allow_kid_task_toggle': setting.allow_kid_task_toggle})
+
+
+@api_bp.patch('/settings')
+def api_settings_patch():
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    setting = AppSetting.query.order_by(AppSetting.id.asc()).first()
+    if setting is None:
+        setting = AppSetting(family_name='', allow_kid_task_toggle=False)
+        db.session.add(setting)
+    payload = request.get_json(silent=True) or {}
+    if 'family_name' in payload:
+        setting.family_name = payload['family_name']
+    if 'allow_kid_task_toggle' in payload:
+        setting.allow_kid_task_toggle = bool(payload['allow_kid_task_toggle'])
+    db.session.commit()
+    return jsonify({'family_name': setting.family_name, 'allow_kid_task_toggle': setting.allow_kid_task_toggle})
