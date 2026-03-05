@@ -1,7 +1,11 @@
-import { getSession, getSummary } from "@/lib/api";
+import { SessionResponse } from "@/lib/api";
+import { apiJsonServer } from "@/lib/apiServer";
 
 export default async function DashboardPage() {
-  const [session, summary] = await Promise.all([getSession(), getSummary()]);
+  const [session, summary] = await Promise.all([
+    apiJsonServer<SessionResponse>("/session"),
+    apiJsonServer<{ counts: Record<string, number>; month_total: number; by_project: { name: string; total: number }[] }>("/summary")
+  ]);
 
   return (
     <div className="space-y-4">

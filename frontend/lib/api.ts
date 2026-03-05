@@ -1,5 +1,4 @@
-import { apiFetchClient } from "@/lib/apiClient";
-import { apiFetchServer } from "@/lib/apiServer";
+export const API_BASE_URL = "/api";
 
 export type Profile = { id: number; name: string; role: "parent" | "kid" | string; avatar_url: string | null };
 export type SessionResponse = { active_profile: Profile | null; family: { id: null; name: null } };
@@ -14,6 +13,15 @@ export type TaskItem = { id: number; project_id: number | null; title: string; d
 export type MediaItem = { id: number; project_id: number | null; show_id: number | null; show_day_id: number | null; kind: string; filename: string; url: string; caption: string | null; created_at: string | null };
 export type AppSettings = { family_name: string | null; allow_kid_task_toggle: boolean };
 
+export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return fetch(`${API_BASE_URL}${normalizedPath}`, {
+    credentials: "include",
+    cache: "no-store",
+    ...init
+  });
+}
+
 async function parseJson<T>(response: Response): Promise<T> {
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -22,8 +30,17 @@ async function parseJson<T>(response: Response): Promise<T> {
   return body as T;
 }
 
-export const apiClientJson = async <T>(path: string, init?: RequestInit) => parseJson<T>(await apiFetchClient(path, init));
-export const apiServerJson = async <T>(path: string, init?: RequestInit) => parseJson<T>(await apiFetchServer(path, init));
+export const apiJson = async <T>(path: string, init?: RequestInit) => parseJson<T>(await apiFetch(path, init));
+export async function apiPostJson<T>(path: string, body: unknown, init?: RequestInit): Promise<T> {
+  const requestHeaders = new Headers(init?.headers);
+  requestHeaders.set("Content-Type", "application/json");
 
-export const getSession = () => apiServerJson<SessionResponse>("/session");
-export const getSummary = () => apiServerJson<{ counts: Record<string, number>; month_total: number; by_project: { name: string; total: number }[] }>("/summary");
+  return apiJson<T>(path, {
+    ...init,
+    method: "POST",
+    headers: requestHeaders,
+    body: JSON.stringify(body)
+  });
+}
+
+export const apiClientJson = apiJson;
