@@ -33,3 +33,82 @@ textarea,
 button {
   border-color: var(--barn-border);
 }
+
+.dashboard-card {
+  border: 1px solid var(--barn-border);
+  background: var(--barn-dark);
+  border-radius: 0.9rem;
+  padding: 1rem;
+}
+
+.touch-target {
+  min-height: 2.75rem;
+}
+
+.kid-scroller {
+  display: flex;
+  gap: 0.625rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.kid-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  white-space: nowrap;
+  border-radius: 9999px;
+  border: 1px solid var(--barn-border);
+  background: var(--barn-dark);
+  padding: 0.5rem 0.8rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.kid-chip-active {
+  background: var(--barn-red);
+  border-color: var(--barn-red);
+}
+
+.kid-avatar {
+  display: inline-flex;
+  height: 1.75rem;
+  width: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgb(0 0 0 / 0.25);
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
+.animal-card {
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.animal-card:hover {
+  border-color: color-mix(in srgb, var(--barn-red) 60%, var(--barn-border));
+  transform: translateY(-1px);
+}
+
+.list-row {
+  background: rgb(0 0 0 / 0.2);
+  border: 1px solid transparent;
+  margin-bottom: 0.5rem;
+  padding: 0.65rem 0.75rem;
+}
+
+.list-row:hover {
+  border-color: var(--barn-border);
+}
+
+@media (min-width: 1024px) {
+  .dashboard-today {
+    max-width: 980px;
+  }
+
+  .dashboard-card {
+    padding: 1.1rem;
+  }
+}

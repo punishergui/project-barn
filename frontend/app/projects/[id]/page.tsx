@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 
 import { apiClientJson, AuthStatus, Expense, Profile, Project, Show, TimelineEntry } from "@/lib/api";
 
@@ -12,6 +12,7 @@ const timelineTypes = ["Feeding", "Training", "Health", "Vet", "Wash", "Clip", "
 export default function ProjectDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [activeSection, setActiveSection] = useState<(typeof sections)[number]>("overview");
   const [project, setProject] = useState<Project | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -45,6 +46,14 @@ export default function ProjectDetailPage() {
   }, [params.id]);
 
   const ownerName = profiles.find((profile) => profile.id === project?.owner_profile_id)?.name ?? "Unknown";
+
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab && sections.includes(tab as (typeof sections)[number])) {
+      setActiveSection(tab as (typeof sections)[number]);
+    }
+  }, [searchParams]);
 
   const totalExpenses = useMemo(() => {
     const projectId = Number(params.id);
@@ -88,7 +97,7 @@ export default function ProjectDetailPage() {
         <h1 className="text-3xl font-semibold">{project.name}</h1>
         <p className="text-sm capitalize text-neutral-300">{project.species} • {ownerName}</p>
         <div className="mt-3 flex flex-wrap gap-2 text-sm">
-          <Link href={`/expenses/new?project_id=${project.id}`} className="rounded bg-red-700 px-3 py-2">Add Expense</Link>
+          <Link href={`/expenses/new?projectId=${project.id}`} className="rounded bg-red-700 px-3 py-2">Add Expense</Link>
           <button onClick={() => setActiveSection("timeline")} className="rounded bg-neutral-800 px-3 py-2">Add Timeline</button>
           <Link href={upcomingShow ? `/shows/${upcomingShow.id}/day` : "/shows"} className="rounded bg-neutral-800 px-3 py-2">{upcomingShow ? "Show Day" : "Shows"}</Link>
         </div>
@@ -120,7 +129,7 @@ export default function ProjectDetailPage() {
       </section> : null}
 
       {activeSection === "expenses" ? <section className="space-y-3 rounded-xl border border-white/10 bg-neutral-900 p-4 text-sm">
-        <div className="flex items-center justify-between"><h2 className="font-semibold">Expenses</h2><Link href={`/expenses/new?project_id=${project.id}`} className="rounded bg-red-700 px-3 py-2 text-xs">Add expense</Link></div>
+        <div className="flex items-center justify-between"><h2 className="font-semibold">Expenses</h2><Link href={`/expenses/new?projectId=${project.id}`} className="rounded bg-red-700 px-3 py-2 text-xs">Add expense</Link></div>
         {expenses.length === 0 ? <p className="rounded bg-neutral-800 p-3 text-neutral-300">No expenses logged yet.</p> : expenses.map((expense) => <Link href={`/expenses/${expense.id}`} key={expense.id} className="block rounded bg-neutral-800 p-3">{expense.date.slice(0, 10)} • ${expense.amount.toFixed(2)} • {expense.category}</Link>)}
       </section> : null}
 
