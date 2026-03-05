@@ -7,7 +7,8 @@ import { useParams, useRouter } from "next/navigation";
 import { apiClientJson, AuthStatus, Expense, MediaItem, Profile, Project, Show, TimelineEntry } from "@/lib/api";
 
 const sections = ["overview", "timeline", "expenses", "media"] as const;
-const timelineTypes = ["Feeding", "Training", "Health", "Vet", "Wash", "Clip", "Show", "Other"];
+const timelineTypes = ["Feeding", "Training", "Health", "Vet", "Wash", "Clip", "Show", "Expense", "Other"];
+const timelineIcons: Record<string, string> = { Feeding: "🥣", Training: "🏋️", Health: "💊", Vet: "🩺", Wash: "🧼", Clip: "✂️", Show: "🏆", Expense: "💵", Other: "📝" };
 
 function parseBestPlacing(shows: Show[], projectId: number) {
   const placeValues = shows
@@ -35,6 +36,8 @@ export default function ProjectDetailPage() {
   const [auth, setAuth] = useState<AuthStatus | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [showAddTimeline, setShowAddTimeline] = useState(false);
+  const [quickType, setQuickType] = useState("Other");
+  const [importantIds, setImportantIds] = useState<number[]>([]);
 
   const load = async () => {
     const id = Number(params.id);
@@ -58,7 +61,13 @@ export default function ProjectDetailPage() {
 
   useEffect(() => {
     load().catch(() => undefined);
+    const saved = window.localStorage.getItem(`timeline-important-${params.id}`);
+    if (saved) setImportantIds(JSON.parse(saved));
   }, [params.id]);
+
+  useEffect(() => {
+    window.localStorage.setItem(`timeline-important-${params.id}`, JSON.stringify(importantIds));
+  }, [importantIds, params.id]);
 
   const stats = useMemo(() => {
     const projectId = Number(params.id);
@@ -76,7 +85,7 @@ export default function ProjectDetailPage() {
   const addTimeline = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const eventType = String(form.get("type") ?? "Other");
+    const eventType = String(form.get("type") ?? quickType);
     const note = String(form.get("note") ?? "").trim();
     await apiClientJson(`/projects/${params.id}/timeline`, {
       method: "POST",
@@ -124,9 +133,10 @@ export default function ProjectDetailPage() {
 
     {activeSection === "timeline" ? <section className="space-y-3 rounded border border-white/10 bg-neutral-900 p-4">
       {auth?.role === "parent" && auth.is_unlocked ? <div className="flex items-center justify-between"><h2 className="font-semibold">Timeline</h2><button onClick={() => setShowAddTimeline((prev) => !prev)} className="rounded bg-red-700 px-3 py-2 text-sm">Add entry</button></div> : <h2 className="font-semibold">Timeline</h2>}
-      {showAddTimeline ? <form className="grid gap-2 rounded bg-neutral-800 p-3" onSubmit={addTimeline}><input name="date" type="date" className="rounded bg-neutral-900 p-2" required /><select name="type" className="rounded bg-neutral-900 p-2">{timelineTypes.map((type) => <option key={type}>{type}</option>)}</select><textarea name="note" placeholder="Note" className="rounded bg-neutral-900 p-2" /><div className="flex gap-2"><button className="rounded bg-red-700 px-3 py-2 text-sm">Save entry</button><button type="button" onClick={() => setShowAddTimeline(false)} className="rounded bg-neutral-700 px-3 py-2 text-sm">Cancel</button></div></form> : null}
+      <div className="flex flex-wrap gap-2">{timelineTypes.map((type) => <button key={type} onClick={() => { setQuickType(type); setShowAddTimeline(true); }} className={`rounded px-3 py-1 text-xs ${quickType === type ? "bg-red-700" : "bg-neutral-800"}`}>{timelineIcons[type]} {type}</button>)}</div>
+      {showAddTimeline ? <form className="grid gap-2 rounded bg-neutral-800 p-3" onSubmit={addTimeline}><input name="date" type="date" className="rounded bg-neutral-900 p-2" required /><select name="type" value={quickType} onChange={(event) => setQuickType(event.target.value)} className="rounded bg-neutral-900 p-2">{timelineTypes.map((type) => <option key={type}>{type}</option>)}</select><textarea name="note" placeholder="Note" className="rounded bg-neutral-900 p-2" /><div className="flex gap-2"><button className="rounded bg-red-700 px-3 py-2 text-sm">Save entry</button><button type="button" onClick={() => setShowAddTimeline(false)} className="rounded bg-neutral-700 px-3 py-2 text-sm">Cancel</button></div></form> : null}
       {timeline.length === 0 ? <p className="rounded bg-neutral-800 p-3 text-sm text-neutral-300">No timeline entries yet.</p> : null}
-      <div className="space-y-2">{timeline.map((item) => <article key={item.id} className="rounded bg-neutral-800 p-3 text-sm"><p className="font-medium">{item.type}</p><p>{item.date.slice(0, 10)}</p><p className="text-neutral-300">{item.description ?? "No note."}</p></article>)}</div>
+      <div className="space-y-2">{timeline.map((item) => <article key={item.id} className="rounded bg-neutral-800 p-3 text-sm"><div className="flex items-center justify-between"><p className="font-medium">{timelineIcons[item.type] ?? "📝"} {item.type}</p><button onClick={() => setImportantIds((prev) => prev.includes(item.id) ? prev.filter((id) => id !== item.id) : [...prev, item.id])} className={`rounded px-2 py-1 text-xs ${importantIds.includes(item.id) ? "bg-amber-700" : "bg-neutral-700"}`}>★</button></div><p>{item.date.slice(0, 16).replace("T", " ")}</p><p className="text-neutral-300">{item.description ?? "No note."}</p>{importantIds.includes(item.id) ? <p className="mt-1 text-xs text-amber-300">Marked important (local only)</p> : null}</article>)}</div>
     </section> : null}
 
     {activeSection === "expenses" ? <section className="space-y-3 rounded border border-white/10 bg-neutral-900 p-4 text-sm">

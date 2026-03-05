@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 
 import { apiClientJson, AuthStatus } from "@/lib/api";
@@ -39,8 +40,12 @@ export default function MorePage() {
     await load();
   };
 
-  return <div className="space-y-4">
+  return <div className="space-y-4 pb-2">
     <h1 className="text-2xl font-semibold">More</h1>
+    <section className="grid gap-2 sm:grid-cols-2">
+      <Link href="/family" className="rounded border border-white/10 bg-neutral-900 p-4 text-sm">👨‍👩‍👧‍👦 Family</Link>
+      <Link href="/reports" className="rounded border border-white/10 bg-neutral-900 p-4 text-sm">🧾 Tax Reports</Link>
+    </section>
     <section className="rounded border border-white/10 bg-neutral-900 p-4 text-sm">
       <p>Role: {auth?.role ?? "..."}</p>
       <p>Unlocked: {auth?.is_unlocked ? "Yes" : "No"}</p>
