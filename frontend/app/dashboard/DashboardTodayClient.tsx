@@ -38,7 +38,7 @@ export default function DashboardTodayClient({ todayLabel, kids, activeAnimals, 
   };
 
   return (
-    <div className="dashboard-today space-y-5 pb-6 pt-2">
+    <div className="dashboard-today mx-auto w-full max-w-5xl space-y-5 px-4 pb-6 pt-2">
       <header className="dashboard-card">
         <div className="flex items-start justify-between gap-3">
           <div>

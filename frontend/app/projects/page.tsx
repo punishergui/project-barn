@@ -40,24 +40,42 @@ export default function ProjectsPage() {
   const owners = useMemo(() => new Map(profiles.map((p) => [p.id, p.name])), [profiles]);
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto w-full max-w-5xl space-y-5 px-4 pb-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Projects</h1>
-        {auth?.role === "parent" && auth.is_unlocked ? <Link className="rounded bg-red-700 px-3 py-2 text-sm" href="/projects/new">Add Project</Link> : null}
+        <div>
+          <h1 className="text-2xl font-semibold">Projects</h1>
+          <p className="text-sm text-neutral-300">Track active animals and ownership at a glance.</p>
+        </div>
+        {auth?.role === "parent" && auth.is_unlocked ? (
+          <Link className="rounded-lg bg-[var(--barn-red)] px-3 py-2 text-sm font-medium text-white" href="/projects/new">
+            Add Project
+          </Link>
+        ) : null}
       </div>
-      <div className="grid grid-cols-3 gap-2 text-sm">
-        <input value={species} onChange={(e) => setSpecies(e.target.value)} placeholder="species" className="rounded bg-neutral-900 p-2" />
-        <input value={status} onChange={(e) => setStatus(e.target.value)} placeholder="status" className="rounded bg-neutral-900 p-2" />
-        <select value={owner} onChange={(e) => setOwner(e.target.value)} className="rounded bg-neutral-900 p-2"><option value="">owner</option>{profiles.map((p) => <option value={p.id} key={p.id}>{p.name}</option>)}</select>
-      </div>
-      {loading ? <p>Loading projects...</p> : null}
-      {error ? <p className="text-red-300">{error}</p> : null}
-      {!loading && projects.length === 0 ? <p className="text-neutral-400">No projects yet.</p> : null}
+
+      <section className="grid gap-2 rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-3 sm:grid-cols-3">
+        <input value={species} onChange={(e) => setSpecies(e.target.value)} placeholder="species" className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-2" />
+        <input value={status} onChange={(e) => setStatus(e.target.value)} placeholder="status" className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-2" />
+        <select value={owner} onChange={(e) => setOwner(e.target.value)} className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-2">
+          <option value="">owner</option>
+          {profiles.map((p) => (
+            <option value={p.id} key={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      </section>
+
+      {loading ? <p className="text-sm text-neutral-300">Loading projects...</p> : null}
+      {error ? <p className="text-sm text-red-300">{error}</p> : null}
+      {!loading && projects.length === 0 ? <p className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-sm text-neutral-300">No projects yet.</p> : null}
       <div className="grid gap-3 md:grid-cols-2">
         {projects.map((project) => (
-          <Link key={project.id} href={`/projects/${project.id}`} className="rounded-lg border border-white/10 bg-neutral-900 p-4">
+          <Link key={project.id} href={`/projects/${project.id}`} className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4">
             <h2 className="font-semibold">{project.name}</h2>
-            <p className="text-sm text-neutral-400">{project.species} • {project.status}</p>
+            <p className="text-sm text-neutral-300">
+              {project.species} • {project.status}
+            </p>
             <p className="text-sm text-neutral-300">Owner: {owners.get(project.owner_profile_id) ?? project.owner_profile_id}</p>
           </Link>
         ))}
