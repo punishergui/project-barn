@@ -1,57 +1,43 @@
 import { apiFetchClient } from "@/lib/apiClient";
 import { apiFetchServer } from "@/lib/apiServer";
 
-export type SessionResponse = {
-  active_profile: { id: number | null; name: string | null; role: string | null; avatar_url: string | null };
-  family: { id: null; name: null };
-};
-
-export type DashboardResponse = {
-  counts: { projects: number; profiles: number; expenses: number; shows: number; tasks: number };
-  recent_activity: { kind: string; label: string; date: string | null; project_id: number | null }[];
-  upcoming: { kind: string; label: string; date: string | null; project_id: number | null }[];
-};
-
-export type ProjectListItem = {
+export type Profile = { id: number; name: string; role: "parent" | "kid" | string; avatar_url: string | null };
+export type SessionResponse = { active_profile: Profile | null; family: { id: null; name: null } };
+export type AuthStatus = { role: string | null; is_unlocked: boolean; unlock_expires_at: string | null };
+export type Project = {
   id: number;
   name: string;
-  animal_type: string | null;
-  owner_profile: { id: number; name: string };
-  hero_image_url: string | null;
+  species: string;
+  tag: string | null;
+  status: string;
+  owner_profile_id: number;
+  notes: string | null;
+  created_at: string | null;
   updated_at: string | null;
-  total_cost: number;
-  ribbon_count: number;
 };
-
-export type ProjectDetail = {
+export type Expense = {
   id: number;
-  name: string;
-  animal_type: string | null;
-  owner_profile: { id: number; name: string };
-  hero_image_url: string | null;
-  summary: { total_cost: number; expenses_count: number; photos_count: number; shows_count: number };
-  recent_activity: { id: number; date: string | null; type: string; note: string | null }[];
+  project_id: number;
+  date: string;
+  category: string;
+  vendor: string | null;
+  amount: number;
+  note: string | null;
+  receipt_url: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 };
 
-async function parseApiResponse<T>(response: Response): Promise<T> {
+async function parseJson<T>(response: Response): Promise<T> {
+  const body = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(`API request failed: ${response.status}`);
+    throw new Error((body as { error?: string }).error ?? `Request failed with ${response.status}`);
   }
-
-  return response.json() as Promise<T>;
+  return body as T;
 }
 
-export async function apiFetchClientJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await apiFetchClient(path, init);
-  return parseApiResponse<T>(response);
-}
+export const apiClientJson = async <T>(path: string, init?: RequestInit) => parseJson<T>(await apiFetchClient(path, init));
+export const apiServerJson = async <T>(path: string, init?: RequestInit) => parseJson<T>(await apiFetchServer(path, init));
 
-export async function apiFetchServerJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await apiFetchServer(path, init);
-  return parseApiResponse<T>(response);
-}
-
-export const getSession = () => apiFetchServerJson<SessionResponse>("/session");
-export const getDashboard = () => apiFetchServerJson<DashboardResponse>("/dashboard");
-export const getProjects = () => apiFetchServerJson<ProjectListItem[]>("/projects");
-export const getProject = (id: number) => apiFetchServerJson<ProjectDetail>(`/projects/${id}`);
+export const getSession = () => apiServerJson<SessionResponse>("/session");
+export const getSummary = () => apiServerJson<{ counts: Record<string, number>; month_total: number; by_project: { name: string; total: number }[] }>("/summary");

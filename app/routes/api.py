@@ -1,18 +1,15 @@
 from __future__ import annotations
 
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 
-from flask import Blueprint, jsonify, session
+from flask import Blueprint, jsonify, request, session
 from sqlalchemy import func
+from werkzeug.security import check_password_hash, generate_password_hash
 
-from app.models import Expense, Photo, Profile, Project, ProjectActivity, Show, ShowEntry, Task, db
+from app.models import Expense, Profile, Project, Show, Task, db
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
-
-
-def _iso(value: date | datetime | None) -> str | None:
-    normalized = _as_dt(value)
-    return normalized.isoformat() if normalized is not None else None
+UNLOCK_DURATION_MINUTES = 15
 
 
 def _as_dt(value: date | datetime | None) -> datetime | None:
@@ -23,20 +20,91 @@ def _as_dt(value: date | datetime | None) -> datetime | None:
     return datetime.combine(value, time.min)
 
 
-def _avatar_url(avatar_path: str | None) -> str | None:
-    if not avatar_path:
-        return None
-    if avatar_path.startswith("http://") or avatar_path.startswith("https://"):
-        return avatar_path
-    return f"/uploads/{avatar_path}"
+def _iso(value: date | datetime | None) -> str | None:
+    parsed = _as_dt(value)
+    return parsed.isoformat() if parsed else None
 
 
-def _project_hero_image(project: Project) -> str | None:
-    if not project.photo_path:
+def _avatar_url(path: str | None) -> str | None:
+    if not path:
         return None
-    if project.photo_path.startswith("http://") or project.photo_path.startswith("https://"):
-        return project.photo_path
-    return f"/uploads/{project.photo_path}"
+    if path.startswith("http://") or path.startswith("https://"):
+        return path
+    return f"/uploads/{path}"
+
+
+def _active_profile() -> Profile | None:
+    profile_id = session.get("active_profile_id")
+    if profile_id:
+        profile = Profile.query.get(profile_id)
+        if profile:
+            return profile
+    profile = Profile.query.order_by(Profile.id.asc()).first()
+    if profile:
+        session["active_profile_id"] = profile.id
+    return profile
+
+
+def _is_unlocked() -> bool:
+    unlocked_until = session.get("unlock_expires_at")
+    if not unlocked_until:
+        return False
+    try:
+        expires_at = datetime.fromisoformat(unlocked_until)
+    except ValueError:
+        return False
+    if datetime.utcnow() >= expires_at:
+        session.pop("unlock_expires_at", None)
+        return False
+    return True
+
+
+def _auth_status_payload(profile: Profile | None) -> dict[str, object]:
+    return {
+        "role": profile.role if profile else None,
+        "is_unlocked": _is_unlocked(),
+        "unlock_expires_at": session.get("unlock_expires_at"),
+    }
+
+
+def _require_parent_unlocked() -> tuple[Profile | None, tuple[object, int] | None]:
+    profile = _active_profile()
+    if profile is None:
+        return None, (jsonify({"error": "No active profile"}), 401)
+    if profile.role != "parent":
+        return profile, (jsonify({"error": "Parent profile required"}), 403)
+    if not _is_unlocked():
+        return profile, (jsonify({"error": "Parent PIN unlock required"}), 403)
+    return profile, None
+
+
+def _project_payload(project: Project) -> dict[str, object]:
+    return {
+        "id": project.id,
+        "name": project.name,
+        "species": "steer" if project.type == "cow" else project.type,
+        "tag": project.ear_tag,
+        "status": project.status,
+        "owner_profile_id": project.owner_id,
+        "notes": project.notes,
+        "created_at": _iso(project.created_at),
+        "updated_at": _iso(project.updated_at or project.created_at),
+    }
+
+
+def _expense_payload(expense: Expense) -> dict[str, object]:
+    return {
+        "id": expense.id,
+        "project_id": expense.project_id,
+        "date": _iso(expense.date),
+        "category": expense.category,
+        "vendor": expense.vendor,
+        "amount": float(expense.amount),
+        "note": expense.notes,
+        "receipt_url": expense.receipt_url,
+        "created_at": _iso(expense.created_at),
+        "updated_at": _iso(expense.updated_at or expense.created_at),
+    }
 
 
 @api_bp.get("/health")
@@ -46,196 +114,300 @@ def api_health():
 
 @api_bp.get("/session")
 def api_session():
-    profile = None
-    profile_id = session.get("active_profile_id")
-    if profile_id:
-        profile = Profile.query.get(profile_id)
-
-    if profile is None:
-        profile = Profile.query.order_by(Profile.id.asc()).first()
-
-    return jsonify(
-        {
-            "active_profile": {
-                "id": profile.id if profile else None,
-                "name": profile.name if profile else None,
-                "role": profile.role if profile else None,
-                "avatar_url": _avatar_url(profile.avatar_path) if profile else None,
-            },
-            "family": {"id": None, "name": None},
-        }
-    )
+    profile = _active_profile()
+    return jsonify({
+        "active_profile": {
+            "id": profile.id if profile else None,
+            "name": profile.name if profile else None,
+            "role": profile.role if profile else None,
+            "avatar_url": _avatar_url(profile.avatar_path) if profile else None,
+        },
+        "family": {"id": None, "name": None},
+    })
 
 
 @api_bp.get("/profiles")
 def api_profiles():
-    profiles = Profile.query.order_by(Profile.name.asc()).all()
-    return jsonify(
-        [
-            {
-                "id": profile.id,
-                "name": profile.name,
-                "role": profile.role,
-                "avatar_url": _avatar_url(profile.avatar_path),
-            }
-            for profile in profiles
-        ]
-    )
+    profiles = Profile.query.filter_by(archived=False).order_by(Profile.name.asc()).all()
+    return jsonify([
+        {"id": p.id, "name": p.name, "role": p.role, "avatar_url": _avatar_url(p.avatar_path)}
+        for p in profiles
+    ])
+
+
+@api_bp.post("/session/switch-profile")
+def api_switch_profile():
+    payload = request.get_json(silent=True) or {}
+    profile_id = payload.get("profile_id")
+    if profile_id is None:
+        return jsonify({"error": "profile_id is required"}), 400
+    profile = Profile.query.get(profile_id)
+    if profile is None or profile.archived:
+        return jsonify({"error": "Profile not found"}), 404
+    session["active_profile_id"] = profile.id
+    session.pop("unlock_expires_at", None)
+    return jsonify({"active_profile": {"id": profile.id, "name": profile.name, "role": profile.role, "avatar_url": _avatar_url(profile.avatar_path)}})
+
+
+@api_bp.get("/auth/status")
+def api_auth_status():
+    profile = _active_profile()
+    return jsonify(_auth_status_payload(profile))
+
+
+@api_bp.post("/auth/set-pin")
+def api_set_pin():
+    profile = _active_profile()
+    if profile is None:
+        return jsonify({"error": "No active profile"}), 401
+    if profile.role != "parent":
+        return jsonify({"error": "Parent profile required"}), 403
+
+    payload = request.get_json(silent=True) or {}
+    pin = str(payload.get("pin", "")).strip()
+    if len(pin) < 4 or len(pin) > 12 or not pin.isdigit():
+        return jsonify({"error": "PIN must be 4-12 digits"}), 400
+
+    if profile.pin_hash and not _is_unlocked():
+        return jsonify({"error": "Unlock required before changing PIN"}), 403
+
+    profile.pin_hash = generate_password_hash(pin)
+    db.session.commit()
+    return jsonify({"success": True})
+
+
+@api_bp.post("/auth/unlock")
+def api_unlock():
+    profile = _active_profile()
+    if profile is None:
+        return jsonify({"error": "No active profile"}), 401
+    if profile.role != "parent":
+        return jsonify({"error": "Parent profile required"}), 403
+
+    payload = request.get_json(silent=True) or {}
+    pin = str(payload.get("pin", "")).strip()
+
+    if not profile.pin_hash:
+        return jsonify({"error": "PIN has not been set"}), 400
+
+    if not check_password_hash(profile.pin_hash, pin):
+        return jsonify({"error": "Invalid PIN"}), 401
+
+    expires_at = datetime.utcnow() + timedelta(minutes=UNLOCK_DURATION_MINUTES)
+    session["unlock_expires_at"] = expires_at.isoformat()
+    return jsonify({"success": True, "unlock_expires_at": expires_at.isoformat(), "minutes": UNLOCK_DURATION_MINUTES})
+
+
+@api_bp.post("/auth/lock")
+def api_lock():
+    session.pop("unlock_expires_at", None)
+    return jsonify({"success": True})
 
 
 @api_bp.get("/projects")
 def api_projects():
-    projects = Project.query.order_by(Project.created_at.desc()).all()
+    species = request.args.get("species")
+    status = request.args.get("status")
+    owner_profile_id = request.args.get("owner")
 
-    owner_ids = {project.owner_id for project in projects}
-    owners = {
-        profile.id: profile
-        for profile in Profile.query.filter(Profile.id.in_(owner_ids)).all()
-    } if owner_ids else {}
+    query = Project.query
+    if species:
+        query = query.filter(Project.type == species)
+    if status:
+        query = query.filter(Project.status == status)
+    if owner_profile_id and owner_profile_id.isdigit():
+        query = query.filter(Project.owner_id == int(owner_profile_id))
 
-    expense_totals = {
-        row.project_id: float(row.total_cost or 0)
-        for row in db.session.query(
-            Expense.project_id,
-            func.sum(Expense.amount).label("total_cost"),
-        )
-        .group_by(Expense.project_id)
-        .all()
-    }
+    projects = query.order_by(Project.updated_at.desc(), Project.id.desc()).all()
+    return jsonify([_project_payload(project) for project in projects])
 
-    ribbon_counts = {
-        row.project_id: int(row.ribbon_count or 0)
-        for row in db.session.query(
-            ShowEntry.project_id,
-            func.count(ShowEntry.id).label("ribbon_count"),
-        )
-        .filter(ShowEntry.placing.isnot(None), ShowEntry.placing != "")
-        .group_by(ShowEntry.project_id)
-        .all()
-    }
 
-    expense_updates = {
-        row.project_id: row.latest_date
-        for row in db.session.query(
-            Expense.project_id,
-            func.max(Expense.date).label("latest_date"),
-        )
-        .group_by(Expense.project_id)
-        .all()
-    }
+@api_bp.post("/projects")
+def api_create_project():
+    profile, error = _require_parent_unlocked()
+    if error:
+        return error
 
-    activity_updates = {
-        row.project_id: row.latest_date
-        for row in db.session.query(
-            ProjectActivity.project_id,
-            func.max(ProjectActivity.date).label("latest_date"),
-        )
-        .group_by(ProjectActivity.project_id)
-        .all()
-    }
+    payload = request.get_json(silent=True) or {}
+    name = str(payload.get("name", "")).strip()
+    species = str(payload.get("species", "")).strip() or "other"
+    owner_profile_id = payload.get("owner_profile_id")
 
-    payload = []
-    for project in projects:
-        owner = owners.get(project.owner_id)
-        updated_candidates = [
-            _as_dt(project.created_at),
-            _as_dt(expense_updates.get(project.id)),
-            _as_dt(activity_updates.get(project.id)),
-        ]
-        updated_at = max((candidate for candidate in updated_candidates if candidate is not None), default=None)
-        payload.append(
-            {
-                "id": project.id,
-                "name": project.name,
-                "animal_type": project.type,
-                "owner_profile": {
-                    "id": owner.id if owner else project.owner_id,
-                    "name": owner.name if owner else "Unknown",
-                },
-                "hero_image_url": _project_hero_image(project),
-                "updated_at": _iso(updated_at),
-                "total_cost": expense_totals.get(project.id, 0),
-                "ribbon_count": ribbon_counts.get(project.id, 0),
-            }
-        )
+    if not name:
+        return jsonify({"error": "name is required"}), 400
+    if species not in {"goat", "steer", "pig", "other"}:
+        return jsonify({"error": "species must be goat, steer, pig, or other"}), 400
+    if not owner_profile_id:
+        return jsonify({"error": "owner_profile_id is required"}), 400
 
-    return jsonify(payload)
+    owner = Profile.query.get(owner_profile_id)
+    if owner is None:
+        return jsonify({"error": "owner_profile_id is invalid"}), 400
+
+    mapped_type = "cow" if species == "steer" else species
+    project = Project(
+        name=name,
+        type=mapped_type,
+        owner_id=owner_profile_id,
+        ear_tag=(payload.get("tag") or None),
+        status=(payload.get("status") or "active"),
+        notes=(payload.get("notes") or None),
+    )
+    db.session.add(project)
+    db.session.commit()
+    return jsonify(_project_payload(project)), 201
 
 
 @api_bp.get("/projects/<int:project_id>")
 def api_project_detail(project_id: int):
     project = Project.query.get_or_404(project_id)
-    owner = Profile.query.get(project.owner_id)
-
-    total_cost = (
-        db.session.query(func.sum(Expense.amount))
-        .filter(Expense.project_id == project.id)
-        .scalar()
-    ) or 0
-    expenses_count = Expense.query.filter_by(project_id=project.id).count()
-    photos_count = Photo.query.filter_by(project_id=project.id).count()
-    shows_count = (
-        db.session.query(func.count(func.distinct(ShowEntry.show_id)))
-        .filter(ShowEntry.project_id == project.id)
-        .scalar()
-    ) or 0
-
-    latest_expense_date = (
-        db.session.query(func.max(Expense.date))
-        .filter(Expense.project_id == project.id)
-        .scalar()
-    )
-    latest_activity_date = (
-        db.session.query(func.max(ProjectActivity.date))
-        .filter(ProjectActivity.project_id == project.id)
-        .scalar()
-    )
-    updated_candidates = [
-        _as_dt(project.created_at),
-        _as_dt(latest_expense_date),
-        _as_dt(latest_activity_date),
-    ]
-    updated_at = max((candidate for candidate in updated_candidates if candidate is not None), default=None)
-
-    activities = (
-        ProjectActivity.query.filter_by(project_id=project.id)
-        .order_by(ProjectActivity.date.desc(), ProjectActivity.id.desc())
-        .limit(10)
-        .all()
-    )
-
-    return jsonify(
-        {
-            "id": project.id,
-            "name": project.name,
-            "animal_type": project.type,
-            "owner_profile": {
-                "id": owner.id if owner else project.owner_id,
-                "name": owner.name if owner else "Unknown",
-            },
-            "hero_image_url": _project_hero_image(project),
-            "updated_at": _iso(updated_at),
-            "summary": {
-                "total_cost": float(total_cost),
-                "expenses_count": expenses_count,
-                "photos_count": photos_count,
-                "shows_count": int(shows_count),
-            },
-            "recent_activity": [
-                {
-                    "id": activity.id,
-                    "date": _iso(activity.date),
-                    "type": activity.title,
-                    "note": activity.notes,
-                }
-                for activity in activities
-            ],
-        }
-    )
+    return jsonify(_project_payload(project))
 
 
+@api_bp.patch("/projects/<int:project_id>")
+def api_project_update(project_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+
+    project = Project.query.get_or_404(project_id)
+    payload = request.get_json(silent=True) or {}
+
+    if "name" in payload:
+        project.name = str(payload["name"]).strip()
+    if "species" in payload:
+        species = str(payload["species"]).strip()
+        if species not in {"goat", "steer", "pig", "other"}:
+            return jsonify({"error": "species must be goat, steer, pig, or other"}), 400
+        project.type = "cow" if species == "steer" else species
+    if "tag" in payload:
+        project.ear_tag = payload["tag"]
+    if "status" in payload:
+        project.status = payload["status"]
+    if "owner_profile_id" in payload:
+        owner = Profile.query.get(payload["owner_profile_id"])
+        if owner is None:
+            return jsonify({"error": "owner_profile_id is invalid"}), 400
+        project.owner_id = owner.id
+    if "notes" in payload:
+        project.notes = payload["notes"]
+
+    project.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify(_project_payload(project))
+
+
+@api_bp.delete("/projects/<int:project_id>")
+def api_project_delete(project_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+
+    project = Project.query.get_or_404(project_id)
+    Expense.query.filter_by(project_id=project.id).delete()
+    db.session.delete(project)
+    db.session.commit()
+    return jsonify({"success": True})
+
+
+@api_bp.get("/expenses")
+def api_expenses():
+    query = Expense.query
+
+    project_id = request.args.get("project_id")
+    category = request.args.get("category")
+    start_date = request.args.get("start_date")
+    end_date = request.args.get("end_date")
+
+    if project_id and project_id.isdigit():
+        query = query.filter(Expense.project_id == int(project_id))
+    if category:
+        query = query.filter(Expense.category == category)
+    if start_date:
+        query = query.filter(Expense.date >= date.fromisoformat(start_date))
+    if end_date:
+        query = query.filter(Expense.date <= date.fromisoformat(end_date))
+
+    expenses = query.order_by(Expense.date.desc(), Expense.id.desc()).all()
+    return jsonify([_expense_payload(expense) for expense in expenses])
+
+
+@api_bp.post("/expenses")
+def api_expenses_create():
+    profile, error = _require_parent_unlocked()
+    if error:
+        return error
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        expense = Expense(
+            project_id=int(payload.get("project_id")),
+            logged_by_id=profile.id,
+            amount=float(payload.get("amount")),
+            category=str(payload.get("category", "other_expense")),
+            date=date.fromisoformat(str(payload.get("date"))),
+            notes=payload.get("note"),
+            vendor=payload.get("vendor"),
+            receipt_url=payload.get("receipt_url"),
+        )
+    except Exception:
+        return jsonify({"error": "Invalid expense payload"}), 400
+
+    db.session.add(expense)
+    db.session.commit()
+    return jsonify(_expense_payload(expense)), 201
+
+
+@api_bp.get("/expenses/<int:expense_id>")
+def api_expense_detail(expense_id: int):
+    expense = Expense.query.get_or_404(expense_id)
+    return jsonify(_expense_payload(expense))
+
+
+@api_bp.patch("/expenses/<int:expense_id>")
+def api_expense_update(expense_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+
+    payload = request.get_json(silent=True) or {}
+    expense = Expense.query.get_or_404(expense_id)
+
+    if "project_id" in payload:
+        expense.project_id = int(payload["project_id"])
+    if "date" in payload:
+        expense.date = date.fromisoformat(payload["date"])
+    if "category" in payload:
+        expense.category = payload["category"]
+    if "vendor" in payload:
+        expense.vendor = payload["vendor"]
+    if "amount" in payload:
+        expense.amount = float(payload["amount"])
+    if "note" in payload:
+        expense.notes = payload["note"]
+    if "receipt_url" in payload:
+        expense.receipt_url = payload["receipt_url"]
+
+    expense.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify(_expense_payload(expense))
+
+
+@api_bp.delete("/expenses/<int:expense_id>")
+def api_expense_delete(expense_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+
+    expense = Expense.query.get_or_404(expense_id)
+    db.session.delete(expense)
+    db.session.commit()
+    return jsonify({"success": True})
+
+
+@api_bp.get("/summary")
 @api_bp.get("/dashboard")
-def api_dashboard():
+def api_summary():
     counts = {
         "projects": Project.query.count(),
         "profiles": Profile.query.count(),
@@ -244,48 +416,20 @@ def api_dashboard():
         "tasks": Task.query.count(),
     }
 
-    recent_items: list[dict[str, object]] = []
+    month_start = date.today().replace(day=1)
+    month_total = db.session.query(func.sum(Expense.amount)).filter(Expense.date >= month_start).scalar() or 0
+    by_project = (
+        db.session.query(Project.name, func.sum(Expense.amount).label("total"))
+        .join(Expense, Expense.project_id == Project.id)
+        .group_by(Project.id)
+        .order_by(func.sum(Expense.amount).desc())
+        .all()
+    )
 
-    for expense in Expense.query.order_by(Expense.date.desc(), Expense.id.desc()).limit(4).all():
-        recent_items.append(
-            {
-                "kind": "expense",
-                "label": f"Expense: ${expense.amount:.2f}",
-                "date": _iso(expense.date),
-                "project_id": expense.project_id,
-            }
-        )
-
-    for activity in ProjectActivity.query.order_by(ProjectActivity.date.desc(), ProjectActivity.id.desc()).limit(4).all():
-        recent_items.append(
-            {
-                "kind": "activity",
-                "label": activity.title,
-                "date": _iso(activity.date),
-                "project_id": activity.project_id,
-            }
-        )
-
-    for show in Show.query.order_by(Show.start_date.desc(), Show.id.desc()).limit(4).all():
-        recent_items.append(
-            {
-                "kind": "show",
-                "label": show.name,
-                "date": _iso(show.start_date),
-                "project_id": None,
-            }
-        )
-
-    recent_activity = sorted(recent_items, key=lambda item: item.get("date") or "", reverse=True)[:10]
-
-    upcoming = [
-        {
-            "kind": "show",
-            "label": show.name,
-            "date": _iso(show.start_date),
-            "project_id": None,
-        }
-        for show in Show.query.filter(Show.start_date >= date.today()).order_by(Show.start_date.asc()).limit(5).all()
-    ]
-
-    return jsonify({"counts": counts, "recent_activity": recent_activity, "upcoming": upcoming})
+    return jsonify({
+        "counts": counts,
+        "month_total": float(month_total),
+        "by_project": [{"name": name, "total": float(total or 0)} for name, total in by_project],
+        "recent_activity": [],
+        "upcoming": [],
+    })

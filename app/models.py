@@ -54,6 +54,8 @@ class Project(db.Model):
     county = db.Column(db.String(80), nullable=True)
     state = db.Column(db.String(40), nullable=True, default='Texas')
     project_year = db.Column(db.Integer, nullable=True)
+    status = db.Column(db.String(20), nullable=False, default="active")
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     __table_args__ = (
@@ -132,6 +134,9 @@ class Expense(db.Model):
     date = db.Column(db.Date, default=date.today, nullable=False)
     notes = db.Column(db.Text, nullable=True)
     vendor = db.Column(db.String(120), nullable=True)
+    receipt_url = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     __table_args__ = (
         CheckConstraint(
