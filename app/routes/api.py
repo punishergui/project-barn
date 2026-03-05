@@ -214,7 +214,7 @@ def api_project_detail(project_id: int):
                 "name": owner.name if owner else "Unknown",
             },
             "hero_image_url": _project_hero_image(project),
-            "updated_at": updated_at.isoformat() if updated_at is not None else None,
+            "updated_at": _iso(updated_at),
             "summary": {
                 "total_cost": float(total_cost),
                 "expenses_count": expenses_count,
