@@ -36,7 +36,7 @@ export default function ExpensesPage() {
   }, [projectId, category]);
 
   const thisMonth = useMemo(() => expenses.filter((e) => new Date(e.date).getMonth() === new Date().getMonth()).reduce((acc, item) => acc + item.amount, 0), [expenses]);
-  const projectTotals = useMemo(() => projects.map((p) => ({ name: p.name, total: expenses.filter((e) => e.project_id === p.id).reduce((acc, item) => acc + item.amount, 0) })).filter((row) => row.total > 0), [expenses, projects]);
+  const projectTotals = useMemo(() => projects.map((p) => ({ name: p.name, total: expenses.reduce((acc, item) => acc + item.allocations.filter((a) => a.project_id === p.id).reduce((sum, a) => sum + a.amount, 0), 0) })).filter((row) => row.total > 0), [expenses, projects]);
 
   return <div className="space-y-4">
     <div className="flex items-center justify-between">
@@ -55,7 +55,7 @@ export default function ExpensesPage() {
     {error ? <p className="text-red-300">{error}</p> : null}
     {!loading && expenses.length === 0 ? <p className="text-neutral-400">No expenses found.</p> : null}
     <div className="space-y-2">
-      {expenses.map((expense) => <Link key={expense.id} href={`/expenses/${expense.id}/edit`} className="block rounded border border-white/10 bg-neutral-900 p-3 text-sm">{expense.date.slice(0, 10)} • ${expense.amount.toFixed(2)} • {expense.category} • {expense.vendor ?? "No vendor"}</Link>)}
+      {expenses.map((expense) => <Link key={expense.id} href={`/expenses/${expense.id}/edit`} title={expense.allocations.map((a) => `${projects.find((p) => p.id === a.project_id)?.name ?? a.project_id}: $${a.amount.toFixed(2)}`).join(" | ")} className="block rounded border border-white/10 bg-neutral-900 p-3 text-sm">{expense.date.slice(0, 10)} • ${expense.amount.toFixed(2)} • {expense.category} • {expense.vendor ?? "No vendor"} {expense.is_split ? <span className="ml-2 rounded bg-blue-900 px-2 py-0.5 text-xs">Split</span> : null} {expense.receipt_count > 0 ? <span className="ml-2 rounded bg-emerald-900 px-2 py-0.5 text-xs">{expense.receipt_count} receipt{expense.receipt_count === 1 ? "" : "s"}</span> : null}</Link>)}
     </div>
   </div>;
 }

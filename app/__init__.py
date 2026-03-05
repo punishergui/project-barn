@@ -6,7 +6,7 @@ import bcrypt
 from flask import Flask
 from sqlalchemy import text
 
-from app.models import AppSetting, AuctionSale, EquipmentItem, Expense, FeedInventory, FeedLog, Goal, HealthRecord, IncomeRecord, InventoryItem, Media, Notification, PackingListItem, PackingListTemplate, Photo, Placing, Profile, Project, ProjectActivity, ProjectMaterial, ProjectNarrative, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowEntry, SkillsChecklist, Task, TaskItem, TimelineEntry, db
+from app.models import AppSetting, AuctionSale, EquipmentItem, Expense, ExpenseAllocation, ExpenseReceipt, FeedInventory, FeedLog, Goal, HealthRecord, IncomeRecord, InventoryItem, Media, Notification, PackingListItem, PackingListTemplate, Photo, Placing, Profile, Project, ProjectActivity, ProjectMaterial, ProjectNarrative, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowEntry, SkillsChecklist, Task, TaskItem, TimelineEntry, db
 
 
 def create_app() -> Flask:
@@ -136,6 +136,8 @@ def run_migrations() -> None:
             conn.execute(text("CREATE TABLE IF NOT EXISTS app_setting (id INTEGER PRIMARY KEY, family_name TEXT, allow_kid_task_toggle BOOLEAN NOT NULL DEFAULT 0)"))
             conn.execute(text("CREATE TABLE IF NOT EXISTS timeline_entry (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL REFERENCES project(id), type TEXT NOT NULL, title TEXT NOT NULL, description TEXT, date DATE NOT NULL, created_at DATETIME NOT NULL)"))
             conn.execute(text("CREATE TABLE IF NOT EXISTS media (id INTEGER PRIMARY KEY, project_id INTEGER REFERENCES project(id), show_id INTEGER REFERENCES show(id), show_day_id INTEGER REFERENCES show_day(id), file_name TEXT NOT NULL, url TEXT NOT NULL, caption TEXT, created_at DATETIME NOT NULL)"))
+            conn.execute(text("CREATE TABLE IF NOT EXISTS expense_receipt (id INTEGER PRIMARY KEY, expense_id INTEGER NOT NULL REFERENCES expense(id), file_name TEXT NOT NULL, url TEXT NOT NULL, caption TEXT, created_at DATETIME NOT NULL)"))
+            conn.execute(text("CREATE TABLE IF NOT EXISTS expense_allocation (id INTEGER PRIMARY KEY, expense_id INTEGER NOT NULL REFERENCES expense(id), project_id INTEGER NOT NULL REFERENCES project(id), amount_cents INTEGER NOT NULL, created_at DATETIME NOT NULL)"))
         except Exception:
             pass
         conn.commit()

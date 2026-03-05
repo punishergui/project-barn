@@ -42,7 +42,7 @@ export default function ProjectDetailPage() {
   }, [params.id]);
 
   const stats = useMemo(() => {
-    const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+    const totalExpenses = expenses.reduce((sum, expense) => sum + expense.allocations.filter((a) => a.project_id === Number(params.id)).reduce((inner, a) => inner + a.amount, 0), 0);
     const placements = shows.flatMap((show) => show.entries.filter((entry) => entry.project_id === Number(params.id)).flatMap((entry) => entry.placings));
     const bestPlacing = placements.map((placing) => placing.placing).sort()[0] ?? "N/A";
     return { totalExpenses, showsEntered: shows.length, bestPlacing };
@@ -102,7 +102,7 @@ export default function ProjectDetailPage() {
 
     {activeTab === "shows" ? <section className="rounded border border-white/10 bg-neutral-900 p-3 text-sm">{shows.map((show) => show.entries.filter((entry) => entry.project_id === Number(params.id)).map((entry) => <div key={`${show.id}-${entry.id}`} className="mb-2 rounded bg-neutral-800 p-2"><p className="font-medium">{show.name}</p><p>{entry.class_name} • {entry.division}</p>{entry.placings.map((placing) => <p key={placing.id}>{placing.placing} {placing.points ? `• ${placing.points} pts` : ""}</p>)}</div>))}</section> : null}
 
-    {activeTab === "expenses" ? <section className="rounded border border-white/10 bg-neutral-900 p-3 text-sm">{expenses.map((expense) => <p key={expense.id}>{expense.date.slice(0, 10)} • ${expense.amount.toFixed(2)} • {expense.category}</p>)}</section> : null}
+    {activeTab === "expenses" ? <section className="rounded border border-white/10 bg-neutral-900 p-3 text-sm">{expenses.map((expense) => { const allocated = expense.allocations.filter((a) => a.project_id === Number(params.id)).reduce((sum, a) => sum + a.amount, 0); return <p key={expense.id}>{expense.date.slice(0, 10)} • ${allocated.toFixed(2)} • {expense.category}</p>; })}</section> : null}
 
     {activeTab === "gallery" ? <section className="rounded border border-white/10 bg-neutral-900 p-3">
       <form className="mb-3 grid gap-2" onSubmit={upload}>
