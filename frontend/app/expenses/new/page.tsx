@@ -11,7 +11,7 @@ type SavedSummary = { expenseId: number; amount: number; allocations: Array<{ pr
 export default function NewExpensePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const preselectedProject = searchParams.get("project_id") ?? "";
+  const preselectedProject = searchParams.get("projectId") ?? searchParams.get("project_id") ?? "";
   const [projects, setProjects] = useState<Project[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [splitEnabled, setSplitEnabled] = useState(false);
