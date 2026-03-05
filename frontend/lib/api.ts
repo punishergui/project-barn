@@ -1,11 +1,10 @@
-const isServer = typeof window === "undefined";
-const serverBase =
-  process.env.INTERNAL_API_BASE_URL ??
-  (process.env.NEXT_PUBLIC_SITE_URL
-    ? `${process.env.NEXT_PUBLIC_SITE_URL}/api`
-    : "http://barn-backend:5000/api");
+export function getApiBase(): string {
+  if (typeof window === "undefined") {
+    return process.env.INTERNAL_API_BASE_URL ?? "http://barn-backend:5000/api";
+  }
 
-export const API_BASE_URL = isServer ? serverBase : "/api";
+  return "/api";
+}
 
 export type SessionResponse = {
   active_profile: { id: number | null; name: string | null; role: string | null; avatar_url: string | null };
@@ -39,10 +38,9 @@ export type ProjectDetail = {
   recent_activity: { id: number; date: string | null; type: string; note: string | null }[];
 };
 
-export async function apiFetch<T>(path: string): Promise<T> {
+export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-
-  const response = await fetch(`${API_BASE_URL}${normalizedPath}`, {
+  const response = await fetch(`${getApiBase()}${normalizedPath}`, {
     credentials: "include",
     cache: "no-store",
     ...init
