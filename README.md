@@ -47,6 +47,14 @@ No backend models or legacy templates were removed.
 
 Rollback option: `docker compose -f docker-compose.legacy.yml up -d`
 
+### Recommended deploy flow
+
+Use this sequence for stable deployments:
+
+1. `git pull --ff-only`
+2. `docker compose build`
+3. `docker compose up -d`
+
 Environment variables:
 
 - `SECRET_KEY`
