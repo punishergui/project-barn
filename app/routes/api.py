@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, time
 
 from flask import Blueprint, jsonify, session
 from sqlalchemy import func
@@ -11,11 +11,16 @@ api_bp = Blueprint("api", __name__, url_prefix="/api")
 
 
 def _iso(value: date | datetime | None) -> str | None:
+    normalized = _as_dt(value)
+    return normalized.isoformat() if normalized is not None else None
+
+
+def _as_dt(value: date | datetime | None) -> datetime | None:
     if value is None:
         return None
     if isinstance(value, datetime):
-        return value.isoformat()
-    return datetime.combine(value, datetime.min.time()).isoformat()
+        return value
+    return datetime.combine(value, time.min)
 
 
 def _avatar_url(avatar_path: str | None) -> str | None:
@@ -132,7 +137,11 @@ def api_projects():
     payload = []
     for project in projects:
         owner = owners.get(project.owner_id)
-        updated_candidates = [project.created_at, expense_updates.get(project.id), activity_updates.get(project.id)]
+        updated_candidates = [
+            _as_dt(project.created_at),
+            _as_dt(expense_updates.get(project.id)),
+            _as_dt(activity_updates.get(project.id)),
+        ]
         updated_at = max((candidate for candidate in updated_candidates if candidate is not None), default=None)
         payload.append(
             {
@@ -171,6 +180,23 @@ def api_project_detail(project_id: int):
         .scalar()
     ) or 0
 
+    latest_expense_date = (
+        db.session.query(func.max(Expense.date))
+        .filter(Expense.project_id == project.id)
+        .scalar()
+    )
+    latest_activity_date = (
+        db.session.query(func.max(ProjectActivity.date))
+        .filter(ProjectActivity.project_id == project.id)
+        .scalar()
+    )
+    updated_candidates = [
+        _as_dt(project.created_at),
+        _as_dt(latest_expense_date),
+        _as_dt(latest_activity_date),
+    ]
+    updated_at = max((candidate for candidate in updated_candidates if candidate is not None), default=None)
+
     activities = (
         ProjectActivity.query.filter_by(project_id=project.id)
         .order_by(ProjectActivity.date.desc(), ProjectActivity.id.desc())
@@ -188,6 +214,7 @@ def api_project_detail(project_id: int):
                 "name": owner.name if owner else "Unknown",
             },
             "hero_image_url": _project_hero_image(project),
+            "updated_at": _iso(updated_at),
             "summary": {
                 "total_cost": float(total_cost),
                 "expenses_count": expenses_count,
