@@ -8,11 +8,11 @@ import BarnLogo from "@/components/BarnLogo";
 import { apiClientJson, Profile, SessionResponse } from "@/lib/api";
 
 const links = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/projects", label: "Projects" },
-  { href: "/shows", label: "Shows" },
-  { href: "/expenses", label: "Expenses" },
-  { href: "/more", label: "More" }
+  { href: "/dashboard", label: "Dashboard", icon: "🏠" },
+  { href: "/projects", label: "Projects", icon: "📋" },
+  { href: "/shows", label: "Shows", icon: "🏆" },
+  { href: "/expenses", label: "Expenses", icon: "💵" },
+  { href: "/more", label: "More", icon: "☰" }
 ];
 
 function initials(name?: string) {
@@ -43,7 +43,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-[var(--barn-bg)] text-neutral-100">
-      <header className="fixed left-0 right-0 top-0 z-20 h-14 border-b border-[var(--barn-border)] bg-[var(--barn-dark)] px-4">
+      <header className="fixed left-0 right-0 top-0 z-[1000] h-14 border-b border-[var(--barn-border)] bg-[var(--barn-dark)] px-4">
         <div className="mx-auto flex h-full max-w-6xl items-center justify-between">
           <Link href="/dashboard" className="flex items-center gap-2 text-base font-semibold text-white">
             <BarnLogo size={28} />
@@ -60,19 +60,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 pb-24 pt-[72px]">{children}</main>
+      <main className="mx-auto min-h-screen max-w-6xl overflow-y-auto px-4 pb-16 pt-14">{children}</main>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-20 h-16 border-t border-[var(--barn-border)] bg-[var(--barn-dark)] px-1">
-        <ul className="mx-auto grid h-full max-w-3xl grid-cols-5 items-center gap-1">
+      <nav className="fixed bottom-0 left-0 right-0 z-[1000] flex h-16 items-center justify-around border-t border-[var(--barn-border)] bg-[var(--barn-dark)] px-1">
+        <ul className="mx-auto flex h-full w-full max-w-3xl items-center justify-around gap-1">
           {links.map((item) => (
-            <li key={item.href}>
+            <li key={item.href} className="flex flex-1 justify-center text-center">
               <Link
                 href={item.href}
-                className={`flex h-12 items-center justify-center rounded-md text-xs font-medium ${
+                className={`flex h-14 w-full flex-col items-center justify-center rounded-md text-[11px] font-medium leading-tight ${
                   activeLink === item.href ? "bg-[var(--barn-red)] text-white" : "text-neutral-300"
                 }`}
               >
-                {item.label}
+                <span aria-hidden="true" className="text-base">
+                  {item.icon}
+                </span>
+                <span>{item.label}</span>
               </Link>
             </li>
           ))}
