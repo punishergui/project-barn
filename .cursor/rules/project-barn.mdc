@@ -1,0 +1,19 @@
+---
+description: Project Barn architecture guardrails
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+# Project Barn Non-Negotiable Rules
+
+- Frontend must stay in `/frontend`.
+- Backend must stay in `/app`.
+- Do not move API logic into the frontend.
+- Do not replace Flask.
+- Do not modify Traefik routing behavior.
+- Maintain Docker compatibility.
+- Never access the database from the frontend.
+- Always use `/api` endpoints for frontend-backend communication.
+- Keep `barn-frontend` and `barn-backend` as separate services.
+- Ensure `/api/*` returns JSON and does not redirect to HTML routes.
