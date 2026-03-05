@@ -4,7 +4,8 @@ import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 
-import { apiClientJson, AuthStatus, Expense, MediaItem, Profile, Project, Show, TaskItem, TimelineEntry } from "@/lib/api";
+import { apiClientJson, AuthStatus, Expense, MediaItem, Placing, Profile, Project, Show, TaskItem, TimelineEntry } from "@/lib/api";
+import { ShowsMediaCard } from "@/components/shows-media-card";
 
 const sections = ["overview", "timeline", "expenses", "shows", "media", "tasks"] as const;
 const timelineTypes = ["Feeding", "Training", "Health", "Vet", "Wash", "Clip", "Show", "Expense", "Other"];
@@ -21,6 +22,7 @@ export default function ProjectDetailPage() {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [mediaAvailable, setMediaAvailable] = useState(true);
+  const [placings, setPlacings] = useState<Placing[]>([]);
   const [tasksAvailable, setTasksAvailable] = useState(true);
   const [auth, setAuth] = useState<AuthStatus | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -29,13 +31,14 @@ export default function ProjectDetailPage() {
 
   const load = async () => {
     const id = Number(params.id);
-    const [projectData, expenseData, showData, timelineData, authData, profileData] = await Promise.all([
+    const [projectData, expenseData, showData, timelineData, authData, profileData, placingData] = await Promise.all([
       apiClientJson<Project>(`/projects/${id}`),
       apiClientJson<Expense[]>(`/expenses?project_id=${id}`),
       apiClientJson<Show[]>(`/projects/${id}/shows`),
       apiClientJson<TimelineEntry[]>(`/projects/${id}/timeline`),
       apiClientJson<AuthStatus>("/auth/status"),
-      apiClientJson<Profile[]>("/profiles")
+      apiClientJson<Profile[]>("/profiles"),
+      apiClientJson<Placing[]>(`/projects/${id}/placings`).catch(() => [])
     ]);
 
     let mediaData: MediaItem[] = [];
@@ -63,6 +66,7 @@ export default function ProjectDetailPage() {
     setTasks(taskData);
     setAuth(authData);
     setProfiles(profileData);
+    setPlacings(placingData);
   };
 
   useEffect(() => {
@@ -139,6 +143,7 @@ export default function ProjectDetailPage() {
           <div className="space-y-1">
             <h1 className="text-3xl font-semibold md:text-4xl">{project.name}</h1>
             <p className="text-sm capitalize text-neutral-300">{project.species} • {ownerName}</p>
+            <p className="text-xs text-amber-300">Ribbon count: {placings.filter((p) => p.ribbon_type).length} • Recent placings: {placings.slice(0, 3).map((p) => p.placing).join(", ") || "—"}</p>
           </div>
           {projectPhoto ? (
             <img src={projectPhoto} alt={`${project.name} photo`} className="h-24 w-24 rounded-lg object-cover md:h-28 md:w-28" />
@@ -220,7 +225,7 @@ export default function ProjectDetailPage() {
         <h2 className="font-semibold">Media</h2>
         {!mediaAvailable ? <p className="rounded bg-neutral-800 p-3 text-neutral-300">Media endpoint is unavailable for this environment.</p> : null}
         {mediaAvailable && media.length === 0 ? <p className="rounded bg-neutral-800 p-3 text-neutral-300">No media uploaded for this project yet.</p> : null}
-        {mediaAvailable && media.length > 0 ? <div className="grid grid-cols-2 gap-2 md:grid-cols-3">{media.map((item) => <a key={item.id} href={item.url} className="space-y-1 rounded bg-neutral-800 p-2"><img src={item.url} alt={item.caption ?? item.file_name} className="h-28 w-full rounded object-cover" /><p className="truncate text-xs text-neutral-300">{item.caption ?? item.file_name}</p></a>)}</div> : null}
+        {mediaAvailable && media.length > 0 ? <div className="grid grid-cols-2 gap-2 md:grid-cols-3">{media.map((item) => <ShowsMediaCard key={item.id} item={item} />)}</div> : null}
       </section> : null}
 
       {activeSection === "tasks" ? <section className="space-y-3 rounded-xl border border-white/10 bg-neutral-900 p-4 text-sm">

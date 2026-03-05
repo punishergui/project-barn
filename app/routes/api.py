@@ -9,7 +9,7 @@ from sqlalchemy import func
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app import save_upload
-from app.models import AppSetting, Expense, ExpenseAllocation, ExpenseReceipt, FeedEntry, FeedInventorySimple, HealthEntry, Media, Placing, Profile, Project, ProjectTask, Show, ShowDay, ShowEntry, Task, TaskItem, TimelineEntry, WeightEntry, db
+from app.models import AppSetting, Expense, ExpenseAllocation, ExpenseReceipt, FeedEntry, FeedInventorySimple, HealthEntry, Media, Placing, Profile, Project, ProjectTask, Show, ShowDay, ShowDayTask, ShowEntry, Task, TaskItem, TimelineEntry, WeightEntry, db
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 UNLOCK_DURATION_MINUTES = 15
@@ -611,7 +611,24 @@ def _show_day_payload(show_day: ShowDay) -> dict[str, object]:
         "id": show_day.id,
         "show_id": show_day.show_id,
         "day_number": show_day.day_number,
+        "label": show_day.label,
+        "show_date": _iso(show_day.date),
         "date": _iso(show_day.date),
+        "notes": show_day.notes,
+        "created_at": _iso(show_day.created_at),
+    }
+
+
+def _show_day_task_payload(task: ShowDayTask) -> dict[str, object]:
+    return {
+        "id": task.id,
+        "show_day_id": task.show_day_id,
+        "project_id": task.project_id,
+        "task_key": task.task_key,
+        "task_label": task.task_label,
+        "is_completed": bool(task.is_completed),
+        "completed_at": _iso(task.completed_at),
+        "notes": task.notes,
     }
 
 
@@ -619,12 +636,18 @@ def _placing_payload(placing: Placing) -> dict[str, object]:
     return {
         "id": placing.id,
         "entry_id": placing.entry_id,
+        "show_id": placing.show_id,
         "show_day_id": placing.show_day_id,
+        "project_id": placing.project_id,
+        "class_name": placing.class_name,
         "ring": placing.ring,
         "placing": placing.placing,
+        "ribbon_type": placing.ribbon_type,
         "points": placing.points,
         "judge": placing.judge,
         "notes": placing.notes,
+        "placed_at": _iso(placing.placed_at),
+        "photo_url": placing.photo_url,
         "created_at": _iso(placing.created_at),
     }
 
@@ -692,9 +715,13 @@ def _media_payload(item: Media) -> dict[str, object]:
     return {
         "id": item.id,
         "project_id": item.project_id,
+        "timeline_entry_id": item.timeline_entry_id,
+        "placing_id": item.placing_id,
         "show_id": item.show_id,
         "show_day_id": item.show_day_id,
+        "kind": item.kind,
         "file_name": item.file_name,
+        "file_url": item.url,
         "url": item.url,
         "caption": item.caption,
         "created_at": _iso(item.created_at),
@@ -822,7 +849,7 @@ def api_show_day_create(show_id: int):
     Show.query.get_or_404(show_id)
     payload = request.get_json(silent=True) or {}
     count = ShowDay.query.filter_by(show_id=show_id).count()
-    day = ShowDay(show_id=show_id, day_number=count + 1, date=date.fromisoformat(payload['date']) if payload.get('date') else None)
+    day = ShowDay(show_id=show_id, day_number=count + 1, label=payload.get('label') or f'Day {count + 1}', notes=payload.get('notes'), date=date.fromisoformat(payload['show_date']) if payload.get('show_date') else (date.fromisoformat(payload['date']) if payload.get('date') else None))
     db.session.add(day)
     db.session.commit()
     return jsonify(_show_day_payload(day)), 201
@@ -986,7 +1013,7 @@ def api_media_upload():
         filename = save_upload(file, current_app.config['BARN_UPLOAD_DIR'])
     except Exception as exc:
         return jsonify({'error': str(exc)}), 400
-    media = Media(project_id=int(request.form['project_id']) if request.form.get('project_id') else None, show_id=int(request.form['show_id']) if request.form.get('show_id') else None, show_day_id=int(request.form['show_day_id']) if request.form.get('show_day_id') else None, file_name=filename, url=f"/uploads/{filename}", caption=request.form.get('caption'))
+    media = Media(project_id=int(request.form['project_id']) if request.form.get('project_id') else None, timeline_entry_id=int(request.form['timeline_entry_id']) if request.form.get('timeline_entry_id') else None, placing_id=int(request.form['placing_id']) if request.form.get('placing_id') else None, show_id=int(request.form['show_id']) if request.form.get('show_id') else None, show_day_id=int(request.form['show_day_id']) if request.form.get('show_day_id') else None, kind=request.form.get('kind') or 'project', file_name=filename, url=f"/uploads/{filename}", caption=request.form.get('caption'))
     db.session.add(media)
     db.session.commit()
     return jsonify(_media_payload(media)), 201
@@ -995,7 +1022,7 @@ def api_media_upload():
 @api_bp.get('/media')
 def api_media_list():
     query = Media.query
-    for key in ['project_id', 'show_id', 'show_day_id']:
+    for key in ['project_id', 'show_id', 'show_day_id', 'placing_id', 'timeline_entry_id']:
         value = request.args.get(key)
         if value:
             query = query.filter(getattr(Media, key) == int(value))
@@ -1012,6 +1039,168 @@ def api_media_delete(media_id: int):
     db.session.delete(media)
     db.session.commit()
     return jsonify({'success': True})
+@api_bp.get('/shows/<int:show_id>/days')
+def api_show_days(show_id: int):
+    Show.query.get_or_404(show_id)
+    days = ShowDay.query.filter_by(show_id=show_id).order_by(ShowDay.day_number.asc(), ShowDay.id.asc()).all()
+    return jsonify([_show_day_payload(day) for day in days])
+
+
+@api_bp.patch('/show-days/<int:show_day_id>')
+def api_show_day_update(show_day_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    show_day = ShowDay.query.get_or_404(show_day_id)
+    payload = request.get_json(silent=True) or {}
+    if 'label' in payload:
+        show_day.label = payload['label']
+    if 'notes' in payload:
+        show_day.notes = payload['notes']
+    if 'show_date' in payload:
+        show_day.date = date.fromisoformat(payload['show_date']) if payload['show_date'] else None
+    if 'date' in payload:
+        show_day.date = date.fromisoformat(payload['date']) if payload['date'] else None
+    db.session.commit()
+    return jsonify(_show_day_payload(show_day))
+
+
+@api_bp.get('/show-days/<int:show_day_id>/tasks')
+def api_show_day_tasks(show_day_id: int):
+    ShowDay.query.get_or_404(show_day_id)
+    tasks = ShowDayTask.query.filter_by(show_day_id=show_day_id).order_by(ShowDayTask.id.asc()).all()
+    return jsonify([_show_day_task_payload(task) for task in tasks])
+
+
+@api_bp.post('/show-days/<int:show_day_id>/tasks')
+def api_show_day_tasks_create(show_day_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    ShowDay.query.get_or_404(show_day_id)
+    payload = request.get_json(silent=True) or {}
+    project_id = payload.get('project_id')
+    task_key = str(payload.get('task_key') or '').strip()
+    task_label = str(payload.get('task_label') or '').strip()
+    if not project_id or not task_key or not task_label:
+        return jsonify({'error': 'project_id, task_key, and task_label are required'}), 400
+    task = ShowDayTask(show_day_id=show_day_id, project_id=int(project_id), task_key=task_key, task_label=task_label, is_completed=bool(payload.get('is_completed', False)), completed_at=datetime.utcnow() if payload.get('is_completed') else None, notes=payload.get('notes'))
+    db.session.add(task)
+    db.session.commit()
+    return jsonify(_show_day_task_payload(task)), 201
+
+
+@api_bp.patch('/show-day-tasks/<int:task_id>')
+def api_show_day_tasks_update(task_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    task = ShowDayTask.query.get_or_404(task_id)
+    payload = request.get_json(silent=True) or {}
+    for key in ['task_key', 'task_label', 'notes']:
+        if key in payload:
+            setattr(task, key, payload[key])
+    if 'is_completed' in payload:
+        task.is_completed = bool(payload['is_completed'])
+        task.completed_at = datetime.utcnow() if task.is_completed else None
+    db.session.commit()
+    return jsonify(_show_day_task_payload(task))
+
+
+@api_bp.delete('/show-day-tasks/<int:task_id>')
+def api_show_day_tasks_delete(task_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    db.session.delete(ShowDayTask.query.get_or_404(task_id))
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@api_bp.get('/projects/<int:project_id>/placings')
+def api_project_placings(project_id: int):
+    Project.query.get_or_404(project_id)
+    placings = Placing.query.filter_by(project_id=project_id).order_by(Placing.created_at.desc(), Placing.id.desc()).all()
+    return jsonify([_placing_payload(item) for item in placings])
+
+
+@api_bp.get('/shows/<int:show_id>/placings')
+def api_show_placings(show_id: int):
+    Show.query.get_or_404(show_id)
+    placings = Placing.query.filter_by(show_id=show_id).order_by(Placing.created_at.desc(), Placing.id.desc()).all()
+    return jsonify([_placing_payload(item) for item in placings])
+
+
+@api_bp.post('/placings')
+def api_placings_create_v2():
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    payload = request.get_json(silent=True) or {}
+    show_id = payload.get('show_id')
+    project_id = payload.get('project_id')
+    placing_value = str(payload.get('placing') or '').strip()
+    if not show_id or not project_id or not placing_value:
+        return jsonify({'error': 'show_id, project_id, and placing are required'}), 400
+    entry = ShowEntry.query.filter_by(show_id=int(show_id), project_id=int(project_id)).first()
+    if not entry:
+        entry = ShowEntry(show_id=int(show_id), project_id=int(project_id), class_name=payload.get('class_name'), division=payload.get('division'), notes=payload.get('notes'))
+        db.session.add(entry)
+        db.session.flush()
+    placing = Placing(entry_id=entry.id, show_id=int(show_id), show_day_id=int(payload['show_day_id']) if payload.get('show_day_id') else None, project_id=int(project_id), class_name=payload.get('class_name'), ring=payload.get('ring'), placing=placing_value, ribbon_type=payload.get('ribbon_type'), points=float(payload['points']) if payload.get('points') not in (None, '') else None, judge=payload.get('judge'), notes=payload.get('notes'), placed_at=datetime.fromisoformat(payload['placed_at']) if payload.get('placed_at') else None, photo_url=payload.get('photo_url'))
+    db.session.add(placing)
+    db.session.commit()
+    return jsonify(_placing_payload(placing)), 201
+
+
+@api_bp.get('/projects/<int:project_id>/media')
+def api_project_media(project_id: int):
+    Project.query.get_or_404(project_id)
+    rows = Media.query.filter_by(project_id=project_id).order_by(Media.created_at.desc(), Media.id.desc()).all()
+    return jsonify([_media_payload(item) for item in rows])
+
+
+@api_bp.post('/projects/<int:project_id>/media')
+def api_project_media_create(project_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    Project.query.get_or_404(project_id)
+    file = request.files.get('file')
+    try:
+        filename = save_upload(file, current_app.config['BARN_UPLOAD_DIR'])
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 400
+    media = Media(project_id=project_id, kind=request.form.get('kind') or 'project', file_name=filename, url=f"/uploads/{filename}", caption=request.form.get('caption'))
+    db.session.add(media)
+    db.session.commit()
+    return jsonify(_media_payload(media)), 201
+
+
+@api_bp.get('/placings/<int:placing_id>/media')
+def api_placing_media(placing_id: int):
+    Placing.query.get_or_404(placing_id)
+    rows = Media.query.filter_by(placing_id=placing_id).order_by(Media.created_at.desc(), Media.id.desc()).all()
+    return jsonify([_media_payload(item) for item in rows])
+
+
+@api_bp.post('/placings/<int:placing_id>/media')
+def api_placing_media_create(placing_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    placing = Placing.query.get_or_404(placing_id)
+    file = request.files.get('file')
+    try:
+        filename = save_upload(file, current_app.config['BARN_UPLOAD_DIR'])
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 400
+    media = Media(project_id=placing.project_id, placing_id=placing_id, show_id=placing.show_id, show_day_id=placing.show_day_id, kind='placing', file_name=filename, url=f"/uploads/{filename}", caption=request.form.get('caption'))
+    db.session.add(media)
+    db.session.commit()
+    return jsonify(_media_payload(media)), 201
+
+
 @api_bp.get('/tasks')
 def api_tasks():
     query = ProjectTask.query
@@ -1305,6 +1494,91 @@ def api_feed_inventory_update_v2(item_id: int):
     row.updated_at = datetime.utcnow()
     db.session.commit()
     return jsonify(_feed_inventory_payload(row))
+
+
+@api_bp.get('/reports/project-record-book/<int:project_id>')
+def api_project_record_book(project_id: int):
+    project = Project.query.get_or_404(project_id)
+    owner = Profile.query.get(project.owner_id)
+    expenses = Expense.query.filter_by(project_id=project_id).all()
+    feed_rows = FeedEntry.query.filter_by(project_id=project_id).all()
+    health_rows = HealthEntry.query.filter_by(project_id=project_id).all()
+    task_rows = ProjectTask.query.filter_by(project_id=project_id).all()
+    timeline_rows = TimelineEntry.query.filter_by(project_id=project_id).all()
+    show_entries = ShowEntry.query.filter_by(project_id=project_id).all()
+    show_ids = [item.show_id for item in show_entries]
+    shows = Show.query.filter(Show.id.in_(show_ids)).all() if show_ids else []
+    placings = Placing.query.filter_by(project_id=project_id).all()
+    media_count = Media.query.filter_by(project_id=project_id).count()
+    return jsonify({
+        'project': _project_payload(project),
+        'owner': {'id': owner.id, 'name': owner.name, 'role': owner.role} if owner else None,
+        'expenses': {'count': len(expenses), 'total_cents': sum(int(round(float(x.amount) * 100)) for x in expenses), 'total': sum(float(x.amount) for x in expenses)},
+        'feed': {'count': len(feed_rows), 'total_cents': sum(int(x.cost_cents or 0) for x in feed_rows), 'total': sum(int(x.cost_cents or 0) for x in feed_rows) / 100.0},
+        'health': {'count': len(health_rows), 'total_cents': sum(int(x.cost_cents or 0) for x in health_rows), 'total': sum(int(x.cost_cents or 0) for x in health_rows) / 100.0},
+        'tasks': {'completed': sum(1 for item in task_rows if item.is_completed), 'open': sum(1 for item in task_rows if not item.is_completed), 'total': len(task_rows)},
+        'timeline': {'count': len(timeline_rows), 'entries': [_timeline_payload(item) for item in sorted(timeline_rows, key=lambda item: (item.date, item.id), reverse=True)[:25]]},
+        'shows': {'count': len(shows), 'items': [_show_payload(item) for item in shows]},
+        'placings': {'count': len(placings), 'items': [_placing_payload(item) for item in placings]},
+        'ribbons': {'count': len([item for item in placings if item.ribbon_type])},
+        'media': {'count': media_count},
+    })
+
+
+@api_bp.get('/reports/family-season-summary')
+def api_family_season_summary():
+    profiles = Profile.query.filter_by(archived=False).all()
+    projects = Project.query.all()
+    project_map = {item.id: item for item in projects}
+    by_kid = []
+    for profile in profiles:
+        owned = [item for item in projects if item.owner_id == profile.id]
+        project_ids = [item.id for item in owned]
+        expenses_total_cents = 0
+        for expense in Expense.query.all():
+            for alloc in _allocation_rows_for_expense(expense):
+                if alloc['project_id'] in project_ids:
+                    expenses_total_cents += alloc['amount_cents']
+        feed_total_cents = sum(int(item.cost_cents or 0) for item in FeedEntry.query.filter(FeedEntry.project_id.in_(project_ids)).all()) if project_ids else 0
+        health_total_cents = sum(int(item.cost_cents or 0) for item in HealthEntry.query.filter(HealthEntry.project_id.in_(project_ids)).all()) if project_ids else 0
+        entries = ShowEntry.query.filter(ShowEntry.project_id.in_(project_ids)).all() if project_ids else []
+        placings = Placing.query.filter(Placing.project_id.in_(project_ids)).all() if project_ids else []
+        by_kid.append({
+            'profile_id': profile.id,
+            'profile_name': profile.name,
+            'project_count': len(owned),
+            'expenses_total_cents': expenses_total_cents,
+            'feed_total_cents': feed_total_cents,
+            'health_total_cents': health_total_cents,
+            'shows_count': len({item.show_id for item in entries}),
+            'placings_count': len(placings),
+            'ribbons_count': len([item for item in placings if item.ribbon_type]),
+            'total_cents': expenses_total_cents + feed_total_cents + health_total_cents,
+        })
+    by_project = []
+    for project in projects:
+        placings = Placing.query.filter_by(project_id=project.id).all()
+        by_project.append({
+            'project_id': project.id,
+            'project_name': project.name,
+            'owner_profile_id': project.owner_id,
+            'owner_name': next((p.name for p in profiles if p.id == project.owner_id), 'Unknown'),
+            'expenses_total_cents': sum(row['amount_cents'] for expense in Expense.query.all() for row in _allocation_rows_for_expense(expense) if row['project_id'] == project.id),
+            'feed_total_cents': sum(int(item.cost_cents or 0) for item in FeedEntry.query.filter_by(project_id=project.id).all()),
+            'health_total_cents': sum(int(item.cost_cents or 0) for item in HealthEntry.query.filter_by(project_id=project.id).all()),
+            'shows_count': ShowEntry.query.filter_by(project_id=project.id).count(),
+            'placings_count': len(placings),
+            'ribbons_count': len([item for item in placings if item.ribbon_type]),
+        })
+    totals = {
+        'expenses_total_cents': sum(item['expenses_total_cents'] for item in by_project),
+        'feed_total_cents': sum(item['feed_total_cents'] for item in by_project),
+        'health_total_cents': sum(item['health_total_cents'] for item in by_project),
+        'shows_count': sum(item['shows_count'] for item in by_project),
+        'placings_count': sum(item['placings_count'] for item in by_project),
+    }
+    totals['grand_total_cents'] = totals['expenses_total_cents'] + totals['feed_total_cents'] + totals['health_total_cents']
+    return jsonify({'totals': totals, 'by_kid': by_kid, 'by_project': by_project})
 
 
 @api_bp.get('/reports/summary')
