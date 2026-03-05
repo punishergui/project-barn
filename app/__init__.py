@@ -6,7 +6,7 @@ import bcrypt
 from flask import Flask
 from sqlalchemy import text
 
-from app.models import AppSetting, AuctionSale, EquipmentItem, Expense, ExpenseAllocation, ExpenseReceipt, FeedEntry, FeedInventory, FeedInventorySimple, FeedLog, Goal, HealthEntry, HealthRecord, IncomeRecord, InventoryItem, Media, Notification, PackingListItem, PackingListTemplate, Photo, Placing, Profile, Project, ProjectActivity, ProjectMaterial, ProjectNarrative, ProjectTask, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowEntry, SkillsChecklist, Task, TaskItem, TimelineEntry, WeightEntry, db
+from app.models import AppSetting, AuctionSale, EquipmentItem, Expense, ExpenseAllocation, ExpenseReceipt, FeedEntry, FeedInventory, FeedInventorySimple, FeedLog, Goal, HealthEntry, HealthRecord, IncomeRecord, InventoryItem, Media, Notification, PackingListItem, PackingListTemplate, Photo, Placing, Profile, Project, ProjectActivity, ProjectMaterial, ProjectNarrative, ProjectTask, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowDayTask, ShowEntry, SkillsChecklist, Task, TaskItem, TimelineEntry, WeightEntry, db
 
 
 def create_app() -> Flask:
@@ -56,6 +56,16 @@ def run_migrations() -> None:
         "ALTER TABLE show_day ADD COLUMN date DATE",
         "ALTER TABLE show_day ADD COLUMN notes TEXT",
         "ALTER TABLE show_day ADD COLUMN label TEXT",
+        "ALTER TABLE show_day ADD COLUMN created_at DATETIME",
+        "ALTER TABLE placing ADD COLUMN show_id INTEGER",
+        "ALTER TABLE placing ADD COLUMN project_id INTEGER",
+        "ALTER TABLE placing ADD COLUMN class_name TEXT",
+        "ALTER TABLE placing ADD COLUMN ribbon_type TEXT",
+        "ALTER TABLE placing ADD COLUMN placed_at DATETIME",
+        "ALTER TABLE placing ADD COLUMN photo_url TEXT",
+        "ALTER TABLE media ADD COLUMN timeline_entry_id INTEGER",
+        "ALTER TABLE media ADD COLUMN placing_id INTEGER",
+        "ALTER TABLE media ADD COLUMN kind TEXT DEFAULT 'project'",
         "ALTER TABLE show_entry ADD COLUMN division TEXT",
         "ALTER TABLE photo ADD COLUMN caption TEXT",
         "ALTER TABLE photo ADD COLUMN photo_type TEXT DEFAULT 'photo'",
@@ -136,6 +146,7 @@ def run_migrations() -> None:
             conn.execute(text("CREATE TABLE IF NOT EXISTS app_setting (id INTEGER PRIMARY KEY, family_name TEXT, allow_kid_task_toggle BOOLEAN NOT NULL DEFAULT 0)"))
             conn.execute(text("CREATE TABLE IF NOT EXISTS timeline_entry (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL REFERENCES project(id), type TEXT NOT NULL, title TEXT NOT NULL, description TEXT, date DATE NOT NULL, created_at DATETIME NOT NULL)"))
             conn.execute(text("CREATE TABLE IF NOT EXISTS media (id INTEGER PRIMARY KEY, project_id INTEGER REFERENCES project(id), show_id INTEGER REFERENCES show(id), show_day_id INTEGER REFERENCES show_day(id), file_name TEXT NOT NULL, url TEXT NOT NULL, caption TEXT, created_at DATETIME NOT NULL)"))
+            conn.execute(text("CREATE TABLE IF NOT EXISTS show_day_task (id INTEGER PRIMARY KEY, show_day_id INTEGER NOT NULL REFERENCES show_day(id), project_id INTEGER NOT NULL REFERENCES project(id), task_key TEXT NOT NULL, task_label TEXT NOT NULL, is_completed BOOLEAN NOT NULL DEFAULT 0, completed_at DATETIME, notes TEXT)"))
             conn.execute(text("CREATE TABLE IF NOT EXISTS expense_receipt (id INTEGER PRIMARY KEY, expense_id INTEGER NOT NULL REFERENCES expense(id), file_name TEXT NOT NULL, url TEXT NOT NULL, caption TEXT, created_at DATETIME NOT NULL)"))
             conn.execute(text("CREATE TABLE IF NOT EXISTS expense_allocation (id INTEGER PRIMARY KEY, expense_id INTEGER NOT NULL REFERENCES expense(id), project_id INTEGER NOT NULL REFERENCES project(id), amount_cents INTEGER NOT NULL, created_at DATETIME NOT NULL)"))
             conn.execute(text("CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL REFERENCES project(id), title TEXT NOT NULL, due_date DATE, is_daily BOOLEAN NOT NULL DEFAULT 0, is_completed BOOLEAN NOT NULL DEFAULT 0, completed_at DATETIME, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)"))

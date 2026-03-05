@@ -113,17 +113,35 @@ class ShowDay(db.Model):
     notes = db.Column(db.Text, nullable=True)
     date = db.Column(db.Date, nullable=True)
     label = db.Column(db.String(80), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
+class ShowDayTask(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    show_day_id = db.Column(db.Integer, db.ForeignKey("show_day.id"), nullable=False)
+    project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=False)
+    task_key = db.Column(db.String(80), nullable=False)
+    task_label = db.Column(db.String(120), nullable=False)
+    is_completed = db.Column(db.Boolean, nullable=False, default=False)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    notes = db.Column(db.Text, nullable=True)
 
 
 class Placing(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     entry_id = db.Column(db.Integer, db.ForeignKey("show_entry.id"), nullable=False)
-    show_day_id = db.Column(db.Integer, db.ForeignKey("show_day.id"), nullable=False)
+    show_day_id = db.Column(db.Integer, db.ForeignKey("show_day.id"), nullable=True)
+    show_id = db.Column(db.Integer, db.ForeignKey("show.id"), nullable=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
+    class_name = db.Column(db.String(120), nullable=True)
     ring = db.Column(db.String(40), nullable=True)
     placing = db.Column(db.String(80), nullable=False)
+    ribbon_type = db.Column(db.String(40), nullable=True)
     points = db.Column(db.Float, nullable=True)
     judge = db.Column(db.String(120), nullable=True)
     notes = db.Column(db.Text, nullable=True)
+    placed_at = db.Column(db.DateTime, nullable=True)
+    photo_url = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
 
@@ -300,8 +318,11 @@ class Photo(db.Model):
 class Media(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
+    timeline_entry_id = db.Column(db.Integer, db.ForeignKey("timeline_entry.id"), nullable=True)
+    placing_id = db.Column(db.Integer, db.ForeignKey("placing.id"), nullable=True)
     show_id = db.Column(db.Integer, db.ForeignKey("show.id"), nullable=True)
     show_day_id = db.Column(db.Integer, db.ForeignKey("show_day.id"), nullable=True)
+    kind = db.Column(db.String(40), nullable=False, default="project")
     file_name = db.Column(db.String(255), nullable=False)
     url = db.Column(db.String(255), nullable=False)
     caption = db.Column(db.Text, nullable=True)
