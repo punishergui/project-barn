@@ -29,10 +29,12 @@ def create_app() -> Flask:
     from app.routes.auth import auth_bp
     from app.routes.dashboard import dashboard_bp
     from app.routes.api import api_bp
+    from app.cli import init_app as init_cli
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(api_bp)
+    init_cli(app)
 
     with app.app_context():
         db.create_all()
