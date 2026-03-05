@@ -44,7 +44,8 @@ export async function apiFetch<T>(path: string): Promise<T> {
 
   const response = await fetch(`${API_BASE_URL}${normalizedPath}`, {
     credentials: "include",
-    cache: "no-store"
+    cache: "no-store",
+    ...init
   });
 
   if (!response.ok) {
