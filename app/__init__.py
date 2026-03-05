@@ -6,7 +6,7 @@ import bcrypt
 from flask import Flask
 from sqlalchemy import text
 
-from app.models import AppSetting, AuctionSale, EquipmentItem, Expense, FeedInventory, FeedLog, Goal, HealthRecord, IncomeRecord, InventoryItem, Notification, PackingListItem, PackingListTemplate, Photo, Placing, Profile, Project, ProjectActivity, ProjectMaterial, ProjectNarrative, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowEntry, SkillsChecklist, Task, TaskItem, db
+from app.models import AppSetting, AuctionSale, EquipmentItem, Expense, FeedInventory, FeedLog, Goal, HealthRecord, IncomeRecord, InventoryItem, Media, Notification, PackingListItem, PackingListTemplate, Photo, Placing, Profile, Project, ProjectActivity, ProjectMaterial, ProjectNarrative, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowEntry, SkillsChecklist, Task, TaskItem, TimelineEntry, db
 
 
 def create_app() -> Flask:
@@ -116,6 +116,12 @@ def run_migrations() -> None:
         "ALTER TABLE show_day_check ADD COLUMN template_item_id INTEGER REFERENCES packing_list_item(id)",
         "ALTER TABLE show_day_check ADD COLUMN project_id INTEGER REFERENCES project(id)",
         "ALTER TABLE show_day_check ADD COLUMN show_id INTEGER REFERENCES show(id)",
+        "ALTER TABLE show ADD COLUMN created_at DATETIME",
+        "ALTER TABLE show_entry ADD COLUMN weight REAL",
+        "ALTER TABLE placing ADD COLUMN placing TEXT",
+        "ALTER TABLE placing ADD COLUMN created_at DATETIME",
+        "CREATE TABLE IF NOT EXISTS timeline_entry (id INTEGER NOT NULL PRIMARY KEY, project_id INTEGER NOT NULL, type VARCHAR(40) NOT NULL, title VARCHAR(120) NOT NULL, description TEXT, date DATE NOT NULL, created_at DATETIME NOT NULL, FOREIGN KEY(project_id) REFERENCES project (id))",
+        "CREATE TABLE IF NOT EXISTS media (id INTEGER NOT NULL PRIMARY KEY, project_id INTEGER, show_id INTEGER, show_day_id INTEGER, file_name VARCHAR(255) NOT NULL, url VARCHAR(255) NOT NULL, caption TEXT, created_at DATETIME NOT NULL, FOREIGN KEY(project_id) REFERENCES project (id), FOREIGN KEY(show_id) REFERENCES show (id), FOREIGN KEY(show_day_id) REFERENCES show_day (id))",
     ]
 
     with db.engine.connect() as conn:
@@ -125,9 +131,11 @@ def run_migrations() -> None:
             except Exception:
                 pass
         try:
-            conn.execute(text("CREATE TABLE IF NOT EXISTS placing (id INTEGER PRIMARY KEY, entry_id INTEGER NOT NULL REFERENCES show_entry(id), show_day_id INTEGER NOT NULL REFERENCES show_day(id), ring TEXT, placing_text TEXT NOT NULL, points REAL, judge TEXT, notes TEXT)"))
+            conn.execute(text("CREATE TABLE IF NOT EXISTS placing (id INTEGER PRIMARY KEY, entry_id INTEGER NOT NULL REFERENCES show_entry(id), show_day_id INTEGER NOT NULL REFERENCES show_day(id), ring TEXT, placing TEXT NOT NULL, points REAL, judge TEXT, notes TEXT, created_at DATETIME)"))
             conn.execute(text("CREATE TABLE IF NOT EXISTS task_item (id INTEGER PRIMARY KEY, project_id INTEGER REFERENCES project(id), title TEXT NOT NULL, due_date DATE, recurrence TEXT NOT NULL DEFAULT 'none', assigned_profile_id INTEGER REFERENCES profile(id), status TEXT NOT NULL DEFAULT 'open', priority TEXT NOT NULL DEFAULT 'normal', notes TEXT, created_at DATETIME, updated_at DATETIME, completed_at DATETIME)"))
             conn.execute(text("CREATE TABLE IF NOT EXISTS app_setting (id INTEGER PRIMARY KEY, family_name TEXT, allow_kid_task_toggle BOOLEAN NOT NULL DEFAULT 0)"))
+            conn.execute(text("CREATE TABLE IF NOT EXISTS timeline_entry (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL REFERENCES project(id), type TEXT NOT NULL, title TEXT NOT NULL, description TEXT, date DATE NOT NULL, created_at DATETIME NOT NULL)"))
+            conn.execute(text("CREATE TABLE IF NOT EXISTS media (id INTEGER PRIMARY KEY, project_id INTEGER REFERENCES project(id), show_id INTEGER REFERENCES show(id), show_day_id INTEGER REFERENCES show_day(id), file_name TEXT NOT NULL, url TEXT NOT NULL, caption TEXT, created_at DATETIME NOT NULL)"))
         except Exception:
             pass
         conn.commit()

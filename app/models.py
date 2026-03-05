@@ -88,6 +88,7 @@ class Show(db.Model):
     start_date = db.Column(db.Date, nullable=False)
     end_date = db.Column(db.Date, nullable=True)
     notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
 
 class ShowEntry(db.Model):
@@ -102,6 +103,7 @@ class ShowEntry(db.Model):
     notes = db.Column(db.Text, nullable=True)
     judge_notes = db.Column(db.Text, nullable=True)
     division = db.Column(db.String(120), nullable=True)
+    weight = db.Column(db.Float, nullable=True)
 
 
 class ShowDay(db.Model):
@@ -118,10 +120,21 @@ class Placing(db.Model):
     entry_id = db.Column(db.Integer, db.ForeignKey("show_entry.id"), nullable=False)
     show_day_id = db.Column(db.Integer, db.ForeignKey("show_day.id"), nullable=False)
     ring = db.Column(db.String(40), nullable=True)
-    placing_text = db.Column(db.String(80), nullable=False)
+    placing = db.Column(db.String(80), nullable=False)
     points = db.Column(db.Float, nullable=True)
     judge = db.Column(db.String(120), nullable=True)
     notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
+class TimelineEntry(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=False)
+    type = db.Column(db.String(40), nullable=False)
+    title = db.Column(db.String(120), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    date = db.Column(db.Date, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
 
 class TaskItem(db.Model):
@@ -203,6 +216,17 @@ class Photo(db.Model):
         CheckConstraint("photo_type IN ('photo','video','ribbon')", name="ck_photo_type"),
     )
 
+
+
+class Media(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
+    show_id = db.Column(db.Integer, db.ForeignKey("show.id"), nullable=True)
+    show_day_id = db.Column(db.Integer, db.ForeignKey("show_day.id"), nullable=True)
+    file_name = db.Column(db.String(255), nullable=False)
+    url = db.Column(db.String(255), nullable=False)
+    caption = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
 
 class Goal(db.Model):

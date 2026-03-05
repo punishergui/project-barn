@@ -9,7 +9,7 @@ from sqlalchemy import func
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app import save_upload
-from app.models import AppSetting, Expense, Photo, Placing, Profile, Project, Show, ShowDay, ShowEntry, Task, TaskItem, db
+from app.models import AppSetting, Expense, Media, Placing, Profile, Project, Show, ShowDay, ShowEntry, Task, TaskItem, TimelineEntry, db
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 UNLOCK_DURATION_MINUTES = 15
@@ -439,7 +439,12 @@ def api_summary():
 
 
 def _show_day_payload(show_day: ShowDay) -> dict[str, object]:
-    return {"id": show_day.id, "show_id": show_day.show_id, "day_date": _iso(show_day.date), "label": show_day.label or f"Day {show_day.day_number}"}
+    return {
+        "id": show_day.id,
+        "show_id": show_day.show_id,
+        "day_number": show_day.day_number,
+        "date": _iso(show_day.date),
+    }
 
 
 def _placing_payload(placing: Placing) -> dict[str, object]:
@@ -448,10 +453,11 @@ def _placing_payload(placing: Placing) -> dict[str, object]:
         "entry_id": placing.entry_id,
         "show_day_id": placing.show_day_id,
         "ring": placing.ring,
-        "placing_text": placing.placing_text,
+        "placing": placing.placing,
         "points": placing.points,
         "judge": placing.judge,
         "notes": placing.notes,
+        "created_at": _iso(placing.created_at),
     }
 
 
@@ -463,6 +469,7 @@ def _show_entry_payload(entry: ShowEntry) -> dict[str, object]:
         "project_id": entry.project_id,
         "class_name": entry.class_name,
         "division": entry.division,
+        "weight": entry.weight,
         "notes": entry.notes,
         "placings": [_placing_payload(p) for p in placings],
     }
@@ -478,8 +485,21 @@ def _show_payload(show: Show) -> dict[str, object]:
         "start_date": _iso(show.start_date),
         "end_date": _iso(show.end_date),
         "notes": show.notes,
+        "created_at": _iso(show.created_at),
         "days": [_show_day_payload(day) for day in days],
         "entries": [_show_entry_payload(entry) for entry in entries],
+    }
+
+
+def _timeline_payload(item: TimelineEntry) -> dict[str, object]:
+    return {
+        "id": item.id,
+        "project_id": item.project_id,
+        "type": item.type,
+        "title": item.title,
+        "description": item.description,
+        "date": _iso(item.date),
+        "created_at": _iso(item.created_at),
     }
 
 
@@ -500,19 +520,18 @@ def _task_item_payload(task: TaskItem) -> dict[str, object]:
     }
 
 
-def _media_payload(photo: Photo) -> dict[str, object]:
-    kind = "photo" if photo.photo_type in {"photo", "video", "ribbon"} else "doc"
+def _media_payload(item: Media) -> dict[str, object]:
     return {
-        "id": photo.id,
-        "project_id": photo.project_id,
-        "show_id": photo.show_id,
-        "show_day_id": photo.show_day_id,
-        "kind": kind,
-        "filename": photo.filename,
-        "url": f"/uploads/{photo.filename}",
-        "caption": photo.caption,
-        "created_at": _iso(photo.uploaded_at),
+        "id": item.id,
+        "project_id": item.project_id,
+        "show_id": item.show_id,
+        "show_day_id": item.show_day_id,
+        "file_name": item.file_name,
+        "url": item.url,
+        "caption": item.caption,
+        "created_at": _iso(item.created_at),
     }
+
 
 @api_bp.get('/shows')
 def api_shows():
@@ -571,6 +590,7 @@ def api_show_delete(show_id: int):
         Placing.query.filter_by(entry_id=entry.id).delete()
     ShowEntry.query.filter_by(show_id=show.id).delete()
     ShowDay.query.filter_by(show_id=show.id).delete()
+    Media.query.filter_by(show_id=show.id).delete()
     db.session.delete(show)
     db.session.commit()
     return jsonify({'success': True})
@@ -584,7 +604,7 @@ def api_show_day_create(show_id: int):
     Show.query.get_or_404(show_id)
     payload = request.get_json(silent=True) or {}
     count = ShowDay.query.filter_by(show_id=show_id).count()
-    day = ShowDay(show_id=show_id, day_number=count + 1, date=date.fromisoformat(payload['day_date']) if payload.get('day_date') else None, label=(payload.get('label') or f'Day {count + 1}'))
+    day = ShowDay(show_id=show_id, day_number=count + 1, date=date.fromisoformat(payload['date']) if payload.get('date') else None)
     db.session.add(day)
     db.session.commit()
     return jsonify(_show_day_payload(day)), 201
@@ -597,6 +617,7 @@ def api_show_day_delete(show_day_id: int):
         return error
     show_day = ShowDay.query.get_or_404(show_day_id)
     Placing.query.filter_by(show_day_id=show_day.id).delete()
+    Media.query.filter_by(show_day_id=show_day.id).delete()
     db.session.delete(show_day)
     db.session.commit()
     return jsonify({'success': True})
@@ -609,10 +630,15 @@ def api_show_entry_create(show_id: int):
         return error
     Show.query.get_or_404(show_id)
     payload = request.get_json(silent=True) or {}
-    entry = ShowEntry(show_id=show_id, project_id=int(payload.get('project_id')), class_name=payload.get('class_name'), division=payload.get('division'), notes=payload.get('notes'))
+    entry = ShowEntry(show_id=show_id, project_id=int(payload.get('project_id')), class_name=payload.get('class_name'), division=payload.get('division'), weight=float(payload['weight']) if payload.get('weight') not in (None, '') else None, notes=payload.get('notes'))
     db.session.add(entry)
     db.session.commit()
     return jsonify(_show_entry_payload(entry)), 201
+
+
+@api_bp.get('/entries/<int:entry_id>')
+def api_show_entry_detail(entry_id: int):
+    return jsonify(_show_entry_payload(ShowEntry.query.get_or_404(entry_id)))
 
 
 @api_bp.patch('/entries/<int:entry_id>')
@@ -627,6 +653,8 @@ def api_show_entry_update(entry_id: int):
             setattr(entry, key, payload[key])
     if 'project_id' in payload:
         entry.project_id = int(payload['project_id'])
+    if 'weight' in payload:
+        entry.weight = float(payload['weight']) if payload['weight'] not in (None, '') else None
     db.session.commit()
     return jsonify(_show_entry_payload(entry))
 
@@ -650,11 +678,11 @@ def api_placings_create(entry_id: int):
         return error
     ShowEntry.query.get_or_404(entry_id)
     payload = request.get_json(silent=True) or {}
-    placing_text = str(payload.get('placing_text', '')).strip()
+    placing_value = str(payload.get('placing', '')).strip()
     show_day_id = payload.get('show_day_id')
-    if not placing_text or not show_day_id:
-        return jsonify({'error': 'placing_text and show_day_id are required'}), 400
-    placing = Placing(entry_id=entry_id, show_day_id=int(show_day_id), ring=payload.get('ring'), placing_text=placing_text, points=float(payload['points']) if payload.get('points') is not None else None, judge=payload.get('judge'), notes=payload.get('notes'))
+    if not placing_value or not show_day_id:
+        return jsonify({'error': 'placing and show_day_id are required'}), 400
+    placing = Placing(entry_id=entry_id, show_day_id=int(show_day_id), ring=payload.get('ring'), placing=placing_value, points=float(payload['points']) if payload.get('points') not in (None, '') else None, judge=payload.get('judge'), notes=payload.get('notes'))
     db.session.add(placing)
     db.session.commit()
     return jsonify(_placing_payload(placing)), 201
@@ -667,11 +695,11 @@ def api_placings_update(placing_id: int):
         return error
     placing = Placing.query.get_or_404(placing_id)
     payload = request.get_json(silent=True) or {}
-    for key in ['ring', 'placing_text', 'judge', 'notes']:
+    for key in ['ring', 'placing', 'judge', 'notes']:
         if key in payload:
             setattr(placing, key, payload[key])
     if 'points' in payload:
-        placing.points = float(payload['points']) if payload['points'] is not None else None
+        placing.points = float(payload['points']) if payload['points'] not in (None, '') else None
     db.session.commit()
     return jsonify(_placing_payload(placing))
 
@@ -695,6 +723,77 @@ def api_project_shows(project_id: int):
     return jsonify([_show_payload(show) for show in shows if show])
 
 
+@api_bp.get('/projects/<int:project_id>/timeline')
+def api_project_timeline(project_id: int):
+    Project.query.get_or_404(project_id)
+    items = TimelineEntry.query.filter_by(project_id=project_id).order_by(TimelineEntry.date.desc(), TimelineEntry.id.desc()).all()
+    return jsonify([_timeline_payload(item) for item in items])
+
+
+@api_bp.post('/projects/<int:project_id>/timeline')
+def api_project_timeline_create(project_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    Project.query.get_or_404(project_id)
+    payload = request.get_json(silent=True) or {}
+    title = str(payload.get('title', '')).strip()
+    event_type = str(payload.get('type', '')).strip()
+    event_date = payload.get('date')
+    if not title or not event_type or not event_date:
+        return jsonify({'error': 'type, title, and date are required'}), 400
+    item = TimelineEntry(project_id=project_id, type=event_type, title=title, description=payload.get('description'), date=date.fromisoformat(event_date))
+    db.session.add(item)
+    db.session.commit()
+    return jsonify(_timeline_payload(item)), 201
+
+
+@api_bp.delete('/timeline/<int:timeline_id>')
+def api_project_timeline_delete(timeline_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    db.session.delete(TimelineEntry.query.get_or_404(timeline_id))
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@api_bp.post('/media/upload')
+def api_media_upload():
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    file = request.files.get('file')
+    try:
+        filename = save_upload(file, current_app.config['BARN_UPLOAD_DIR'])
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 400
+    media = Media(project_id=int(request.form['project_id']) if request.form.get('project_id') else None, show_id=int(request.form['show_id']) if request.form.get('show_id') else None, show_day_id=int(request.form['show_day_id']) if request.form.get('show_day_id') else None, file_name=filename, url=f"/uploads/{filename}", caption=request.form.get('caption'))
+    db.session.add(media)
+    db.session.commit()
+    return jsonify(_media_payload(media)), 201
+
+
+@api_bp.get('/media')
+def api_media_list():
+    query = Media.query
+    for key in ['project_id', 'show_id', 'show_day_id']:
+        value = request.args.get(key)
+        if value:
+            query = query.filter(getattr(Media, key) == int(value))
+    media = query.order_by(Media.created_at.desc(), Media.id.desc()).all()
+    return jsonify([_media_payload(m) for m in media])
+
+
+@api_bp.delete('/media/<int:media_id>')
+def api_media_delete(media_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    media = Media.query.get_or_404(media_id)
+    db.session.delete(media)
+    db.session.commit()
+    return jsonify({'success': True})
 @api_bp.get('/tasks')
 def api_tasks():
     query = TaskItem.query
@@ -793,44 +892,6 @@ def api_project_tasks(project_id: int):
     Project.query.get_or_404(project_id)
     tasks = TaskItem.query.filter_by(project_id=project_id).order_by(TaskItem.due_date.asc().nulls_last(), TaskItem.id.desc()).all()
     return jsonify([_task_item_payload(task) for task in tasks])
-
-
-@api_bp.post('/media/upload')
-def api_media_upload():
-    profile, error = _require_parent_unlocked()
-    if error:
-        return error
-    file = request.files.get('file')
-    try:
-        filename = save_upload(file, current_app.config['BARN_UPLOAD_DIR'])
-    except Exception as exc:
-        return jsonify({'error': str(exc)}), 400
-    media = Photo(project_id=request.form.get('project_id') or None, show_id=request.form.get('show_id') or None, show_day_id=request.form.get('show_day_id') or None, filename=filename, caption=request.form.get('caption'), photo_type='photo', uploaded_by_id=profile.id)
-    db.session.add(media)
-    db.session.commit()
-    return jsonify(_media_payload(media)), 201
-
-
-@api_bp.get('/media')
-def api_media_list():
-    query = Photo.query
-    for key in ['project_id', 'show_id', 'show_day_id']:
-        value = request.args.get(key)
-        if value:
-            query = query.filter(getattr(Photo, key) == int(value))
-    media = query.order_by(Photo.uploaded_at.desc(), Photo.id.desc()).all()
-    return jsonify([_media_payload(m) for m in media])
-
-
-@api_bp.delete('/media/<int:media_id>')
-def api_media_delete(media_id: int):
-    _, error = _require_parent_unlocked()
-    if error:
-        return error
-    media = Photo.query.get_or_404(media_id)
-    db.session.delete(media)
-    db.session.commit()
-    return jsonify({'success': True})
 
 
 def _csv_response(filename: str, headers: list[str], rows: list[list[object]]) -> Response:
