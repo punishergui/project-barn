@@ -50,7 +50,7 @@ export default function MorePage() {
           👨‍👩‍👧‍👦 Family
         </Link>
         <Link href="/reports" className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-sm">
-          🧾 Tax Reports
+          📊 Reports
         </Link>
         <Link href="/profile-picker" className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-sm sm:col-span-2">
           🔄 Switch Profile
