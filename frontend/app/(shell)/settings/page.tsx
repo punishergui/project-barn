@@ -3,26 +3,35 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 
-import { apiClientJson, AppSettings, AuthStatus, Profile } from "@/lib/api";
+import { AppSettings, AuthStatus, Profile, apiClientJson } from "@/lib/api";
+import { toUserErrorMessage } from "@/lib/errorMessage";
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [auth, setAuth] = useState<AuthStatus | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const load = () =>
-    Promise.all([
+  const load = async () => {
+    const authData = await apiClientJson<AuthStatus>("/auth/status");
+    setAuth(authData);
+
+    if (authData.role !== "parent") {
+      setErrorMessage("Access denied. Switch to a parent profile to manage family settings.");
+      return;
+    }
+
+    const [settingData, profileData] = await Promise.all([
       apiClientJson<AppSettings>("/settings"),
-      apiClientJson<Profile[]>("/profiles?include_archived=1"),
-      apiClientJson<AuthStatus>("/auth/status")
-    ]).then(([settingData, profileData, authData]) => {
-      setSettings(settingData);
-      setProfiles(profileData);
-      setAuth(authData);
-    });
+      apiClientJson<Profile[]>("/profiles?include_archived=1")
+    ]);
+    setSettings(settingData);
+    setProfiles(profileData);
+    setErrorMessage(null);
+  };
 
   useEffect(() => {
-    load().catch(() => undefined);
+    load().catch((error) => setErrorMessage(toUserErrorMessage(error, "Unable to load settings.")));
   }, []);
 
   const save = async (event: FormEvent<HTMLFormElement>) => {
@@ -53,11 +62,22 @@ export default function SettingsPage() {
     await load();
   };
 
+  if (auth?.role && auth.role !== "parent") {
+    return (
+      <div className="w-full space-y-4 px-4 pb-4">
+        <h1 className="text-xl font-semibold">Family & Admin Settings</h1>
+        <p className="barn-card text-sm">Access denied. Parent profile required for family settings.</p>
+        <Link href="/profile-picker" className="inline-flex min-h-11 items-center rounded bg-neutral-700 px-3 py-2 text-sm">Switch profile</Link>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full space-y-4 px-4 pb-4">
       <h1 className="text-xl font-semibold">Family & Admin Settings</h1>
+      {errorMessage ? <p className="barn-card text-sm text-red-200">{errorMessage}</p> : null}
 
-      <form className="space-y-4" onSubmit={(event) => save(event).catch(() => undefined)}>
+      <form className="space-y-4" onSubmit={(event) => save(event).catch((error) => setErrorMessage(toUserErrorMessage(error, "Unable to save settings.")))}>
         <section className="barn-card space-y-2">
           <h2 className="text-base font-semibold">Family / Barn settings</h2>
           <input defaultValue={settings?.family_name ?? ""} name="family_name" className="w-full rounded bg-neutral-800 p-2" placeholder="Barn display name" />
@@ -80,7 +100,6 @@ export default function SettingsPage() {
           <h2 className="text-base font-semibold">Upload / branding</h2>
           <input defaultValue={settings?.brand_logo_url ?? ""} name="brand_logo_url" className="w-full rounded bg-neutral-800 p-2" placeholder="Brand logo URL (optional)" />
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="brand_show_name" defaultChecked={settings?.brand_show_name ?? true} /> Show brand/family name in app header areas</label>
-          <p className="text-xs text-[var(--barn-muted)]">Profile avatars are managed per member profile detail.</p>
         </section>
 
         <section className="barn-card space-y-2">
@@ -94,7 +113,10 @@ export default function SettingsPage() {
       <section className="barn-card space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">Profiles / members</h2>
-          <Link href="/settings/profiles" className="rounded bg-neutral-700 px-3 py-1.5 text-xs">Manage</Link>
+          <div className="flex gap-2">
+            <Link href="/settings/security" className="rounded bg-neutral-700 px-3 py-1.5 text-xs">Security</Link>
+            <Link href="/settings/profiles" className="rounded bg-neutral-700 px-3 py-1.5 text-xs">Manage</Link>
+          </div>
         </div>
         {profiles.map((profile) => (
           <Link key={profile.id} href={`/settings/profiles/${profile.id}`} className="barn-row block text-sm">
