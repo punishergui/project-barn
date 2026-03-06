@@ -318,14 +318,51 @@ def _save_file(file, subdir: str | None = None) -> tuple[str | None, tuple[Respo
 
 def _active_profile() -> Profile | None:
     profile_id = session.get("active_profile_id")
-    if profile_id:
-        profile = Profile.query.get(profile_id)
-        if profile:
-            return profile
-    profile = Profile.query.order_by(Profile.id.asc()).first()
-    if profile:
-        session["active_profile_id"] = profile.id
+    if not profile_id:
+        return None
+    profile = Profile.query.get(profile_id)
+    if profile is None or profile.archived:
+        session.pop("active_profile_id", None)
+        session.pop("unlock_expires_at", None)
+        return None
     return profile
+
+
+def _profile_requires_pin(profile: Profile) -> bool:
+    if profile.role == "parent":
+        return True
+    return bool(profile.pin_hash)
+
+
+def _verify_profile_pin(profile: Profile, pin: str) -> bool:
+    if not profile.pin_hash:
+        return False
+    return check_password_hash(profile.pin_hash, pin)
+
+
+def _set_active_profile(profile: Profile) -> None:
+    session["active_profile_id"] = profile.id
+    session.pop("unlock_expires_at", None)
+
+
+def _can_view_project(profile: Profile, project: Project) -> bool:
+    if profile.role == "parent":
+        return True
+    if profile.role == "kid":
+        return project.owner_id == profile.id
+    if profile.role == "grandparent":
+        return True
+    return False
+
+
+def _can_log_project_activity(profile: Profile, project: Project) -> bool:
+    if profile.role == "parent":
+        return _is_unlocked()
+    if profile.role == "kid":
+        return project.owner_id == profile.id
+    if profile.role == "grandparent":
+        return True
+    return False
 
 
 def _is_unlocked() -> bool:
@@ -374,6 +411,8 @@ def _profile_payload(profile: Profile) -> dict[str, object]:
         "state": profile.state,
         "years_in_4h": profile.years_in_4h,
         "birthdate": _iso(profile.birthdate),
+        "has_pin": bool(profile.pin_hash),
+        "requires_pin": _profile_requires_pin(profile),
     }
 
 
@@ -686,6 +725,7 @@ def api_session():
             "role": profile.role if profile else None,
             "avatar_url": _avatar_url(profile.avatar_path) if profile else None,
         },
+        "requires_profile_selection": profile is None,
         "family": {"id": None, "name": None},
     })
 
@@ -777,9 +817,45 @@ def api_switch_profile():
     profile = Profile.query.get(profile_id)
     if profile is None or profile.archived:
         return jsonify({"error": "Profile not found"}), 404
-    session["active_profile_id"] = profile.id
-    session.pop("unlock_expires_at", None)
+
+    if _profile_requires_pin(profile):
+        pin = str(payload.get("pin") or "").strip()
+        if not profile.pin_hash:
+            return jsonify({"error": "This profile requires a PIN that is not set yet.", "code": "pin_not_configured"}), 403
+        if not pin or not _verify_profile_pin(profile, pin):
+            return jsonify({"error": "Invalid PIN", "code": "invalid_pin"}), 401
+
+    _set_active_profile(profile)
+    _create_family_notification(
+        notification_type='security_profile_switched',
+        title='Active profile switched',
+        body=f"Switched to {profile.name}",
+        actor_profile_id=profile.id,
+        related_route='/profile-picker',
+    )
+    db.session.commit()
     return jsonify({"active_profile": {"id": profile.id, "name": profile.name, "role": profile.role, "avatar_url": _avatar_url(profile.avatar_path)}})
+
+
+
+
+@api_bp.post("/session/verify-pin")
+def api_verify_pin():
+    payload = request.get_json(silent=True) or {}
+    profile_id = payload.get("profile_id")
+    pin = str(payload.get("pin") or "").strip()
+    if profile_id is None:
+        return jsonify({"error": "profile_id is required"}), 400
+    profile = Profile.query.get(profile_id)
+    if profile is None or profile.archived:
+        return jsonify({"error": "Profile not found"}), 404
+    if not _profile_requires_pin(profile):
+        return jsonify({"valid": True, "requires_pin": False})
+    if not profile.pin_hash:
+        return jsonify({"error": "This profile requires a PIN that is not set yet.", "code": "pin_not_configured"}), 403
+    if not pin or not _verify_profile_pin(profile, pin):
+        return jsonify({"error": "Invalid PIN", "code": "invalid_pin"}), 401
+    return jsonify({"valid": True, "requires_pin": True})
 
 
 @api_bp.get("/auth/status")
@@ -793,18 +869,28 @@ def api_set_pin():
     profile = _active_profile()
     if profile is None:
         return jsonify({"error": "No active profile"}), 401
-    if profile.role != "parent":
-        return jsonify({"error": "Parent profile required"}), 403
 
     payload = request.get_json(silent=True) or {}
     pin = str(payload.get("pin", "")).strip()
+    current_pin = str(payload.get("current_pin", "")).strip()
     if len(pin) < 4 or len(pin) > 12 or not pin.isdigit():
         return jsonify({"error": "PIN must be 4-12 digits"}), 400
 
-    if profile.pin_hash and not _is_unlocked():
-        return jsonify({"error": "Unlock required before changing PIN"}), 403
+    if profile.pin_hash:
+        if profile.role == "parent":
+            if not _is_unlocked() and (not current_pin or not _verify_profile_pin(profile, current_pin)):
+                return jsonify({"error": "Current PIN verification required"}), 403
+        elif not current_pin or not _verify_profile_pin(profile, current_pin):
+            return jsonify({"error": "Current PIN verification required"}), 403
 
     profile.pin_hash = generate_password_hash(pin)
+    _create_family_notification(
+        notification_type='security_pin_updated',
+        title='Profile PIN updated',
+        body=f'PIN updated for {profile.name}',
+        actor_profile_id=profile.id,
+        related_route='/settings/security',
+    )
     db.session.commit()
     return jsonify({"success": True})
 
@@ -839,6 +925,10 @@ def api_lock():
 
 @api_bp.get("/projects")
 def api_projects():
+    profile = _active_profile()
+    if profile is None:
+        return jsonify({"error": "No active profile"}), 401
+
     species = request.args.get("species")
     project_type = request.args.get("project_type")
     status = request.args.get("status")
@@ -858,7 +948,8 @@ def api_projects():
         query = query.filter(Project.owner_id == int(owner_profile_id))
 
     projects = query.order_by(Project.updated_at.desc(), Project.id.desc()).all()
-    return jsonify([_project_payload(project) for project in projects])
+    visible_projects = [project for project in projects if _can_view_project(profile, project)]
+    return jsonify([_project_payload(project) for project in visible_projects])
 
 
 @api_bp.post("/projects")
@@ -910,7 +1001,12 @@ def api_create_project():
 
 @api_bp.get("/projects/<int:project_id>")
 def api_project_detail(project_id: int):
+    profile = _active_profile()
+    if profile is None:
+        return jsonify({'error': 'No active profile'}), 401
     project = Project.query.get_or_404(project_id)
+    if not _can_view_project(profile, project):
+        return jsonify({'error': 'Access denied for this project'}), 403
     return jsonify(_project_payload(project))
 
 
@@ -3056,17 +3152,24 @@ def api_task_toggle(task_id: int):
 
 @api_bp.get('/projects/<int:project_id>/tasks')
 def api_project_tasks_v2(project_id: int):
-    Project.query.get_or_404(project_id)
+    profile = _active_profile()
+    if profile is None:
+        return jsonify({'error': 'No active profile'}), 401
+    project = Project.query.get_or_404(project_id)
+    if not _can_view_project(profile, project):
+        return jsonify({'error': 'Access denied for this project'}), 403
     tasks = ProjectTask.query.filter_by(project_id=project_id).order_by(ProjectTask.is_completed.asc(), ProjectTask.due_date.asc().nulls_last(), ProjectTask.id.desc()).all()
     return jsonify([_project_task_payload(item) for item in tasks])
 
 
 @api_bp.post('/projects/<int:project_id>/tasks')
 def api_project_task_create_v2(project_id: int):
-    _, error = _require_parent_unlocked()
-    if error:
-        return error
-    Project.query.get_or_404(project_id)
+    profile = _active_profile()
+    if profile is None:
+        return jsonify({'error': 'No active profile'}), 401
+    project = Project.query.get_or_404(project_id)
+    if not _can_log_project_activity(profile, project):
+        return jsonify({'error': 'Access denied for this action'}), 403
     payload = request.get_json(silent=True) or {}
     title = str(payload.get('title', '')).strip()
     if not title:
@@ -3080,7 +3183,12 @@ def api_project_task_create_v2(project_id: int):
 
 @api_bp.get('/projects/<int:project_id>/checklists')
 def api_project_checklists(project_id: int):
-    Project.query.get_or_404(project_id)
+    profile = _active_profile()
+    if profile is None:
+        return jsonify({'error': 'No active profile'}), 401
+    project = Project.query.get_or_404(project_id)
+    if not _can_view_project(profile, project):
+        return jsonify({'error': 'Access denied for this project'}), 403
     rows = SkillsChecklist.query.filter_by(project_id=project_id).order_by(SkillsChecklist.sort_order.asc(), SkillsChecklist.id.asc()).all()
     completed = len([item for item in rows if item.completed])
     return jsonify({
@@ -3096,10 +3204,12 @@ def api_project_checklists(project_id: int):
 
 @api_bp.post('/projects/<int:project_id>/checklists')
 def api_project_checklists_create(project_id: int):
-    profile, error = _require_parent_unlocked()
-    if error:
-        return error
-    Project.query.get_or_404(project_id)
+    profile = _active_profile()
+    if profile is None:
+        return jsonify({'error': 'No active profile'}), 401
+    project = Project.query.get_or_404(project_id)
+    if not _can_log_project_activity(profile, project):
+        return jsonify({'error': 'Access denied for this action'}), 403
     payload = request.get_json(silent=True) or {}
     title = str(payload.get('title') or payload.get('skill_name') or '').strip()
     if not title:
@@ -3266,16 +3376,24 @@ def api_project_task_uncomplete(project_id: int, task_id: int):
 
 @api_bp.get('/projects/<int:project_id>/weights')
 def api_project_weights(project_id: int):
-    Project.query.get_or_404(project_id)
+    profile = _active_profile()
+    if profile is None:
+        return jsonify({'error': 'No active profile'}), 401
+    project = Project.query.get_or_404(project_id)
+    if not _can_view_project(profile, project):
+        return jsonify({'error': 'Access denied for this project'}), 403
     rows = WeightEntry.query.filter_by(project_id=project_id).order_by(WeightEntry.recorded_at.desc(), WeightEntry.id.desc()).all()
     return jsonify([_weight_entry_payload(item) for item in rows])
 
 
 @api_bp.post('/projects/<int:project_id>/weights')
 def api_project_weights_create(project_id: int):
-    _, error = _require_parent_unlocked()
-    if error:
-        return error
+    profile = _active_profile()
+    if profile is None:
+        return jsonify({'error': 'No active profile'}), 401
+    project = Project.query.get_or_404(project_id)
+    if not _can_log_project_activity(profile, project):
+        return jsonify({'error': 'Access denied for this action'}), 403
     payload = request.get_json(silent=True) or {}
     if payload.get('weight_lbs') is None or not payload.get('recorded_at'):
         return jsonify({'error': 'recorded_at and weight_lbs are required'}), 400
@@ -3298,16 +3416,24 @@ def api_project_weights_delete(entry_id: int):
 
 @api_bp.get('/projects/<int:project_id>/health')
 def api_project_health(project_id: int):
-    Project.query.get_or_404(project_id)
+    profile = _active_profile()
+    if profile is None:
+        return jsonify({'error': 'No active profile'}), 401
+    project = Project.query.get_or_404(project_id)
+    if not _can_view_project(profile, project):
+        return jsonify({'error': 'Access denied for this project'}), 403
     rows = HealthEntry.query.filter_by(project_id=project_id).order_by(HealthEntry.recorded_at.desc(), HealthEntry.id.desc()).all()
     return jsonify([_health_entry_payload(item) for item in rows])
 
 
 @api_bp.post('/projects/<int:project_id>/health')
 def api_project_health_create(project_id: int):
-    _, error = _require_parent_unlocked()
-    if error:
-        return error
+    profile = _active_profile()
+    if profile is None:
+        return jsonify({'error': 'No active profile'}), 401
+    project = Project.query.get_or_404(project_id)
+    if not _can_log_project_activity(profile, project):
+        return jsonify({'error': 'Access denied for this action'}), 403
     payload = request.get_json(silent=True) or {}
     if not payload.get('recorded_at') or not str(payload.get('category') or '').strip() or not str(payload.get('description') or '').strip():
         return jsonify({'error': 'recorded_at, category, and description are required'}), 400
@@ -3335,16 +3461,24 @@ def api_project_health_delete(entry_id: int):
 
 @api_bp.get('/projects/<int:project_id>/feed')
 def api_project_feed(project_id: int):
-    Project.query.get_or_404(project_id)
+    profile = _active_profile()
+    if profile is None:
+        return jsonify({'error': 'No active profile'}), 401
+    project = Project.query.get_or_404(project_id)
+    if not _can_view_project(profile, project):
+        return jsonify({'error': 'Access denied for this project'}), 403
     rows = FeedEntry.query.filter_by(project_id=project_id).order_by(FeedEntry.recorded_at.desc(), FeedEntry.id.desc()).all()
     return jsonify([_feed_entry_payload(item) for item in rows])
 
 
 @api_bp.post('/projects/<int:project_id>/feed')
 def api_project_feed_create(project_id: int):
-    _, error = _require_parent_unlocked()
-    if error:
-        return error
+    profile = _active_profile()
+    if profile is None:
+        return jsonify({'error': 'No active profile'}), 401
+    project = Project.query.get_or_404(project_id)
+    if not _can_log_project_activity(profile, project):
+        return jsonify({'error': 'Access denied for this action'}), 403
     payload = request.get_json(silent=True) or {}
     if not payload.get('recorded_at') or payload.get('amount') is None or not str(payload.get('unit') or '').strip():
         return jsonify({'error': 'recorded_at, amount, and unit are required'}), 400
@@ -4207,8 +4341,132 @@ def api_export_project_pdf(project_id: int):
     return Response(pdf, mimetype='application/pdf', headers={'Content-Disposition': f'attachment; filename=project-{project_id}.pdf'})
 
 
+@api_bp.get('/settings/security')
+def api_settings_security_get():
+    profile = _active_profile()
+    if profile is None:
+        return jsonify({'error': 'No active profile'}), 401
+    if profile.role != 'parent':
+        return jsonify({'error': 'Parent profile required'}), 403
+
+    profiles = Profile.query.filter_by(archived=False).order_by(Profile.name.asc()).all()
+    return jsonify({
+        'viewer': {'id': profile.id, 'role': profile.role, 'is_unlocked': _is_unlocked()},
+        'profiles': [
+            {
+                'id': item.id,
+                'name': item.name,
+                'role': item.role,
+                'has_pin': bool(item.pin_hash),
+                'requires_pin': _profile_requires_pin(item),
+            }
+            for item in profiles
+        ],
+        'role_protections': {
+            'parent': 'Full control. Parent-only actions require PIN unlock.',
+            'kid': 'Can log work on allowed projects, cannot access parent-only settings/admin.',
+            'grandparent': 'View-focused access with limited helper logging where allowed.',
+        },
+        'biometric_note': 'Biometric unlock is planned for future native app support and is not available in this web phase.',
+    })
+
+
+@api_bp.patch('/profiles/<int:profile_id>/pin')
+def api_profile_pin_patch(profile_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+
+    profile = Profile.query.get_or_404(profile_id)
+    payload = request.get_json(silent=True) or {}
+    pin_enabled = payload.get('pin_enabled')
+    pin_value = str(payload.get('pin') or '').strip()
+
+    if pin_enabled is False:
+        if profile.role == 'parent':
+            parent_count = Profile.query.filter_by(archived=False, role='parent').count()
+            if parent_count <= 1:
+                return jsonify({'error': 'At least one parent PIN must remain configured'}), 400
+        profile.pin_hash = None
+        _create_family_notification(
+            notification_type='security_pin_updated',
+            title='Profile PIN removed',
+            body=f'PIN removed for {profile.name}',
+            actor_profile_id=session.get('active_profile_id'),
+            related_route='/settings/security',
+        )
+        db.session.commit()
+        return jsonify({'success': True, 'profile': _profile_payload(profile)})
+
+    if len(pin_value) < 4 or len(pin_value) > 12 or not pin_value.isdigit():
+        return jsonify({'error': 'PIN must be 4-12 digits'}), 400
+
+    profile.pin_hash = generate_password_hash(pin_value)
+    _create_family_notification(
+        notification_type='security_pin_updated',
+        title='Profile PIN updated',
+        body=f'PIN updated for {profile.name}',
+        actor_profile_id=session.get('active_profile_id'),
+        related_route='/settings/security',
+    )
+    db.session.commit()
+    return jsonify({'success': True, 'profile': _profile_payload(profile)})
+
+
+@api_bp.patch('/settings/security')
+def api_settings_security_patch():
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+
+    payload = request.get_json(silent=True) or {}
+    profile_id = payload.get('profile_id')
+    if profile_id is None:
+        return jsonify({'error': 'profile_id is required'}), 400
+
+    profile = Profile.query.get_or_404(int(profile_id))
+    pin_enabled = payload.get('pin_enabled')
+    pin_value = str(payload.get('pin') or '').strip()
+
+    if pin_enabled is False:
+        if profile.role == 'parent':
+            parent_count = Profile.query.filter_by(archived=False, role='parent').count()
+            if parent_count <= 1:
+                return jsonify({'error': 'At least one parent PIN must remain configured'}), 400
+        profile.pin_hash = None
+        _create_family_notification(
+            notification_type='security_pin_updated',
+            title='Profile PIN removed',
+            body=f'PIN removed for {profile.name}',
+            actor_profile_id=session.get('active_profile_id'),
+            related_route='/settings/security',
+        )
+        db.session.commit()
+        return jsonify({'success': True, 'profile': _profile_payload(profile)})
+
+    if len(pin_value) < 4 or len(pin_value) > 12 or not pin_value.isdigit():
+        return jsonify({'error': 'PIN must be 4-12 digits'}), 400
+
+    profile.pin_hash = generate_password_hash(pin_value)
+    _create_family_notification(
+        notification_type='security_pin_updated',
+        title='Profile PIN updated',
+        body=f'PIN updated for {profile.name}',
+        actor_profile_id=session.get('active_profile_id'),
+        related_route='/settings/security',
+    )
+    db.session.commit()
+    return jsonify({'success': True, 'profile': _profile_payload(profile)})
+
+
 @api_bp.get('/settings')
 def api_settings_get():
+    profile = _active_profile()
+    if profile is None:
+        return jsonify({'error': 'No active profile'}), 401
+    if profile.role != 'parent':
+        return jsonify({'error': 'Parent profile required'}), 403
+
     setting = AppSetting.query.order_by(AppSetting.id.asc()).first()
     if setting is None:
         setting = AppSetting(family_name='', allow_kid_task_toggle=False)
