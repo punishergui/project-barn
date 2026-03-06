@@ -59,6 +59,12 @@ export default function MorePage() {
     <div className="w-full space-y-4 px-4 pb-4">
       <h1 className="text-2xl font-semibold">More</h1>
       <section className="barn-card grid gap-2 sm:grid-cols-2">
+        <Link href="/dashboard" className="quick-action-card justify-start px-4 text-sm">🏠 Dashboard</Link>
+        <Link href="/projects" className="quick-action-card justify-start px-4 text-sm">🐄 Projects</Link>
+        <Link href="/tasks" className="quick-action-card justify-start px-4 text-sm">✅ Tasks</Link>
+        <Link href="/shows" className="quick-action-card justify-start px-4 text-sm">🏆 Shows</Link>
+        <Link href="/feed" className="quick-action-card justify-start px-4 text-sm">🌾 Feed</Link>
+        <Link href="/expenses" className="quick-action-card justify-start px-4 text-sm">🧾 Expenses</Link>
         <Link href="/family" className="quick-action-card justify-start px-4 text-sm">👨‍👩‍👧‍👦 Family</Link>
         <Link href="/reports" className="quick-action-card justify-start px-4 text-sm">📊 Reports</Link>
         <Link href="/activity" className="quick-action-card justify-start px-4 text-sm">🕒 Activity</Link>
