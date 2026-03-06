@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const API_BASE = process.env.INTERNAL_API_BASE_URL ?? "http://barn-backend:5000/api";
 
 type ProxyContext = {
@@ -28,10 +31,12 @@ async function proxy(request: NextRequest, { params }: ProxyContext): Promise<Ne
   const targetUrl = `${API_BASE}${path ? `/${path}` : ""}${request.nextUrl.search}`;
   const hasBody = request.method !== "GET" && request.method !== "HEAD";
 
+  const requestBody = hasBody ? await request.text() : undefined;
+
   const backendResponse = await fetch(targetUrl, {
     method: request.method,
     headers: buildForwardHeaders(request, hasBody),
-    body: hasBody ? await request.text() : undefined,
+    body: requestBody,
     redirect: "manual",
     cache: "no-store"
   });
@@ -53,7 +58,9 @@ async function proxy(request: NextRequest, { params }: ProxyContext): Promise<Ne
     return new NextResponse(null, { status: backendResponse.status, headers: responseHeaders });
   }
 
-  return new NextResponse(await backendResponse.text(), {
+  const responseText = await backendResponse.text();
+
+  return new NextResponse(responseText, {
     status: backendResponse.status,
     headers: responseHeaders
   });

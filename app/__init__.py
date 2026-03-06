@@ -6,12 +6,15 @@ from datetime import date, datetime, timedelta
 import bcrypt
 from flask import Flask
 from sqlalchemy.exc import OperationalError
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 
 from app.models import AppSetting, AuctionSale, EquipmentItem, Expense, ExpenseAllocation, ExpenseReceipt, FeedEntry, FeedInventory, FeedInventorySimple, FeedLog, Goal, HealthEntry, HealthRecord, IncomeRecord, InventoryItem, Media, Notification, PackingListItem, PackingListTemplate, Photo, Placing, Profile, Project, ProjectActivity, ProjectMaterial, ProjectNarrative, ProjectTask, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowDayTask, ShowEntry, SkillsChecklist, Task, TaskItem, TimelineEntry, WeightEntry, db
 
 
 def initialize_database_once(app: Flask, db_path: str) -> None:
+    if app.extensions.get("barn_db_initialized"):
+        return
+
     db_name = os.path.basename(db_path) or "barn.db"
     lock_file_path = f"/tmp/{db_name}.init.lock"
     sentinel_file_path = f"/tmp/{db_name}.init.done"
@@ -24,11 +27,12 @@ def initialize_database_once(app: Flask, db_path: str) -> None:
 
             with app.app_context():
                 try:
-                    db.create_all()
+                    _create_missing_tables()
                 except OperationalError as exc:
                     if "already exists" not in str(exc).lower():
                         raise
                 run_migrations()
+                reconcile_show_day_schema()
                 if AppSetting.query.count() == 0:
                     db.session.add(AppSetting(family_name="", allow_kid_task_toggle=False))
                     db.session.commit()
@@ -37,8 +41,49 @@ def initialize_database_once(app: Flask, db_path: str) -> None:
 
             with open(sentinel_file_path, "w", encoding="utf-8") as sentinel_file:
                 sentinel_file.write(str(os.getpid()))
+            app.extensions["barn_db_initialized"] = True
         finally:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+def _create_missing_tables() -> None:
+    inspector = inspect(db.engine)
+    existing_tables = set(inspector.get_table_names())
+    for table in db.metadata.sorted_tables:
+        if table.name in existing_tables:
+            continue
+        table.create(bind=db.engine, checkfirst=True)
+
+
+def _existing_columns(table_name: str) -> set[str]:
+    rows = db.session.execute(text(f"PRAGMA table_info({table_name})")).mappings().all()
+    return {str(row["name"]) for row in rows}
+
+
+def _add_column_if_missing(table_name: str, column_name: str, definition: str) -> None:
+    if column_name in _existing_columns(table_name):
+        return
+    db.session.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {definition}"))
+
+
+def reconcile_show_day_schema() -> None:
+    inspector = inspect(db.engine)
+    existing_tables = set(inspector.get_table_names())
+
+    if "show_day_task" in existing_tables:
+        _add_column_if_missing("show_day_task", "task_key", "task_key TEXT NOT NULL DEFAULT ''")
+        _add_column_if_missing("show_day_task", "task_label", "task_label TEXT NOT NULL DEFAULT ''")
+        _add_column_if_missing("show_day_task", "is_completed", "is_completed BOOLEAN NOT NULL DEFAULT 0")
+        _add_column_if_missing("show_day_task", "completed_at", "completed_at DATETIME")
+        _add_column_if_missing("show_day_task", "notes", "notes TEXT")
+
+    if "show_day" in existing_tables:
+        _add_column_if_missing("show_day", "date", "date DATE")
+        _add_column_if_missing("show_day", "label", "label TEXT")
+        _add_column_if_missing("show_day", "notes", "notes TEXT")
+        _add_column_if_missing("show_day", "created_at", "created_at DATETIME")
+
+    db.session.commit()
 
 
 def create_app() -> Flask:

@@ -5,7 +5,7 @@ import csv
 import io
 
 from flask import Blueprint, Response, current_app, jsonify, request, session
-from sqlalchemy import func
+from sqlalchemy import func, text
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app import save_upload
@@ -167,6 +167,15 @@ def _project_totals() -> list[dict[str, object]]:
 @api_bp.get("/health")
 def api_health():
     return jsonify({"status": "ok", "service": "project-barn-backend"})
+
+
+@api_bp.get("/ready")
+def api_ready():
+    try:
+        db.session.execute(text("SELECT 1"))
+        return jsonify({"status": "ready", "service": "project-barn-backend"}), 200
+    except Exception:
+        return jsonify({"status": "not_ready", "service": "project-barn-backend"}), 503
 
 
 @api_bp.get("/session")
