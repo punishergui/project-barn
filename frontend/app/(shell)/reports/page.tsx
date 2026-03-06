@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-import { apiClientJson, FamilyFinancialSummary } from "@/lib/api";
+import { FamilyFinancialSummary, apiClientJson } from "@/lib/api";
+import { toUserErrorMessage } from "@/lib/errorMessage";
 
 type FamilySummaryExtra = {
   checklists?: { total: number; completed: number; completion_percent: number };
@@ -16,8 +17,13 @@ export default function ReportsPage() {
   const [endDate, setEndDate] = useState("");
   const [summary, setSummary] = useState<FamilyFinancialSummary | null>(null);
   const [familySummary, setFamilySummary] = useState<FamilySummaryExtra | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
+    setLoading(true);
+    setError(null);
+
     const params = new URLSearchParams();
     params.set("range", range);
     if (range === "custom") {
@@ -25,26 +31,38 @@ export default function ReportsPage() {
       if (endDate) params.set("end_date", endDate);
     }
     const query = params.toString();
-    const [financialData, familyData] = await Promise.all([
-      apiClientJson<FamilyFinancialSummary>(`/reports/financial-summary${query ? `?${query}` : ""}`),
-      apiClientJson<FamilySummaryExtra>("/reports/family-summary")
-    ]);
-    setSummary(financialData);
-    setFamilySummary(familyData);
+
+    try {
+      const [financialData, familyData] = await Promise.all([
+        apiClientJson<FamilyFinancialSummary>(`/reports/financial-summary${query ? `?${query}` : ""}`),
+        apiClientJson<FamilySummaryExtra>("/reports/family-summary")
+      ]);
+      setSummary(financialData);
+      setFamilySummary(familyData);
+    } catch (loadError) {
+      setError(toUserErrorMessage(loadError, "Unable to load reports right now."));
+      setSummary(null);
+      setFamilySummary(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     load().catch(() => undefined);
   }, [range]);
 
-  const sortedProjects = useMemo(() => [...(summary?.by_project ?? [])].sort((a, b) => b.net_profit_loss_cents - a.net_profit_loss_cents), [summary]);
+  const sortedProjects = useMemo(
+    () => [...(summary?.by_project ?? [])].sort((a, b) => b.net_profit_loss_cents - a.net_profit_loss_cents),
+    [summary]
+  );
 
   return (
     <div className="w-full space-y-4 px-4 pb-4">
       <section className="barn-card space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-semibold">Reports</h1>
-          <button onClick={() => window.print()} className="rounded bg-neutral-700 px-3 py-2 text-sm">Print</button>
+          <button type="button" onClick={() => window.print()} className="rounded bg-neutral-700 px-3 py-2 text-sm">Print</button>
           <a className="rounded bg-[var(--barn-red)] px-3 py-2 text-sm" href="/api/reports/family-summary.csv">Family CSV</a>
         </div>
         <div className="grid gap-2 sm:grid-cols-3">
@@ -56,10 +74,19 @@ export default function ReportsPage() {
           {range === "custom" ? <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="rounded border border-[var(--barn-border)] bg-black/20 p-2 text-sm" /> : null}
           {range === "custom" ? <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="rounded border border-[var(--barn-border)] bg-black/20 p-2 text-sm" /> : null}
         </div>
-        {range === "custom" ? <button onClick={() => load().catch(() => undefined)} className="rounded bg-neutral-700 px-3 py-2 text-sm">Apply dates</button> : null}
+        {range === "custom" ? <button type="button" onClick={() => load().catch(() => undefined)} className="rounded bg-neutral-700 px-3 py-2 text-sm">Apply dates</button> : null}
       </section>
 
-      {summary ? (
+      {loading ? <p className="text-sm text-[var(--barn-muted)]">Loading report summary...</p> : null}
+
+      {error ? (
+        <section className="barn-card space-y-2 text-sm">
+          <p className="text-red-200">{error}</p>
+          <button type="button" onClick={() => load().catch(() => undefined)} className="rounded bg-neutral-700 px-3 py-2 text-sm">Retry</button>
+        </section>
+      ) : null}
+
+      {summary && !error ? (
         <>
           <section className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <article className="barn-chip">${summary.overall_totals.total_expenses.toFixed(2)}<span>Total expenses</span></article>
@@ -100,9 +127,7 @@ export default function ReportsPage() {
             ))}
           </section>
         </>
-      ) : (
-        <p className="text-sm text-[var(--barn-muted)]">Loading report summary...</p>
-      )}
+      ) : null}
     </div>
   );
 }

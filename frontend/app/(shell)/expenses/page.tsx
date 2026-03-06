@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-import { apiClientJson, AuthStatus, Expense, Project } from "@/lib/api";
+import { AuthStatus, Expense, Project, apiClientJson } from "@/lib/api";
+import { toUserErrorMessage } from "@/lib/errorMessage";
 
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -14,39 +15,42 @@ export default function ExpensesPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const [expenseData, projectData, authData] = await Promise.all([
+        apiClientJson<Expense[]>(`/expenses?project_id=${projectId}&category=${category}`),
+        apiClientJson<Project[]>("/projects"),
+        apiClientJson<AuthStatus>("/auth/status")
+      ]);
+      setExpenses(expenseData);
+      setProjects(projectData);
+      setAuth(authData);
+    } catch (loadError) {
+      setError(toUserErrorMessage(loadError, "Unable to load expenses right now."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const [expenseData, projectData, authData] = await Promise.all([
-          apiClientJson<Expense[]>(`/expenses?project_id=${projectId}&category=${category}`),
-          apiClientJson<Project[]>("/projects"),
-          apiClientJson<AuthStatus>("/auth/status")
-        ]);
-        setExpenses(expenseData);
-        setProjects(projectData);
-        setAuth(authData);
-      } catch (e) {
-        setError((e as Error).message);
-      } finally {
-        setLoading(false);
-      }
-    };
     load().catch(() => undefined);
   }, [projectId, category]);
 
   const thisMonth = useMemo(
-    () => expenses.filter((e) => new Date(e.date).getMonth() === new Date().getMonth()).reduce((acc, item) => acc + item.amount, 0),
+    () => expenses.filter((entry) => new Date(entry.date).getMonth() === new Date().getMonth()).reduce((acc, item) => acc + item.amount, 0),
     [expenses]
   );
 
   const projectTotals = useMemo(
     () =>
       projects
-        .map((p) => ({
-          name: p.name,
+        .map((project) => ({
+          name: project.name,
           total: expenses.reduce(
-            (acc, item) => acc + item.allocations.filter((a) => a.project_id === p.id).reduce((sum, a) => sum + a.amount, 0),
+            (acc, item) => acc + item.allocations.filter((allocation) => allocation.project_id === project.id).reduce((sum, allocation) => sum + allocation.amount, 0),
             0
           )
         }))
@@ -69,15 +73,15 @@ export default function ExpensesPage() {
       </div>
 
       <section className="grid gap-2 rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-3 sm:grid-cols-2">
-        <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-2">
+        <select value={projectId} onChange={(event) => setProjectId(event.target.value)} className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-2">
           <option value="">All projects</option>
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
+          {projects.map((project) => (
+            <option key={project.id} value={project.id}>
+              {project.name}
             </option>
           ))}
         </select>
-        <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="category" className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-2" />
+        <input value={category} onChange={(event) => setCategory(event.target.value)} placeholder="Category" className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-2" />
       </section>
 
       <div className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-sm">
@@ -90,8 +94,17 @@ export default function ExpensesPage() {
       </div>
 
       {loading ? <p className="text-sm text-neutral-300">Loading expenses...</p> : null}
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
-      {!loading && expenses.length === 0 ? (
+
+      {error ? (
+        <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-100">
+          <p>{error}</p>
+          <button type="button" onClick={() => load().catch(() => undefined)} className="mt-2 rounded bg-neutral-700 px-3 py-2 text-sm">
+            Retry
+          </button>
+        </div>
+      ) : null}
+
+      {!loading && !error && expenses.length === 0 ? (
         <div className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-sm text-neutral-300">
           <p>No expenses found for the current filters.</p>
           {auth?.role === "parent" && auth.is_unlocked ? <Link href="/expenses/new" className="see-all-link mt-2 inline-block">Add your first expense</Link> : null}
@@ -104,7 +117,7 @@ export default function ExpensesPage() {
             key={expense.id}
             href={`/expenses/${expense.id}`}
             title={expense.allocations
-              .map((a) => `${projects.find((p) => p.id === a.project_id)?.name ?? a.project_id}: $${a.amount.toFixed(2)}`)
+              .map((allocation) => `${projects.find((project) => project.id === allocation.project_id)?.name ?? allocation.project_id}: $${allocation.amount.toFixed(2)}`)
               .join(" | ")}
             className="block rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-sm"
           >

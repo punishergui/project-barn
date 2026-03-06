@@ -42,7 +42,11 @@ const emptyDashboard: DashboardResponse = {
 };
 
 export default async function DashboardPage() {
-  const dashboard = await apiJsonServer<DashboardResponse>("/dashboard").catch(() => emptyDashboard);
+  let hasLoadError = false;
+  const dashboard = await apiJsonServer<DashboardResponse>("/dashboard").catch(() => {
+    hasLoadError = true;
+    return emptyDashboard;
+  });
 
   const todayLabel = new Date().toLocaleDateString(undefined, {
     weekday: "long",
@@ -70,6 +74,7 @@ export default async function DashboardPage() {
       lowFeedInventory={dashboard.low_feed_inventory}
       recentFeedEvents={dashboard.recent_feed_events}
       financeSummary={dashboard.finance_summary}
+      hasLoadError={hasLoadError}
     />
   );
 }

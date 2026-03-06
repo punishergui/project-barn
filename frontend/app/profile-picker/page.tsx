@@ -6,6 +6,7 @@ import { ChangeEvent, useEffect, useState } from "react";
 
 import { apiClientJson, Profile } from "@/lib/api";
 import { uploadProfileAvatar } from "@/lib/uploads";
+import { toUserErrorMessage } from "@/lib/errorMessage";
 
 export default function ProfilePickerPage() {
   const router = useRouter();
@@ -21,7 +22,7 @@ export default function ProfilePickerPage() {
   useEffect(() => {
     loadProfiles()
       .then(() => setError(null))
-      .catch((err) => setError((err as Error).message))
+      .catch((err) => setError(toUserErrorMessage(err, "Unable to load profiles.")))
       .finally(() => setLoading(false));
   }, []);
 
@@ -44,14 +45,14 @@ export default function ProfilePickerPage() {
       router.refresh();
       setError(null);
     } catch (err) {
-      setError((err as Error).message);
+      setError(toUserErrorMessage(err, "Unable to upload avatar."));
     } finally {
       event.target.value = "";
     }
   };
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center px-6 py-10 text-center">
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center px-6 py-10 text-center">
       <Image src="/brand/barn-logo.png" alt="Project Barn" width={92} height={92} priority className="mb-4 rounded-2xl" />
       <h1 className="text-3xl font-semibold text-white">Project Barn</h1>
       <p className="mt-2 text-sm text-neutral-300">Choose a profile</p>
@@ -63,7 +64,7 @@ export default function ProfilePickerPage() {
 
       <div className="mt-6 w-full space-y-3">
         {loading ? <p className="text-sm text-neutral-400">Loading profiles...</p> : null}
-        {error ? <p className="text-sm text-red-300">{error}</p> : null}
+        {error ? <div className="space-y-2 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-100"><p>{error}</p><button type="button" onClick={() => loadProfiles().then(() => setError(null)).catch((err) => setError(toUserErrorMessage(err, "Unable to load profiles.")))} className="rounded bg-neutral-700 px-3 py-2 text-xs">Retry</button></div> : null}
         {profiles.length === 0 && !loading ? (
           <div className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-sm text-neutral-300">
             <p>No profiles found yet.</p>
@@ -74,7 +75,7 @@ export default function ProfilePickerPage() {
           <button
             key={profile.id}
             type="button"
-            onClick={() => switchProfile(profile.id).catch((err) => setError((err as Error).message))}
+            onClick={() => switchProfile(profile.id).catch((err) => setError(toUserErrorMessage(err, "Unable to load profiles.")))}
             className="flex w-full items-center gap-3 rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-left"
           >
             <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[var(--barn-red)] text-base font-semibold text-white">

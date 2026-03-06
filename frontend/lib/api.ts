@@ -1,4 +1,6 @@
-export const API_BASE_URL = "/api";
+import { resolveApiPath, runtimeConfig } from "@/lib/runtimeConfig";
+
+export const API_BASE_URL = runtimeConfig.apiBasePath;
 
 export type Profile = { id: number; name: string; role: "parent" | "kid" | string; avatar_url: string | null; color?: string; archived?: boolean; club_name?: string | null; county?: string | null; state?: string | null; years_in_4h?: number | null; birthdate?: string | null; summary?: { active_projects: number; shows: number; expenses: number }; projects?: Project[] };
 export type SessionResponse = { active_profile: Profile | null; family: { id: null; name: null } };
@@ -18,8 +20,7 @@ export type TimelineEntry = { id: number; project_id: number; type: string; titl
 export type AppSettings = { family_name: string | null; county: string | null; state: string | null; club_name: string | null; default_project_year: number | null; default_species: string | null; default_checklist_template: string | null; default_show_tasks: string[]; brand_logo_url: string | null; brand_show_name: boolean; allow_kid_task_toggle: boolean };
 
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  return fetch(`${API_BASE_URL}${normalizedPath}`, {
+  return fetch(resolveApiPath(path), {
     credentials: "include",
     cache: "no-store",
     ...init
