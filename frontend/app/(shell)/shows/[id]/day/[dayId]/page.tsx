@@ -1,11 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 
 import { apiClientJson, Placing, Profile, Project, Show, ShowDayTask } from "@/lib/api";
 
-const checklistTemplates = [
+const livestockChecklistTemplates = [
   { key: "wash", label: "Wash animal" },
   { key: "groom", label: "Groom" },
   { key: "pack", label: "Pack supplies" },
@@ -13,6 +14,16 @@ const checklistTemplates = [
   { key: "walk", label: "Walk" },
   { key: "weigh", label: "Weigh-in" },
   { key: "ring", label: "Enter ring" }
+];
+
+const projectChecklistTemplates = [
+  { key: "prep", label: "Prep project" },
+  { key: "pack", label: "Pack supplies" },
+  { key: "setup", label: "Set up display" },
+  { key: "practice", label: "Practice presentation" },
+  { key: "checkin", label: "Check in" },
+  { key: "judge", label: "Meet judging schedule" },
+  { key: "cleanup", label: "Clean up" }
 ];
 
 function formatDate(value?: string | null) {
@@ -107,6 +118,13 @@ export default function ShowDayModePage() {
         <p className="text-xs text-[var(--barn-muted)]">{formatDate(day?.show_date || day?.date)}</p>
       </header>
 
+      {show.entries.length === 0 ? (
+        <section className="barn-card space-y-2 text-sm text-[var(--barn-muted)]">
+          <p>No entries are attached to this show yet.</p>
+          <Link href={`/shows/${show.id}`} className="see-all-link">Open show and add entries</Link>
+        </section>
+      ) : null}
+
       {show.entries.map((entry) => {
         const project = projectMap.get(entry.project_id);
         const owner = profileMap.get(project?.owner_profile_id ?? -1) ?? "Unknown owner";
@@ -119,7 +137,7 @@ export default function ShowDayModePage() {
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              {checklistTemplates.map((template) => {
+              {(project?.is_livestock ? livestockChecklistTemplates : projectChecklistTemplates).map((template) => {
                 const row = tasks.find((task) => task.project_id === entry.project_id && task.task_key === template.key);
                 return (
                   <button

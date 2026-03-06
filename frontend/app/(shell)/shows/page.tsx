@@ -46,7 +46,14 @@ export default function ShowsPage() {
       {loading ? <p className="text-sm text-[var(--barn-muted)]">Loading shows...</p> : null}
 
       {!loading && sortedShows.length === 0 ? (
-        <p className="barn-card text-sm text-[var(--barn-muted)]">No shows yet. Add your first show to start planning.</p>
+        <div className="barn-card space-y-2 text-sm text-[var(--barn-muted)]">
+          <p>No shows yet. Add your first show to start planning.</p>
+          {auth?.role === "parent" && auth.is_unlocked ? (
+            <Link href="/shows/new" className="see-all-link">Create your first show</Link>
+          ) : (
+            <p>Parent profile unlock is required to create a show.</p>
+          )}
+        </div>
       ) : null}
 
       <div className="space-y-3">

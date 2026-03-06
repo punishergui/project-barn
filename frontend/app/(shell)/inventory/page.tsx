@@ -87,7 +87,12 @@ export default function InventoryPage() {
       {error ? <p className="text-sm text-red-300">{error}</p> : null}
 
       <section className="space-y-2">
-        {items.length === 0 ? <p className="barn-row text-sm text-[var(--barn-muted)]">No inventory items yet.</p> : null}
+        {items.length === 0 ? (
+          <div className="barn-card space-y-2 text-sm text-[var(--barn-muted)]">
+            <p>No inventory items yet.</p>
+            <p>Add a tool, supply, or material above to keep family inventory organized.</p>
+          </div>
+        ) : null}
         {items.map((item) => (
           <article key={item.id} className="barn-card space-y-1 text-sm">
             <div className="flex items-start justify-between gap-2">
