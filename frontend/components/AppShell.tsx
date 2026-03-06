@@ -11,8 +11,9 @@ const primaryLinks = [
   { href: "/dashboard", label: "Dashboard", icon: "🏠" },
   { href: "/projects", label: "Projects", icon: "🐄" },
   { href: "/shows", label: "Shows", icon: "🏆" },
-  { href: "/feed", label: "Feed", icon: "🌾" },
-  { href: "/more", label: "More", icon: "☰" }
+  { href: "/expenses", label: "Expenses", icon: "💵" },
+  { href: "/reports", label: "Reports", icon: "📊" },
+  { href: "/settings", label: "Settings", icon: "⚙️" }
 ];
 
 function initials(name?: string) {

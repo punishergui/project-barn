@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 
-import { Expense, Project, apiClientJson } from "@/lib/api";
+import { AuthStatus, Expense, Project, apiClientJson } from "@/lib/api";
 import { toUserErrorMessage } from "@/lib/errorMessage";
 import { uploadReceipt } from "@/lib/uploads";
 
@@ -14,8 +14,10 @@ function isPdf(url: string) {
 
 export default function ExpenseDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const [expense, setExpense] = useState<Expense | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [auth, setAuth] = useState<AuthStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -23,12 +25,14 @@ export default function ExpenseDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const [expenseData, projectData] = await Promise.all([
+      const [expenseData, projectData, authData] = await Promise.all([
         apiClientJson<Expense>(`/expenses/${params.id}`),
-        apiClientJson<Project[]>("/projects")
+        apiClientJson<Project[]>("/projects"),
+        apiClientJson<AuthStatus>("/auth/status").catch(() => null)
       ]);
       setExpense(expenseData);
       setProjects(projectData);
+      setAuth(authData);
     } catch (loadError) {
       setError(toUserErrorMessage(loadError, "Unable to load this expense."));
     } finally {
@@ -54,21 +58,49 @@ export default function ExpenseDetailPage() {
     }
   };
 
+  const removeReceipt = async (receiptId: number) => {
+    try {
+      await apiClientJson(`/receipts/${receiptId}`, { method: "DELETE" });
+      await load();
+    } catch (deleteError) {
+      setError(toUserErrorMessage(deleteError, "Unable to delete this receipt."));
+    }
+  };
+
+  const deleteExpense = async () => {
+    if (!expense || !window.confirm("Delete this expense? This can be restored from backups only.")) {
+      return;
+    }
+
+    try {
+      await apiClientJson(`/expenses/${expense.id}`, { method: "DELETE" });
+      router.push("/expenses");
+      router.refresh();
+    } catch (deleteError) {
+      setError(toUserErrorMessage(deleteError, "Unable to delete this expense."));
+    }
+  };
+
   const projectNames = useMemo(() => new Map(projects.map((project) => [project.id, project.name])), [projects]);
 
   if (loading) {
-    return <p className="text-sm text-neutral-300">Loading expense...</p>;
+    return <p className="px-4 text-sm text-neutral-300">Loading expense...</p>;
   }
 
   if (!expense) {
-    return <div className="space-y-2"><p className="text-sm text-red-200">{error ?? "Expense not found."}</p><button type="button" className="rounded bg-neutral-700 px-3 py-2 text-sm" onClick={() => load().catch(() => undefined)}>Retry</button></div>;
+    return <div className="space-y-2 px-4"><p className="text-sm text-red-200">{error ?? "Expense not found."}</p><button type="button" className="rounded bg-neutral-700 px-3 py-2 text-sm" onClick={() => load().catch(() => undefined)}>Retry</button></div>;
   }
 
+  const canManage = auth?.role === "parent" && auth.is_unlocked;
+
   return (
-    <div className="space-y-4 rounded-lg border border-white/10 bg-neutral-900 p-4">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 px-4 pb-6">
+      <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">Expense Detail</h1>
-        <Link href={`/expenses/${expense.id}/edit`} className="rounded bg-red-700 px-3 py-2 text-sm">Edit</Link>
+        <div className="flex gap-2">
+          <Link href={`/expenses/${expense.id}/edit`} className="rounded bg-red-700 px-3 py-2 text-sm">Edit</Link>
+          {canManage ? <button type="button" onClick={() => deleteExpense().catch(() => undefined)} className="rounded bg-red-950 px-3 py-2 text-sm">Delete</button> : null}
+        </div>
       </div>
 
       <section className="rounded bg-neutral-800 p-3 text-sm">
@@ -92,10 +124,12 @@ export default function ExpenseDetailPage() {
       <section className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-semibold">Receipts</h2>
-          <label className="cursor-pointer rounded bg-red-700 px-3 py-2 text-xs">
-            Upload receipt
-            <input type="file" accept="image/*,.pdf,application/pdf" className="hidden" onChange={(event) => onUpload(event).catch(() => undefined)} />
-          </label>
+          {canManage ? (
+            <label className="cursor-pointer rounded bg-red-700 px-3 py-2 text-xs">
+              Upload receipt
+              <input type="file" accept="image/*,.pdf,application/pdf" className="hidden" onChange={(event) => onUpload(event).catch(() => undefined)} />
+            </label>
+          ) : null}
         </div>
         {error ? <p className="text-sm text-red-300">{error}</p> : null}
         {expense.receipts.length === 0 ? <p className="rounded bg-neutral-800 p-3 text-sm text-neutral-300">No receipts attached.</p> : null}
@@ -110,6 +144,7 @@ export default function ExpenseDetailPage() {
                 </a>
               )}
               <p className="mt-1 text-xs text-neutral-300">{receipt.caption ?? receipt.file_name}</p>
+              {canManage ? <button type="button" onClick={() => removeReceipt(receipt.id).catch(() => undefined)} className="mt-1 text-xs text-red-200 underline">Delete receipt</button> : null}
             </div>
           ))}
         </div>
