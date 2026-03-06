@@ -20,6 +20,8 @@ type DashboardResponse = {
   upcoming_shows: Array<{ id: number; name: string; date: string | null; location: string | null }>;
   recent_expenses: Array<{ id: number; amount: number; date: string | null; category: string; vendor: string | null; has_receipt: boolean; project_name: string }>;
   recent_activity: Array<{ id: string; kind: string; title: string; subtitle: string; date: string; href: string }>;
+  low_feed_inventory: Array<{ id: number; name: string; qty_on_hand: number; unit: string; low_stock_threshold: number | null }>;
+  recent_feed_events: Array<{ id: number; project_id: number; project_name: string; recorded_at: string | null; feed_type: string; amount: number; unit: string }>;
 };
 
 const emptyDashboard: DashboardResponse = {
@@ -28,7 +30,9 @@ const emptyDashboard: DashboardResponse = {
   active_projects: [],
   upcoming_shows: [],
   recent_expenses: [],
-  recent_activity: []
+  recent_activity: [],
+  low_feed_inventory: [],
+  recent_feed_events: []
 };
 
 export default async function DashboardPage() {
@@ -55,6 +59,8 @@ export default async function DashboardPage() {
       upcomingShows={dashboard.upcoming_shows}
       recentExpenses={dashboard.recent_expenses}
       recentActivity={dashboard.recent_activity}
+      lowFeedInventory={dashboard.low_feed_inventory}
+      recentFeedEvents={dashboard.recent_feed_events}
     />
   );
 }

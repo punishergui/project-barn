@@ -19,6 +19,32 @@ api_bp = Blueprint("api", __name__, url_prefix="/api")
 UNLOCK_DURATION_MINUTES = 15
 
 
+CARE_CATEGORY_LABELS = {
+    "feed": "Fed",
+    "water": "Watered",
+    "grooming": "Groomed",
+    "exercise": "Exercised",
+    "weigh": "Weighed",
+    "health check": "Health Check",
+    "clean pen": "Cleaned Pen",
+    "note": "Care Note",
+}
+
+
+def _care_entry_payload(entry: TimelineEntry) -> dict[str, object]:
+    category = (entry.type or "note").strip().lower()
+    return {
+        "id": entry.id,
+        "project_id": entry.project_id,
+        "recorded_at": _iso(entry.date),
+        "category": category,
+        "label": CARE_CATEGORY_LABELS.get(category, entry.type),
+        "title": entry.title,
+        "notes": entry.description,
+        "created_at": _iso(entry.created_at),
+    }
+
+
 def _as_dt(value: date | datetime | None) -> datetime | None:
     if value is None:
         return None
@@ -772,6 +798,25 @@ def api_summary():
     recent_activity = [item for item in recent_activity if item.get("date")]
     recent_activity.sort(key=lambda item: item["date"], reverse=True)
 
+    low_feed_inventory = [
+        _feed_inventory_payload(item)
+        for item in FeedInventorySimple.query.filter(FeedInventorySimple.is_active.is_(True)).order_by(FeedInventorySimple.updated_at.desc()).all()
+        if item.low_stock_threshold is not None and item.qty_on_hand <= item.low_stock_threshold
+    ][:6]
+
+    recent_feed_events = []
+    feed_rows = FeedEntry.query.order_by(FeedEntry.recorded_at.desc(), FeedEntry.id.desc()).limit(8).all()
+    for feed_row in feed_rows:
+        recent_feed_events.append({
+            "id": feed_row.id,
+            "project_id": feed_row.project_id,
+            "project_name": project_names.get(feed_row.project_id, f"Project {feed_row.project_id}"),
+            "recorded_at": _iso(feed_row.recorded_at),
+            "feed_type": feed_row.feed_type,
+            "amount": feed_row.amount,
+            "unit": feed_row.unit,
+        })
+
     return jsonify({
         "active_profile": {
             "id": profile.id if profile else None,
@@ -794,6 +839,8 @@ def api_summary():
         ],
         "recent_expenses": recent_expenses,
         "recent_activity": recent_activity[:10],
+        "low_feed_inventory": low_feed_inventory,
+        "recent_feed_events": recent_feed_events,
     })
 
 def _show_day_payload(show_day: ShowDay) -> dict[str, object]:
@@ -951,6 +998,7 @@ def _health_entry_payload(entry: HealthEntry) -> dict[str, object]:
 
 
 def _feed_entry_payload(entry: FeedEntry) -> dict[str, object]:
+    inventory_item = FeedInventorySimple.query.get(entry.feed_inventory_item_id) if entry.feed_inventory_item_id else None
     return {
         "id": entry.id,
         "project_id": entry.project_id,
@@ -960,12 +1008,29 @@ def _feed_entry_payload(entry: FeedEntry) -> dict[str, object]:
         "unit": entry.unit,
         "cost_cents": entry.cost_cents,
         "cost": (entry.cost_cents / 100.0) if entry.cost_cents is not None else None,
+        "feed_inventory_item_id": entry.feed_inventory_item_id,
+        "feed_inventory_item_name": inventory_item.name if inventory_item else None,
         "notes": entry.notes,
     }
 
 
 def _feed_inventory_payload(item: FeedInventorySimple) -> dict[str, object]:
-    return {"id": item.id, "name": item.name, "unit": item.unit, "qty_on_hand": item.qty_on_hand, "updated_at": _iso(item.updated_at)}
+    threshold = item.low_stock_threshold
+    low_stock = bool(threshold is not None and item.qty_on_hand <= threshold)
+    return {
+        "id": item.id,
+        "name": item.name,
+        "brand": item.brand,
+        "category": item.category,
+        "unit": item.unit,
+        "qty_on_hand": item.qty_on_hand,
+        "low_stock_threshold": threshold,
+        "low_stock": low_stock,
+        "notes": item.notes,
+        "is_active": bool(item.is_active),
+        "created_at": _iso(item.created_at),
+        "updated_at": _iso(item.updated_at),
+    }
 
 
 @api_bp.get('/shows')
@@ -1735,20 +1800,43 @@ def api_project_feed_create(project_id: int):
     if error:
         return error
     payload = request.get_json(silent=True) or {}
-    if not payload.get('recorded_at') or not str(payload.get('feed_type') or '').strip() or payload.get('amount') is None or not str(payload.get('unit') or '').strip():
-        return jsonify({'error': 'recorded_at, feed_type, amount, and unit are required'}), 400
+    if not payload.get('recorded_at') or payload.get('amount') is None or not str(payload.get('unit') or '').strip():
+        return jsonify({'error': 'recorded_at, amount, and unit are required'}), 400
+    inventory_item = None
+    if payload.get('feed_inventory_item_id') not in (None, ''):
+        inventory_item = FeedInventorySimple.query.get(int(payload.get('feed_inventory_item_id')))
+        if inventory_item is None:
+            return jsonify({'error': 'feed_inventory_item_id is invalid'}), 400
+    feed_type = str(payload.get('feed_type') or '').strip() or (inventory_item.name if inventory_item else '')
+    if not feed_type:
+        return jsonify({'error': 'feed_type is required when no inventory item is selected'}), 400
+    amount = float(payload['amount'])
+    if amount <= 0:
+        return jsonify({'error': 'amount must be greater than 0'}), 400
     cents = None
     if payload.get('cost') not in [None, '']:
         cents = int(round(float(payload.get('cost')) * 100))
     elif payload.get('cost_cents') is not None:
         cents = int(payload.get('cost_cents'))
-    row = FeedEntry(project_id=project_id, recorded_at=date.fromisoformat(payload['recorded_at']), feed_type=str(payload['feed_type']).strip(), amount=float(payload['amount']), unit=str(payload['unit']).strip(), cost_cents=cents, notes=(str(payload.get('notes')).strip() if payload.get('notes') else None))
+    row = FeedEntry(project_id=project_id, recorded_at=date.fromisoformat(payload['recorded_at']), feed_type=feed_type, amount=amount, unit=str(payload['unit']).strip(), cost_cents=cents, feed_inventory_item_id=(inventory_item.id if inventory_item else None), notes=(str(payload.get('notes')).strip() if payload.get('notes') else None))
+
+    if inventory_item is not None and payload.get('decrement_inventory', True):
+        inventory_item.qty_on_hand = max(0.0, float(inventory_item.qty_on_hand) - amount)
+        inventory_item.updated_at = datetime.utcnow()
+
+    timeline_title = f"Fed {feed_type}"
+    timeline_note = f"{amount:g} {str(payload['unit']).strip()}"
+    if row.notes:
+        timeline_note = f"{timeline_note} • {row.notes}"
+    timeline_row = TimelineEntry(project_id=project_id, type='feed', title=timeline_title, description=timeline_note, date=row.recorded_at, created_at=datetime.utcnow())
+
     db.session.add(row)
+    db.session.add(timeline_row)
     db.session.commit()
     return jsonify(_feed_entry_payload(row)), 201
 
 
-@api_bp.delete('/feed/<int:entry_id>')
+@api_bp.delete('/feed-entries/<int:entry_id>')
 def api_project_feed_delete(entry_id: int):
     _, error = _require_parent_unlocked()
     if error:
@@ -1759,10 +1847,54 @@ def api_project_feed_delete(entry_id: int):
     return jsonify({'success': True})
 
 
+@api_bp.get('/projects/<int:project_id>/care')
+def api_project_care(project_id: int):
+    Project.query.get_or_404(project_id)
+    rows = TimelineEntry.query.filter_by(project_id=project_id).order_by(TimelineEntry.date.desc(), TimelineEntry.id.desc()).all()
+    filtered = [row for row in rows if (row.type or '').strip().lower() in CARE_CATEGORY_LABELS]
+    return jsonify([_care_entry_payload(row) for row in filtered])
+
+
+@api_bp.post('/projects/<int:project_id>/care')
+def api_project_care_create(project_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    Project.query.get_or_404(project_id)
+
+    payload = request.get_json(silent=True) or {}
+    category = str(payload.get('category') or '').strip().lower()
+    recorded_at_raw = str(payload.get('recorded_at') or '').strip()
+    if category not in CARE_CATEGORY_LABELS:
+        return jsonify({'error': 'category must be one of: ' + ', '.join(CARE_CATEGORY_LABELS.keys())}), 400
+    if not recorded_at_raw:
+        return jsonify({'error': 'recorded_at is required'}), 400
+
+    recorded_at = date.fromisoformat(recorded_at_raw)
+    notes = str(payload.get('notes') or '').strip() or None
+    title = str(payload.get('title') or CARE_CATEGORY_LABELS[category]).strip()
+    row = TimelineEntry(
+        project_id=project_id,
+        type=category,
+        title=title,
+        description=notes,
+        date=recorded_at,
+        created_at=datetime.utcnow(),
+    )
+    db.session.add(row)
+    db.session.commit()
+    return jsonify(_care_entry_payload(row)), 201
+
+
 @api_bp.get('/feed-inventory')
 def api_feed_inventory_list_v2():
-    rows = FeedInventorySimple.query.order_by(FeedInventorySimple.name.asc(), FeedInventorySimple.id.asc()).all()
+    rows = FeedInventorySimple.query.filter(FeedInventorySimple.is_active.is_(True)).order_by(FeedInventorySimple.name.asc(), FeedInventorySimple.id.asc()).all()
     return jsonify([_feed_inventory_payload(item) for item in rows])
+
+
+@api_bp.get('/feed')
+def api_feed_inventory_list_alias():
+    return api_feed_inventory_list_v2()
 
 
 @api_bp.post('/feed-inventory')
@@ -1775,10 +1907,27 @@ def api_feed_inventory_create_v2():
     unit = str(payload.get('unit') or '').strip()
     if not name or not unit:
         return jsonify({'error': 'name and unit are required'}), 400
-    row = FeedInventorySimple(name=name, unit=unit, qty_on_hand=float(payload.get('qty_on_hand') or 0), updated_at=datetime.utcnow())
+    threshold_value = payload.get('low_stock_threshold')
+    row = FeedInventorySimple(
+        name=name,
+        brand=(str(payload.get('brand')).strip() if payload.get('brand') else None),
+        category=(str(payload.get('category')).strip() if payload.get('category') else None),
+        unit=unit,
+        qty_on_hand=float(payload.get('qty_on_hand') or 0),
+        low_stock_threshold=(float(threshold_value) if threshold_value not in (None, '') else None),
+        notes=(str(payload.get('notes')).strip() if payload.get('notes') else None),
+        is_active=True,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
     db.session.add(row)
     db.session.commit()
     return jsonify(_feed_inventory_payload(row)), 201
+
+
+@api_bp.post('/feed')
+def api_feed_inventory_create_alias():
+    return api_feed_inventory_create_v2()
 
 
 @api_bp.patch('/feed-inventory/<int:item_id>')
@@ -1790,13 +1939,46 @@ def api_feed_inventory_update_v2(item_id: int):
     payload = request.get_json(silent=True) or {}
     if 'name' in payload:
         row.name = str(payload['name']).strip()
+    if 'brand' in payload:
+        row.brand = (str(payload['brand']).strip() or None) if payload['brand'] is not None else None
+    if 'category' in payload:
+        row.category = (str(payload['category']).strip() or None) if payload['category'] is not None else None
     if 'unit' in payload:
         row.unit = str(payload['unit']).strip()
     if 'qty_on_hand' in payload:
         row.qty_on_hand = float(payload['qty_on_hand'])
+    if 'low_stock_threshold' in payload:
+        value = payload.get('low_stock_threshold')
+        row.low_stock_threshold = float(value) if value not in (None, '') else None
+    if 'notes' in payload:
+        row.notes = (str(payload.get('notes')).strip() or None) if payload.get('notes') is not None else None
+    if 'is_active' in payload:
+        row.is_active = bool(payload.get('is_active'))
     row.updated_at = datetime.utcnow()
     db.session.commit()
     return jsonify(_feed_inventory_payload(row))
+
+
+@api_bp.patch('/feed/<int:item_id>')
+def api_feed_inventory_update_alias(item_id: int):
+    return api_feed_inventory_update_v2(item_id)
+
+
+@api_bp.delete('/feed/<int:item_id>')
+def api_feed_inventory_delete(item_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    row = FeedInventorySimple.query.get_or_404(item_id)
+    in_use = FeedEntry.query.filter_by(feed_inventory_item_id=row.id).first() is not None
+    if in_use:
+        row.is_active = False
+        row.updated_at = datetime.utcnow()
+        db.session.commit()
+        return jsonify({'success': True, 'soft_deleted': True})
+    db.session.delete(row)
+    db.session.commit()
+    return jsonify({'success': True, 'soft_deleted': False})
 
 
 @api_bp.get('/reports/project-record-book/<int:project_id>')
