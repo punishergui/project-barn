@@ -1,74 +1,164 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { apiClientJson, Placing, Profile, Project, Show } from "@/lib/api";
 
-const tasks = [
-  ["feed", "Feed / Water"],
-  ["groom", "Grooming"],
-  ["weigh", "Weigh In"],
-  ["walk", "Walk / Exercise"],
-  ["ring", "Ring Time"],
-  ["note", "Notes"]
-] as const;
+import { apiClientJson, Placing, Profile, Project, Show, ShowDayTask } from "@/lib/api";
+
+const checklistTemplates = [
+  { key: "wash", label: "Wash animal" },
+  { key: "groom", label: "Groom" },
+  { key: "pack", label: "Pack supplies" },
+  { key: "feed", label: "Feed" },
+  { key: "walk", label: "Walk" },
+  { key: "weigh", label: "Weigh-in" },
+  { key: "ring", label: "Enter ring" }
+];
+
+function formatDate(value?: string | null) {
+  if (!value) return "TBD";
+  return new Date(value).toLocaleDateString();
+}
 
 export default function ShowDayModePage() {
   const params = useParams<{ id: string; dayId: string }>();
   const [show, setShow] = useState<Show | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [dayTasks, setDayTasks] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<ShowDayTask[]>([]);
+  const [dayPlacings, setDayPlacings] = useState<Placing[]>([]);
 
   const load = async () => {
-    const [showData, projectData, profileData, taskData] = await Promise.all([
+    const [showData, projectData, profileData, taskData, placingData] = await Promise.all([
       apiClientJson<Show>(`/shows/${params.id}`),
       apiClientJson<Project[]>("/projects"),
       apiClientJson<Profile[]>("/profiles"),
-      apiClientJson<any[]>(`/show-days/${params.dayId}/tasks`).catch(() => [])
+      apiClientJson<ShowDayTask[]>(`/show-days/${params.dayId}/tasks`).catch(() => []),
+      apiClientJson<Placing[]>(`/shows/${params.id}/placings`).then((rows) => rows.filter((row) => row.show_day_id === Number(params.dayId))).catch(() => [])
     ]);
+
     setShow(showData);
     setProjects(projectData);
     setProfiles(profileData);
-    setDayTasks(taskData);
+    setTasks(taskData);
+    setDayPlacings(placingData);
   };
 
   useEffect(() => {
     load().catch(() => undefined);
   }, [params.id, params.dayId]);
 
-  const saveTask = async (projectId: number, taskKey: string, taskLabel: string, current?: any) => {
-    if (current) {
-      await apiClientJson(`/show-day-tasks/${current.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ is_completed: !current.is_completed }) });
+  const toggleTask = async (projectId: number, taskKey: string, taskLabel: string) => {
+    const existing = tasks.find((task) => task.project_id === projectId && task.task_key === taskKey);
+
+    if (!existing) {
+      await apiClientJson(`/show-days/${params.dayId}/tasks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          project_id: projectId,
+          task_key: taskKey,
+          task_label: taskLabel,
+          is_completed: true
+        })
+      });
     } else {
-      await apiClientJson(`/show-days/${params.dayId}/tasks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ project_id: projectId, task_key: taskKey, task_label: taskLabel, is_completed: true }) });
+      await apiClientJson(`/show-day-tasks/${existing.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_completed: !existing.is_completed })
+      });
     }
+
     await load();
   };
 
-  const quickPlacing = async (projectId: number) => {
-    await apiClientJson("/placings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ show_id: Number(params.id), show_day_id: Number(params.dayId), project_id: projectId, class_name: "Showmanship", placing: "1", ribbon_type: "Blue" }) });
+  const addPlacing = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    await apiClientJson(`/shows/${params.id}/placing`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        project_id: Number(form.get("project_id")),
+        show_day_id: Number(params.dayId),
+        class_name: String(form.get("class_name") || "").trim() || null,
+        placing: String(form.get("placing") || "").trim(),
+        ribbon_type: String(form.get("ribbon_type") || "").trim() || null,
+        notes: String(form.get("notes") || "").trim() || null
+      })
+    });
+    event.currentTarget.reset();
     await load();
   };
 
-  const projectMap = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
-  const profileMap = useMemo(() => new Map(profiles.map((p) => [p.id, p.name])), [profiles]);
+  const projectMap = useMemo(() => new Map(projects.map((project) => [project.id, project])), [projects]);
+  const profileMap = useMemo(() => new Map(profiles.map((profile) => [profile.id, profile.name])), [profiles]);
 
-  if (!show) return <p>Loading...</p>;
+  if (!show) return <p className="px-4 py-4 text-sm text-[var(--barn-muted)]">Loading show day...</p>;
 
-  return <div className="space-y-4 pb-4">
-    <h1 className="text-xl font-semibold">Show Day Mode</h1>
-    {show.entries.map((entry) => {
-      const project = projectMap.get(entry.project_id);
-      const owner = profileMap.get(project?.owner_profile_id ?? -1) ?? "Unknown";
-      return <article key={entry.id} className="space-y-2 rounded-xl border border-white/10 bg-neutral-900 p-3">
-        <div><p className="text-lg font-semibold">{project?.name ?? entry.project_id}</p><p className="text-sm text-neutral-300 capitalize">{project?.species} • {owner}</p></div>
-        <div className="grid grid-cols-2 gap-2">{tasks.map(([key, label]) => {
-          const row = dayTasks.find((item) => item.project_id === entry.project_id && item.task_key === key);
-          return <button key={key} onClick={() => saveTask(entry.project_id, key, label, row)} className={`rounded-lg p-3 text-left text-sm ${row?.is_completed ? "bg-emerald-800" : "bg-neutral-800"}`}>{label}</button>;
-        })}</div>
-        <div className="flex gap-2"><button onClick={() => quickPlacing(entry.project_id)} className="rounded bg-red-700 px-3 py-2 text-sm">Quick Add Placing</button></div>
-      </article>;
-    })}
-  </div>;
+  const day = show.days.find((item) => item.id === Number(params.dayId));
+
+  return (
+    <div className="space-y-3 px-3 pb-6">
+      <header className="barn-card space-y-1">
+        <h1 className="text-xl font-semibold">{show.name}</h1>
+        <p className="text-sm text-[var(--barn-muted)]">{day?.label || `Day ${day?.day_number ?? ""}`}</p>
+        <p className="text-xs text-[var(--barn-muted)]">{formatDate(day?.show_date || day?.date)}</p>
+      </header>
+
+      {show.entries.map((entry) => {
+        const project = projectMap.get(entry.project_id);
+        const owner = profileMap.get(project?.owner_profile_id ?? -1) ?? "Unknown owner";
+
+        return (
+          <section key={entry.id} className="barn-card space-y-2">
+            <div>
+              <h2 className="text-lg font-semibold">{project?.name ?? `Project ${entry.project_id}`}</h2>
+              <p className="text-xs capitalize text-[var(--barn-muted)]">{project?.species ?? "Unknown species"} • {owner}</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {checklistTemplates.map((template) => {
+                const row = tasks.find((task) => task.project_id === entry.project_id && task.task_key === template.key);
+                return (
+                  <button
+                    key={template.key}
+                    type="button"
+                    onClick={() => toggleTask(entry.project_id, template.key, template.label).catch(() => undefined)}
+                    className={`min-h-14 rounded-lg border px-3 py-2 text-left text-sm ${row?.is_completed ? "border-emerald-500 bg-emerald-700/40" : "border-[var(--barn-border)] bg-[var(--barn-bg)]"}`}
+                  >
+                    <p className="font-medium">{template.label}</p>
+                    <p className="text-xs text-[var(--barn-muted)]">{row?.is_completed ? `Done ${formatDate(row.completed_at)}` : "Tap to mark complete"}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })}
+
+      <section className="barn-card space-y-2">
+        <h2 className="text-base font-semibold">Add placing / ribbon</h2>
+        <form className="grid gap-2 text-sm" onSubmit={(event) => addPlacing(event).catch(() => undefined)}>
+          <select name="project_id" className="min-h-12 rounded bg-[var(--barn-bg)] px-3" required>
+            {show.entries.map((entry) => <option key={entry.id} value={entry.project_id}>{projectMap.get(entry.project_id)?.name ?? entry.project_id}</option>)}
+          </select>
+          <input name="class_name" placeholder="Class" className="min-h-12 rounded bg-[var(--barn-bg)] px-3" />
+          <input name="placing" placeholder="Placing" className="min-h-12 rounded bg-[var(--barn-bg)] px-3" required />
+          <input name="ribbon_type" placeholder="Ribbon color" className="min-h-12 rounded bg-[var(--barn-bg)] px-3" />
+          <textarea name="notes" placeholder="Notes" className="rounded bg-[var(--barn-bg)] px-3 py-2" />
+          <button className="min-h-12 rounded bg-[var(--barn-red)] text-sm font-medium text-white">Save placing</button>
+        </form>
+
+        {dayPlacings.length === 0 ? <p className="barn-row text-xs text-[var(--barn-muted)]">No placings for this day yet.</p> : null}
+        {dayPlacings.map((placing) => (
+          <article key={placing.id} className="barn-row text-sm">
+            <p className="font-medium">{projectMap.get(placing.project_id ?? -1)?.name ?? "Project"}</p>
+            <p className="text-xs text-[var(--barn-muted)]">{placing.class_name || "Class"} • {placing.placing} • {placing.ribbon_type || "Ribbon"}</p>
+          </article>
+        ))}
+      </section>
+    </div>
+  );
 }

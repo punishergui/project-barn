@@ -230,7 +230,10 @@ export default function ProjectDetailPage() {
       {activeSection === "shows" ? (
         <section className="barn-card space-y-3 text-sm">
           <h2 className="text-base font-semibold">Shows</h2>
-          {shows.length === 0 ? <p className="barn-row text-[var(--barn-muted)]">No shows for this project yet.</p> : shows.map((show) => <Link key={show.id} href={`/shows/${show.id}`} className="barn-row block"><p className="font-medium">{show.name}</p><p className="text-xs text-[var(--barn-muted)]">{formatDate(show.start_date)} • {show.location}</p><p className="text-xs text-[var(--barn-muted)]">Placings: {show.entries.flatMap((entry) => entry.placings).map((placing) => placing.placing).join(", ") || "Not recorded"}</p></Link>)}
+          {shows.length === 0 ? <p className="barn-row text-[var(--barn-muted)]">No shows for this project yet.</p> : shows.map((show) => {
+            const showPlacings = placings.filter((placing) => placing.show_id === show.id);
+            return <Link key={show.id} href={`/shows/${show.id}`} className="barn-row block space-y-1"><p className="font-medium">{show.name}</p><p className="text-xs text-[var(--barn-muted)]">{formatDate(show.start_date)} • {show.location}</p>{showPlacings.length === 0 ? <p className="text-xs text-[var(--barn-muted)]">No placings recorded yet.</p> : showPlacings.map((placing) => <p key={placing.id} className="text-xs text-[var(--barn-muted)]">{placing.class_name || "Class"} • {placing.placing} • {placing.ribbon_type || "Ribbon"}</p>)}</Link>;
+          })}
         </section>
       ) : null}
 
