@@ -9,7 +9,7 @@ from flask import Flask
 from sqlalchemy.exc import OperationalError
 from sqlalchemy import inspect, text
 
-from app.models import AppSetting, AuctionSale, EquipmentItem, Expense, ExpenseAllocation, ExpenseReceipt, FeedEntry, FeedInventory, FeedInventorySimple, FeedLog, Goal, HealthEntry, HealthRecord, IncomeRecord, InventoryItem, Media, Notification, PackingListItem, PackingListTemplate, Photo, Placing, Profile, Project, ProjectActivity, ProjectMaterial, ProjectNarrative, ProjectTask, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowDayTask, ShowEntry, SkillsChecklist, Task, TaskItem, TimelineEntry, WeightEntry, db
+from app.models import AppSetting, AuctionSale, EquipmentItem, Expense, ExpenseAllocation, ExpenseReceipt, FamilyInventoryItem, FeedEntry, FeedInventory, FeedInventorySimple, FeedLog, Goal, HealthEntry, HealthRecord, IncomeRecord, InventoryItem, Media, Notification, PackingListItem, PackingListTemplate, Photo, Placing, Profile, Project, ProjectActivity, ProjectMaterial, ProjectNarrative, ProjectTask, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowDayTask, ShowEntry, SkillsChecklist, Task, TaskItem, TimelineEntry, WeightEntry, db
 
 
 _db_init_state = {
@@ -223,6 +223,12 @@ def run_migrations() -> None:
         "ALTER TABLE project ADD COLUMN county TEXT",
         "ALTER TABLE project ADD COLUMN state TEXT DEFAULT 'Texas'",
         "ALTER TABLE project ADD COLUMN project_year INTEGER",
+        "ALTER TABLE project ADD COLUMN goal TEXT",
+        "ALTER TABLE project ADD COLUMN materials_needed TEXT",
+        "ALTER TABLE project ADD COLUMN competition_category TEXT",
+        "ALTER TABLE project ADD COLUMN completion_target_date DATE",
+        "ALTER TABLE project_material ADD COLUMN inventory_item_id INTEGER REFERENCES family_inventory_item(id)",
+        "ALTER TABLE project_material ADD COLUMN status TEXT",
         "ALTER TABLE profile ADD COLUMN club_name TEXT",
         "ALTER TABLE profile ADD COLUMN county TEXT",
         "ALTER TABLE profile ADD COLUMN state TEXT DEFAULT 'Texas'",
@@ -261,6 +267,7 @@ def run_migrations() -> None:
             conn.execute(text("CREATE TABLE IF NOT EXISTS health_entries (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL REFERENCES project(id), recorded_at DATE NOT NULL, category TEXT NOT NULL, description TEXT NOT NULL, cost_cents INTEGER, vendor TEXT, attachment_receipt_url TEXT)"))
             conn.execute(text("CREATE TABLE IF NOT EXISTS feed_entries (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL REFERENCES project(id), recorded_at DATE NOT NULL, feed_type TEXT NOT NULL, amount REAL NOT NULL, unit TEXT NOT NULL, cost_cents INTEGER, feed_inventory_item_id INTEGER REFERENCES feed_inventory_item(id), notes TEXT)"))
             conn.execute(text("CREATE TABLE IF NOT EXISTS feed_inventory_item (id INTEGER PRIMARY KEY, name TEXT NOT NULL, brand TEXT, category TEXT, unit TEXT NOT NULL, qty_on_hand REAL NOT NULL DEFAULT 0, low_stock_threshold REAL, notes TEXT, is_active BOOLEAN NOT NULL DEFAULT 1, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)"))
+            conn.execute(text("CREATE TABLE IF NOT EXISTS family_inventory_item (id INTEGER PRIMARY KEY, name TEXT NOT NULL, category TEXT NOT NULL DEFAULT 'general', quantity REAL NOT NULL DEFAULT 1, unit TEXT, location TEXT, condition TEXT, assigned_project_id INTEGER REFERENCES project(id), notes TEXT, low_stock BOOLEAN NOT NULL DEFAULT 0, archived BOOLEAN NOT NULL DEFAULT 0, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)"))
         except Exception:
             pass
         conn.commit()

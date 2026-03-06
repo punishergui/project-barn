@@ -54,6 +54,10 @@ class Project(db.Model):
     county = db.Column(db.String(80), nullable=True)
     state = db.Column(db.String(40), nullable=True, default='Texas')
     project_year = db.Column(db.Integer, nullable=True)
+    goal = db.Column(db.Text, nullable=True)
+    materials_needed = db.Column(db.Text, nullable=True)
+    competition_category = db.Column(db.String(120), nullable=True)
+    completion_target_date = db.Column(db.Date, nullable=True)
     status = db.Column(db.String(20), nullable=False, default="active")
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
@@ -554,8 +558,28 @@ class ProjectMaterial(db.Model):
     unit_cost = db.Column(db.Float, nullable=True)
     total_cost = db.Column(db.Float, nullable=True)
     category = db.Column(db.String(80), nullable=True)
+    inventory_item_id = db.Column(db.Integer, db.ForeignKey('family_inventory_item.id'), nullable=True)
+    status = db.Column(db.String(20), nullable=True)
     notes = db.Column(db.Text, nullable=True)
     date_purchased = db.Column(db.Date, nullable=True)
+
+
+class FamilyInventoryItem(db.Model):
+    __tablename__ = "family_inventory_item"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    category = db.Column(db.String(60), nullable=False, default="general")
+    quantity = db.Column(db.Float, nullable=False, default=1)
+    unit = db.Column(db.String(20), nullable=True)
+    location = db.Column(db.String(120), nullable=True)
+    condition = db.Column(db.String(40), nullable=True)
+    assigned_project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    low_stock = db.Column(db.Boolean, nullable=False, default=False)
+    archived = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
 
 class ProjectNarrative(db.Model):

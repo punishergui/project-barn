@@ -11,7 +11,7 @@ export default function ProjectsPage() {
   const [auth, setAuth] = useState<AuthStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [species, setSpecies] = useState("");
+  const [projectType, setProjectType] = useState("");
   const [status, setStatus] = useState("");
   const [owner, setOwner] = useState("");
 
@@ -20,7 +20,7 @@ export default function ProjectsPage() {
       setLoading(true);
       try {
         const [projectData, profileData, authData] = await Promise.all([
-          apiClientJson<Project[]>(`/projects?species=${species}&status=${status}&owner=${owner}`),
+          apiClientJson<Project[]>(`/projects?project_type=${projectType}&status=${status}&owner=${owner}`),
           apiClientJson<Profile[]>("/profiles"),
           apiClientJson<AuthStatus>("/auth/status")
         ]);
@@ -35,7 +35,7 @@ export default function ProjectsPage() {
       }
     };
     load().catch(() => undefined);
-  }, [species, status, owner]);
+  }, [projectType, status, owner]);
 
   const owners = useMemo(() => new Map(profiles.map((p) => [p.id, p.name])), [profiles]);
 
@@ -44,7 +44,7 @@ export default function ProjectsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Projects</h1>
-          <p className="text-sm text-neutral-300">Track active animals and ownership at a glance.</p>
+          <p className="text-sm text-neutral-300">Track livestock and non-livestock projects in one place.</p>
         </div>
         {auth?.role === "parent" && auth.is_unlocked ? (
           <Link className="rounded-lg bg-[var(--barn-red)] px-3 py-2 text-sm font-medium text-white" href="/projects/new">
@@ -54,7 +54,7 @@ export default function ProjectsPage() {
       </div>
 
       <section className="barn-card grid gap-2 sm:grid-cols-3">
-        <input value={species} onChange={(e) => setSpecies(e.target.value)} placeholder="species" className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-2" />
+        <input value={projectType} onChange={(e) => setProjectType(e.target.value)} placeholder="project type" className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-2" />
         <input value={status} onChange={(e) => setStatus(e.target.value)} placeholder="status" className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-2" />
         <select value={owner} onChange={(e) => setOwner(e.target.value)} className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-2">
           <option value="">owner</option>
@@ -76,7 +76,7 @@ export default function ProjectsPage() {
               <div>
                 <h2 className="font-semibold">{project.name}</h2>
                 <p className="text-sm capitalize text-neutral-300">
-                  {project.species} • {project.status}
+                  {project.project_category || project.project_type} • {project.status}
                 </p>
                 <p className="text-sm text-neutral-300">Owner: {owners.get(project.owner_profile_id) ?? project.owner_profile_id}</p>
               </div>

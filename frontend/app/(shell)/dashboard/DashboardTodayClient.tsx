@@ -6,12 +6,16 @@ type DashboardProject = {
   id: number;
   name: string;
   species: string;
+  project_type: string;
+  project_category: string | null;
+  is_livestock: boolean;
   owner: string;
   status: string;
   photo_url: string | null;
   spent_total: number;
   open_tasks: number;
   latest_weight_lbs: number | null;
+  next_event: string | null;
   next_show: { id: number; name: string; date: string | null } | null;
 };
 
@@ -86,9 +90,9 @@ export default function DashboardTodayClient({
               {project.photo_url ? <img src={project.photo_url} alt={project.name} className="h-16 w-16 rounded-lg object-cover" /> : <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-[var(--barn-surface)] text-xs text-[var(--barn-muted)]">No photo</div>}
               <div className="min-w-0 flex-1">
                 <p className="truncate text-base font-semibold">{project.name}</p>
-                <p className="text-xs capitalize text-[var(--barn-muted)]">{project.species} • {project.owner}</p>
+                <p className="text-xs capitalize text-[var(--barn-muted)]">{project.project_category || project.project_type} • {project.owner}</p>
                 <p className="mt-1 text-xs text-[var(--barn-muted)]">Spent ${project.spent_total.toFixed(2)} • Open tasks {project.open_tasks}</p>
-                <p className="text-xs text-[var(--barn-muted)]">Weight {project.latest_weight_lbs ? `${project.latest_weight_lbs} lbs` : "No weigh-ins yet"}</p>
+                <p className="text-xs text-[var(--barn-muted)]">{project.is_livestock ? `Weight ${project.latest_weight_lbs ? `${project.latest_weight_lbs} lbs` : "No weigh-ins yet"}` : `Next event ${project.next_event ?? "none"}`}</p>
               </div>
             </div>
           </Link>

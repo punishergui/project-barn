@@ -55,6 +55,9 @@ export default function MorePage() {
         <Link href="/income" className="quick-action-card justify-start px-4 text-sm">
           💰 Income
         </Link>
+        <Link href="/inventory" className="quick-action-card justify-start px-4 text-sm">
+          🧰 Inventory
+        </Link>
         <Link href="/auctions" className="quick-action-card justify-start px-4 text-sm">
           🏷️ Auctions
         </Link>
