@@ -71,8 +71,9 @@ export default function EditExpensePage() {
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
-    const payload = Object.fromEntries(new FormData(event.currentTarget).entries());
-    await apiClientJson(`/expenses/${params.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    try {
+      const payload = Object.fromEntries(new FormData(event.currentTarget).entries());
+      await apiClientJson(`/expenses/${params.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     let allocationSummary = [{ projectName: projects.find((project) => project.id === Number(payload.project_id))?.name ?? "Primary project", amount: Number(payload.amount) || 0 }];
     if (splitEnabled) {
       if (preview.allocations.length === 0 || preview.remainingCents !== 0) {
@@ -82,7 +83,10 @@ export default function EditExpensePage() {
       const savedAllocations = await apiClientJson<ExpenseAllocation[]>(`/expenses/${params.id}/allocations`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ allocations: preview.allocations }) });
       allocationSummary = savedAllocations.map((allocation) => ({ projectName: projects.find((project) => project.id === allocation.project_id)?.name ?? `Project ${allocation.project_id}`, amount: allocation.amount }));
     }
-    setSavedSummary({ amount: Number(payload.amount) || 0, allocations: allocationSummary, receiptCount: receipts.length });
+      setSavedSummary({ amount: Number(payload.amount) || 0, allocations: allocationSummary, receiptCount: receipts.length });
+    } catch (saveError) {
+      setError(toUserErrorMessage(saveError, "Unable to save expense changes."));
+    }
   };
 
   const uploadReceipts = async () => {
@@ -99,7 +103,7 @@ export default function EditExpensePage() {
     }
   };
 
-  if (!expense) return <p>Loading expense...</p>;
+  if (!expense) return <p className="px-4 text-sm text-neutral-300">Loading expense...</p>;
 
   if (savedSummary) {
     return <section className="space-y-3 rounded-lg border border-white/10 bg-neutral-900 p-4">
@@ -110,11 +114,11 @@ export default function EditExpensePage() {
         {savedSummary.allocations.map((row, index) => <p key={`${row.projectName}-${index}`}>{row.projectName}: ${row.amount.toFixed(2)}</p>)}
       </div>
       <p className="text-sm">Receipts on file: {savedSummary.receiptCount}</p>
-      <button onClick={() => router.push(`/expenses/${params.id}`)} className="rounded bg-red-700 px-3 py-2 text-sm">Back to expense</button>
+      <button onClick={() => { router.push(`/expenses/${params.id}`); router.refresh(); }} className="rounded bg-red-700 px-3 py-2 text-sm">Back to expense</button>
     </section>;
   }
 
-  return <form onSubmit={submit} className="space-y-3 rounded-lg border border-white/10 bg-neutral-900 p-4">
+  return <form onSubmit={submit} className="space-y-3 rounded-lg border border-white/10 bg-neutral-900 p-4 mx-4 mb-6">
     <h1 className="text-xl font-semibold">Edit Expense</h1>
     <select name="project_id" defaultValue={expense.project_id} className="w-full rounded bg-neutral-800 p-2">{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select>
     <input name="date" type="date" defaultValue={expense.date.slice(0, 10)} className="w-full rounded bg-neutral-800 p-2" />

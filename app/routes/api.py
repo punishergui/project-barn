@@ -1342,7 +1342,7 @@ def api_expenses():
     end_date = request.args.get("end_date")
 
     if category:
-        query = query.filter(Expense.category == category)
+        query = query.filter(func.lower(Expense.category).contains(category.strip().lower()))
     if start_date:
         query = query.filter(Expense.date >= date.fromisoformat(start_date))
     if end_date:
@@ -1396,7 +1396,7 @@ def api_expenses_create():
 
 @api_bp.get("/expenses/<int:expense_id>")
 def api_expense_detail(expense_id: int):
-    expense = Expense.query.get_or_404(expense_id)
+    expense = Expense.query.filter(Expense.id == expense_id, Expense.deleted_at.is_(None)).first_or_404()
     return jsonify(_expense_payload(expense))
 
 
@@ -1407,7 +1407,7 @@ def api_expense_update(expense_id: int):
         return error
 
     payload = request.get_json(silent=True) or {}
-    expense = Expense.query.get_or_404(expense_id)
+    expense = Expense.query.filter(Expense.id == expense_id, Expense.deleted_at.is_(None)).first_or_404()
 
     if "project_id" in payload:
         expense.project_id = int(payload["project_id"])
@@ -1435,7 +1435,7 @@ def api_expense_delete(expense_id: int):
     if error:
         return error
 
-    expense = Expense.query.get_or_404(expense_id)
+    expense = Expense.query.filter(Expense.id == expense_id, Expense.deleted_at.is_(None)).first_or_404()
     expense.deleted_at = datetime.utcnow()
     expense.updated_at = datetime.utcnow()
     db.session.commit()
@@ -1454,8 +1454,6 @@ def api_expense_receipts_create(expense_id: int):
     if validation_error:
         return validation_error
 
-    size_bytes = _file_size_bytes(file)
-    size_bytes = _file_size_bytes(file)
     size_bytes = _file_size_bytes(file)
     filename, save_error = _save_file(file, "receipts")
     if save_error:
@@ -1487,7 +1485,13 @@ def api_expense_receipt_delete(receipt_id: int):
         return error
 
     receipt = ExpenseReceipt.query.get_or_404(receipt_id)
+    expense = Expense.query.get(receipt.expense_id)
     db.session.delete(receipt)
+    db.session.flush()
+    if expense is not None:
+        latest_receipt = ExpenseReceipt.query.filter_by(expense_id=expense.id).order_by(ExpenseReceipt.id.desc()).first()
+        expense.receipt_url = latest_receipt.url if latest_receipt else None
+        expense.updated_at = datetime.utcnow()
     db.session.commit()
     return jsonify({"success": True})
 
