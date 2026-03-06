@@ -13,6 +13,7 @@ type DashboardTodayClientProps = {
   upcomingShows: ShowSummary[];
   recentExpenses: ExpenseSummary[];
   recentActivity: ActivitySummary[];
+  quickActions: Array<{ href: string; label: string }>;
 };
 
 function formatDate(value: string) {
@@ -26,7 +27,8 @@ export default function DashboardTodayClient({
   activeProjects,
   upcomingShows,
   recentExpenses,
-  recentActivity
+  recentActivity,
+  quickActions
 }: DashboardTodayClientProps) {
   return (
     <div className="w-full space-y-4 px-4 pb-6">
@@ -81,6 +83,19 @@ export default function DashboardTodayClient({
               <p className="font-medium">${expense.amount.toFixed(2)} • {expense.category}</p>
               <p className="text-xs text-[var(--barn-muted)]">{formatDate(expense.date)} • {expense.projectName}</p>
               <p className="text-xs text-[var(--barn-muted)]">{expense.allocationCount} allocations</p>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="barn-card">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-medium">Quick Actions</h2>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {quickActions.map((action) => (
+            <Link key={action.href} href={action.href} className="quick-action-card">
+              {action.label}
             </Link>
           ))}
         </div>
