@@ -2112,7 +2112,78 @@ def _task_item_payload(task: TaskItem) -> dict[str, object]:
     }
 
 
+def _media_type_from_mime(mime_type: str | None, file_name: str | None = None) -> str:
+    value = (mime_type or _guess_mime(file_name or "") or "").lower()
+    if value.startswith("video/"):
+        return "video"
+    if "ribbon" in (file_name or "").lower():
+        return "ribbon"
+    return "photo"
+
+
+def _parse_tags(raw_value: object) -> list[str]:
+    if raw_value in (None, ""):
+        return []
+    if isinstance(raw_value, list):
+        return [str(item).strip() for item in raw_value if str(item).strip()]
+    if isinstance(raw_value, str):
+        value = raw_value.strip()
+        if not value:
+            return []
+        try:
+            parsed = json.loads(value)
+            if isinstance(parsed, list):
+                return [str(item).strip() for item in parsed if str(item).strip()]
+        except json.JSONDecodeError:
+            pass
+        return [item.strip() for item in value.split(",") if item.strip()]
+    return []
+
+
+def _create_media_timeline_event(media: Media, actor: Profile | None = None) -> None:
+    if not media.project_id:
+        return
+    project = Project.query.get(media.project_id)
+    if not project:
+        return
+
+    media_label = "photo" if media.media_type == "photo" else ("video" if media.media_type == "video" else "ribbon photo")
+    actor_name = actor.name if actor else "Someone"
+
+    title = f"{actor_name} added a {media_label} to {project.name}"
+    if media.show_id:
+        show = Show.query.get(media.show_id)
+        if show:
+            title = f"{actor_name} uploaded a show ring {media_label}"
+    if media.media_type == "ribbon":
+        show = Show.query.get(media.show_id) if media.show_id else None
+        title = f"{actor_name} added ribbon photo{f' from {show.name}' if show else ''}"
+
+    tags = _parse_tags(media.tags_json)
+    details = []
+    if media.caption:
+        details.append(media.caption)
+    if tags:
+        details.append("Tags: " + ", ".join(tags[:5]))
+
+    event = TimelineEntry(
+        project_id=media.project_id,
+        type="media",
+        title=title,
+        description=" • ".join(details) if details else None,
+        date=(media.created_at.date() if media.created_at else date.today()),
+        created_at=datetime.utcnow(),
+    )
+    db.session.add(event)
+
+
 def _media_payload(item: Media) -> dict[str, object]:
+    placing = Placing.query.get(item.placing_id) if item.placing_id else None
+    helper = Profile.query.get(item.helper_profile_id) if item.helper_profile_id else None
+    show = Show.query.get(item.show_id) if item.show_id else None
+    tags = _parse_tags(item.tags_json)
+    media_type = item.media_type or _media_type_from_mime(item.mime_type, item.file_name)
+
     return {
         "id": item.id,
         "project_id": item.project_id,
@@ -2120,11 +2191,19 @@ def _media_payload(item: Media) -> dict[str, object]:
         "placing_id": item.placing_id,
         "show_id": item.show_id,
         "show_day_id": item.show_day_id,
+        "helper_profile_id": item.helper_profile_id,
+        "helper_profile_name": helper.name if helper else None,
         "kind": item.kind,
+        "media_type": media_type,
+        "mime_type": item.mime_type,
         "file_name": item.file_name,
         "file_url": item.url,
         "url": item.url,
         "caption": item.caption,
+        "tags": tags,
+        "show_name": show.name if show else None,
+        "placing_value": placing.placing if placing else None,
+        "ribbon_type": placing.ribbon_type if placing else None,
         "created_at": _iso(item.created_at),
     }
 
@@ -2522,14 +2601,23 @@ def api_upload_project_media():
     if save_error:
         return save_error
 
+    tags = _parse_tags(request.form.get("tags"))
+    media_type = request.form.get("media_type") or _media_type_from_mime(file.mimetype, safe_name or filename)
     media = Media(
         project_id=project_id,
-        kind="project",
+        show_id=request.form.get("show_id", type=int),
+        placing_id=request.form.get("placing_id", type=int),
+        helper_profile_id=request.form.get("helper_profile_id", type=int),
+        kind=request.form.get("kind") or "project",
+        media_type=media_type,
+        mime_type=file.mimetype or _guess_mime(safe_name or filename),
         file_name=safe_name or filename,
         url=f"/uploads/{filename}",
         caption=(request.form.get("caption") or None),
+        tags_json=json.dumps(tags) if tags else None,
     )
     db.session.add(media)
+    _create_media_timeline_event(media, profile)
     _create_family_notification(
         notification_type='media_added',
         title='Photo/media added',
@@ -2547,13 +2635,36 @@ def api_media_upload():
     profile, error = _require_parent_unlocked()
     if error:
         return error
+
     file = request.files.get('file')
-    try:
-        filename = save_upload(file, current_app.config['UPLOAD_DIR'])
-    except Exception as exc:
-        return jsonify({'error': str(exc)}), 400
-    media = Media(project_id=int(request.form['project_id']) if request.form.get('project_id') else None, timeline_entry_id=int(request.form['timeline_entry_id']) if request.form.get('timeline_entry_id') else None, placing_id=int(request.form['placing_id']) if request.form.get('placing_id') else None, show_id=int(request.form['show_id']) if request.form.get('show_id') else None, show_day_id=int(request.form['show_day_id']) if request.form.get('show_day_id') else None, kind=request.form.get('kind') or 'project', file_name=filename, url=f"/uploads/{filename}", caption=request.form.get('caption'))
+    safe_name, validation_error = _validate_upload(file, ('image/', 'video/'), {'video/quicktime'})
+    if validation_error:
+        return validation_error
+
+    filename, save_error = _save_file(file, 'media')
+    if save_error:
+        return save_error
+
+    tags = _parse_tags(request.form.get('tags'))
+    media_type = request.form.get('media_type') or _media_type_from_mime(file.mimetype, safe_name or filename)
+
+    media = Media(
+        project_id=int(request.form['project_id']) if request.form.get('project_id') else None,
+        timeline_entry_id=int(request.form['timeline_entry_id']) if request.form.get('timeline_entry_id') else None,
+        placing_id=int(request.form['placing_id']) if request.form.get('placing_id') else None,
+        show_id=int(request.form['show_id']) if request.form.get('show_id') else None,
+        show_day_id=int(request.form['show_day_id']) if request.form.get('show_day_id') else None,
+        helper_profile_id=int(request.form['helper_profile_id']) if request.form.get('helper_profile_id') else None,
+        kind=request.form.get('kind') or 'project',
+        media_type=media_type,
+        mime_type=file.mimetype or _guess_mime(safe_name or filename),
+        file_name=safe_name or filename,
+        url=f"/uploads/{filename}",
+        caption=request.form.get('caption'),
+        tags_json=json.dumps(tags) if tags else None,
+    )
     db.session.add(media)
+    _create_media_timeline_event(media, profile)
     _create_family_notification(
         notification_type='media_added',
         title='Photo/media added',
@@ -2718,17 +2829,33 @@ def api_project_media(project_id: int):
 
 @api_bp.post('/projects/<int:project_id>/media')
 def api_project_media_create(project_id: int):
-    _, error = _require_parent_unlocked()
+    profile, error = _require_parent_unlocked()
     if error:
         return error
     Project.query.get_or_404(project_id)
     file = request.files.get('file')
-    try:
-        filename = save_upload(file, current_app.config['UPLOAD_DIR'])
-    except Exception as exc:
-        return jsonify({'error': str(exc)}), 400
-    media = Media(project_id=project_id, kind=request.form.get('kind') or 'project', file_name=filename, url=f"/uploads/{filename}", caption=request.form.get('caption'))
+    safe_name, validation_error = _validate_upload(file, ('image/', 'video/'), {'video/quicktime'})
+    if validation_error:
+        return validation_error
+    filename, save_error = _save_file(file, 'media')
+    if save_error:
+        return save_error
+    tags = _parse_tags(request.form.get('tags'))
+    media = Media(
+        project_id=project_id,
+        show_id=request.form.get('show_id', type=int),
+        placing_id=request.form.get('placing_id', type=int),
+        helper_profile_id=request.form.get('helper_profile_id', type=int),
+        kind=request.form.get('kind') or 'project',
+        media_type=request.form.get('media_type') or _media_type_from_mime(file.mimetype, safe_name or filename),
+        mime_type=file.mimetype or _guess_mime(safe_name or filename),
+        file_name=safe_name or filename,
+        url=f"/uploads/{filename}",
+        caption=request.form.get('caption'),
+        tags_json=json.dumps(tags) if tags else None,
+    )
     db.session.add(media)
+    _create_media_timeline_event(media, profile)
     db.session.commit()
     return jsonify(_media_payload(media)), 201
 
@@ -2742,17 +2869,34 @@ def api_placing_media(placing_id: int):
 
 @api_bp.post('/placings/<int:placing_id>/media')
 def api_placing_media_create(placing_id: int):
-    _, error = _require_parent_unlocked()
+    profile, error = _require_parent_unlocked()
     if error:
         return error
     placing = Placing.query.get_or_404(placing_id)
     file = request.files.get('file')
-    try:
-        filename = save_upload(file, current_app.config['UPLOAD_DIR'])
-    except Exception as exc:
-        return jsonify({'error': str(exc)}), 400
-    media = Media(project_id=placing.project_id, placing_id=placing_id, show_id=placing.show_id, show_day_id=placing.show_day_id, kind='placing', file_name=filename, url=f"/uploads/{filename}", caption=request.form.get('caption'))
+    safe_name, validation_error = _validate_upload(file, ('image/', 'video/'), {'video/quicktime'})
+    if validation_error:
+        return validation_error
+    filename, save_error = _save_file(file, 'media')
+    if save_error:
+        return save_error
+    tags = _parse_tags(request.form.get('tags'))
+    media = Media(
+        project_id=placing.project_id,
+        placing_id=placing_id,
+        show_id=placing.show_id,
+        show_day_id=placing.show_day_id,
+        helper_profile_id=request.form.get('helper_profile_id', type=int),
+        kind='placing',
+        media_type=request.form.get('media_type') or 'ribbon',
+        mime_type=file.mimetype or _guess_mime(safe_name or filename),
+        file_name=safe_name or filename,
+        url=f"/uploads/{filename}",
+        caption=request.form.get('caption'),
+        tags_json=json.dumps(tags) if tags else None,
+    )
     db.session.add(media)
+    _create_media_timeline_event(media, profile)
     db.session.commit()
     return jsonify(_media_payload(media)), 201
 

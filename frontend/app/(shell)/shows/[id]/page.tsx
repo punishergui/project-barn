@@ -29,6 +29,8 @@ export default function ShowDetailPage() {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [auth, setAuth] = useState<AuthStatus | null>(null);
+  const [showMediaCaption, setShowMediaCaption] = useState("");
+  const [showMediaPlacingId, setShowMediaPlacingId] = useState("");
 
   const load = async () => {
     const [showData, projectData, profileData, placingData, mediaData, authData] = await Promise.all([
@@ -110,9 +112,13 @@ export default function ShowDetailPage() {
     const formData = new FormData();
     formData.set("file", file);
     formData.set("show_id", String(params.id));
+    formData.set("placing_id", showMediaPlacingId);
+    formData.set("caption", showMediaCaption);
     formData.set("kind", "show");
     await apiClientJson("/media/upload", { method: "POST", body: formData });
     event.target.value = "";
+    setShowMediaCaption("");
+    setShowMediaPlacingId("");
     await load();
   };
 
@@ -217,17 +223,28 @@ export default function ShowDetailPage() {
       </section>
 
       <section className="barn-card space-y-2">
-        <div className="flex items-center justify-between gap-2">
+        <div className="space-y-2">
           <h2 className="text-base font-semibold">Show Media</h2>
-          <label className="rounded bg-[var(--barn-red)] px-3 py-2 text-xs text-white">
-            Upload Photo
-            <input type="file" accept="image/*,video/*" className="hidden" onChange={(event) => uploadShowMedia(event).catch(() => undefined)} />
-          </label>
+          <div className="flex flex-wrap gap-2">
+            <input value={showMediaCaption} onChange={(event) => setShowMediaCaption(event.target.value)} placeholder="Caption" className="rounded bg-black/20 px-2 py-1 text-xs" />
+            <select value={showMediaPlacingId} onChange={(event) => setShowMediaPlacingId(event.target.value)} className="rounded bg-black/20 px-2 py-1 text-xs">
+              <option value="">No placing tag</option>
+              {placings.map((placing) => <option key={placing.id} value={placing.id}>{placing.placing}</option>)}
+            </select>
+            <label className="rounded bg-[var(--barn-red)] px-3 py-2 text-xs text-white">
+              Upload
+              <input type="file" accept="image/*,video/mp4,video/quicktime,video/mov" className="hidden" onChange={(event) => uploadShowMedia(event).catch(() => undefined)} />
+            </label>
+          </div>
         </div>
         {media.length === 0 ? <p className="barn-row text-sm text-[var(--barn-muted)]">No media uploaded yet.</p> : null}
         <div className="grid grid-cols-2 gap-2">
           {media.map((item) => (
-            <img key={item.id} src={item.url} alt={item.caption || item.file_name} className="h-32 w-full rounded-lg object-cover" />
+            <a key={item.id} href={item.file_url || item.url} className="rounded bg-black/20 p-2 text-xs">
+              <img src={item.file_url || item.url} alt={item.caption || item.file_name} className="h-28 w-full rounded object-cover" loading="lazy" />
+              <p className="mt-1 truncate">{item.caption || item.file_name}</p>
+              <p className="text-[10px] text-[var(--barn-muted)]">{item.show_name || show.name}{item.placing_value ? ` • ${item.placing_value}` : ""}{item.ribbon_type ? ` • ${item.ribbon_type}` : ""}</p>
+            </a>
           ))}
         </div>
       </section>

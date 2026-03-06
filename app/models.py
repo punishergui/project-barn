@@ -342,10 +342,14 @@ class Media(db.Model):
     placing_id = db.Column(db.Integer, db.ForeignKey("placing.id"), nullable=True)
     show_id = db.Column(db.Integer, db.ForeignKey("show.id"), nullable=True)
     show_day_id = db.Column(db.Integer, db.ForeignKey("show_day.id"), nullable=True)
+    helper_profile_id = db.Column(db.Integer, db.ForeignKey("profile.id"), nullable=True)
     kind = db.Column(db.String(40), nullable=False, default="project")
+    media_type = db.Column(db.String(20), nullable=False, default="photo")
+    mime_type = db.Column(db.String(120), nullable=True)
     file_name = db.Column(db.String(255), nullable=False)
     url = db.Column(db.String(255), nullable=False)
     caption = db.Column(db.Text, nullable=True)
+    tags_json = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
 

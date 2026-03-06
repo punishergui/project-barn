@@ -1,19 +1,20 @@
 import { MediaItem } from "@/lib/api";
+import { detectMediaType, ribbonBadgeClass } from "@/lib/media";
 
 export function ShowsMediaCard({ item }: { item: MediaItem }) {
   const mediaUrl = item.file_url || item.url;
-  const extension = item.file_name.split(".").pop()?.toLowerCase() ?? "";
-  const isVideo = ["mp4", "mov", "webm", "m4v", "avi", "mkv"].includes(extension);
-  const source = item.placing_id ? "Placing" : item.timeline_entry_id ? "Timeline" : item.show_id ? "Show" : "Project";
+  const mediaType = detectMediaType(item);
+
   return (
-    <a href={mediaUrl} className="space-y-1 rounded bg-neutral-800 p-2">
-      {isVideo ? (
-        <video src={mediaUrl} className="h-28 w-full rounded bg-black object-cover" muted playsInline controls />
+    <a href={mediaUrl} className="relative space-y-1 rounded bg-neutral-800 p-2">
+      {mediaType === "video" ? (
+        <video src={mediaUrl} className="h-28 w-full rounded bg-black object-cover" muted playsInline preload="metadata" />
       ) : (
-        <img src={mediaUrl} alt={item.caption ?? item.file_name} className="h-28 w-full rounded object-cover" />
+        <img src={mediaUrl} alt={item.caption ?? item.file_name} className="h-28 w-full rounded object-cover" loading="lazy" />
       )}
+      {item.ribbon_type ? <span className={`absolute left-3 top-3 rounded px-1.5 py-0.5 text-[10px] ${ribbonBadgeClass(item.ribbon_type)}`}>{item.ribbon_type}</span> : null}
       <p className="truncate text-xs text-neutral-200">{item.caption ?? item.file_name}</p>
-      <p className="text-[11px] text-neutral-400">{source}</p>
+      <p className="text-[11px] text-neutral-400">{item.show_name || (item.show_id ? "Show" : "Project")}{item.placing_value ? ` • ${item.placing_value}` : ""}</p>
     </a>
   );
 }
