@@ -5,6 +5,8 @@ import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 
 import { apiClientJson, AuthStatus, MediaItem, Placing, Profile, Project, Show } from "@/lib/api";
+import { toUserErrorMessage } from "@/lib/errorMessage";
+import { detectMediaType } from "@/lib/media";
 
 function formatDate(value?: string | null) {
   if (!value) return "TBD";
@@ -115,11 +117,17 @@ export default function ShowDetailPage() {
     formData.set("placing_id", showMediaPlacingId);
     formData.set("caption", showMediaCaption);
     formData.set("kind", "show");
-    await apiClientJson("/media/upload", { method: "POST", body: formData });
-    event.target.value = "";
-    setShowMediaCaption("");
-    setShowMediaPlacingId("");
-    await load();
+    try {
+      await apiClientJson("/media/upload", { method: "POST", body: formData });
+      setShowMediaCaption("");
+      setShowMediaPlacingId("");
+      setError(null);
+      await load();
+    } catch (uploadError) {
+      setError(toUserErrorMessage(uploadError, "Unable to upload show media."));
+    } finally {
+      event.target.value = "";
+    }
   };
 
   const projectMap = useMemo(() => new Map(projects.map((project) => [project.id, project])), [projects]);
@@ -239,13 +247,17 @@ export default function ShowDetailPage() {
         </div>
         {media.length === 0 ? <p className="barn-row text-sm text-[var(--barn-muted)]">No media uploaded yet.</p> : null}
         <div className="grid grid-cols-2 gap-2">
-          {media.map((item) => (
-            <a key={item.id} href={item.file_url || item.url} className="rounded bg-black/20 p-2 text-xs">
-              <img src={item.file_url || item.url} alt={item.caption || item.file_name} className="h-28 w-full rounded object-cover" loading="lazy" />
-              <p className="mt-1 truncate">{item.caption || item.file_name}</p>
-              <p className="text-[10px] text-[var(--barn-muted)]">{item.show_name || show.name}{item.placing_value ? ` • ${item.placing_value}` : ""}{item.ribbon_type ? ` • ${item.ribbon_type}` : ""}</p>
-            </a>
-          ))}
+          {media.map((item) => {
+            const mediaUrl = item.file_url || item.url;
+            const mediaType = detectMediaType(item);
+            return (
+              <a key={item.id} href={mediaUrl} className="rounded bg-black/20 p-2 text-xs">
+                {mediaType === "video" ? <video src={mediaUrl} className="h-28 w-full rounded object-cover" muted playsInline preload="metadata" /> : <img src={mediaUrl} alt={item.caption || item.file_name} className="h-28 w-full rounded object-cover" loading="lazy" />}
+                <p className="mt-1 truncate">{item.caption || item.file_name}</p>
+                <p className="text-[10px] text-[var(--barn-muted)]">{item.show_name || show.name}{item.placing_value ? ` • ${item.placing_value}` : ""}{item.ribbon_type ? ` • ${item.ribbon_type}` : ""}</p>
+              </a>
+            );
+          })}
         </div>
       </section>
     </div>

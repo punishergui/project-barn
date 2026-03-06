@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 
 import { apiClientJson, MediaItem, Placing, Profile, Project, Show, ShowDayTask } from "@/lib/api";
 import { toUserErrorMessage } from "@/lib/errorMessage";
+import { detectMediaType } from "@/lib/media";
 
 const livestockChecklistTemplates = [
   { key: "wash", label: "Wash animal" },
@@ -230,7 +231,10 @@ export default function ShowDayModePage() {
         </div>
         {dayMedia.length === 0 ? <p className="barn-row text-xs text-[var(--barn-muted)]">No day media yet.</p> : null}
         <div className="grid grid-cols-3 gap-2">
-          {dayMedia.map((item) => <img key={item.id} src={item.file_url || item.url} alt={item.caption || item.file_name} className="h-20 w-full rounded object-cover" loading="lazy" />)}
+          {dayMedia.map((item) => {
+          const mediaUrl = item.file_url || item.url;
+          return detectMediaType(item) === "video" ? <video key={item.id} src={mediaUrl} className="h-20 w-full rounded object-cover" muted playsInline preload="metadata" /> : <img key={item.id} src={mediaUrl} alt={item.caption || item.file_name} className="h-20 w-full rounded object-cover" loading="lazy" />;
+        })}
         </div>
       </section>
 

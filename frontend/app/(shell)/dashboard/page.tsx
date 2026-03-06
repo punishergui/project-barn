@@ -62,6 +62,8 @@ export default async function DashboardPage() {
     <DashboardTodayClient
       todayLabel={todayLabel}
       profileName={dashboard.active_profile.name ?? "Barn Family"}
+      profileRole={dashboard.active_profile.role}
+      profileAvatarUrl={dashboard.active_profile.avatar_url}
       familyName={dashboard.family_name}
       quickActions={[
         { href: "/projects/new", label: "Add Project", emoji: "🐄" },
@@ -69,6 +71,7 @@ export default async function DashboardPage() {
         { href: "/income", label: "Add Income", emoji: "💰" },
         { href: "/inventory", label: "Inventory", emoji: "🧰" },
         { href: "/shows", label: "View Shows", emoji: "🏆" },
+        { href: "/tasks", label: "Tasks", emoji: "✅" },
         { href: "/profile-picker", label: "Switch Profile", emoji: "👤" }
       ]}
       activeProjects={dashboard.active_projects}
