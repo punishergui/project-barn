@@ -1032,6 +1032,7 @@ def api_show_delete(show_id: int):
 
 
 @api_bp.post('/shows/<int:show_id>/days')
+@api_bp.post('/shows/<int:show_id>/day')
 def api_show_day_create(show_id: int):
     _, error = _require_parent_unlocked()
     if error:
@@ -1059,6 +1060,7 @@ def api_show_day_delete(show_day_id: int):
 
 
 @api_bp.post('/shows/<int:show_id>/entries')
+@api_bp.post('/shows/<int:show_id>/entry')
 def api_show_entry_create(show_id: int):
     _, error = _require_parent_unlocked()
     if error:
@@ -1432,12 +1434,13 @@ def api_show_placings(show_id: int):
 
 
 @api_bp.post('/placings')
-def api_placings_create_v2():
+@api_bp.post('/shows/<int:show_id>/placing')
+def api_placings_create_v2(show_id: int | None = None):
     _, error = _require_parent_unlocked()
     if error:
         return error
     payload = request.get_json(silent=True) or {}
-    show_id = payload.get('show_id')
+    show_id = show_id or payload.get('show_id')
     project_id = payload.get('project_id')
     placing_value = str(payload.get('placing') or '').strip()
     if not show_id or not project_id or not placing_value:

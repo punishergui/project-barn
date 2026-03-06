@@ -29,6 +29,22 @@ function buildForwardHeaders(request: NextRequest, hasBody: boolean) {
   return headers;
 }
 
+function copySetCookieHeaders(source: Headers, destination: Headers) {
+  const headersWithSetCookie = source as Headers & { getSetCookie?: () => string[] };
+
+  if (typeof headersWithSetCookie.getSetCookie === "function") {
+    for (const cookie of headersWithSetCookie.getSetCookie()) {
+      destination.append("set-cookie", cookie);
+    }
+    return;
+  }
+
+  const setCookie = source.get("set-cookie");
+  if (setCookie) {
+    destination.set("set-cookie", setCookie);
+  }
+}
+
 async function proxy(request: NextRequest, { params }: ProxyContext): Promise<Response> {
   const path = (params.path ?? []).join("/");
   const targetUrl = `${API_BASE}${path ? `/${path}` : ""}${request.nextUrl.search}`;
@@ -50,10 +66,7 @@ async function proxy(request: NextRequest, { params }: ProxyContext): Promise<Re
     responseHeaders.set("content-type", contentType);
   }
 
-  const setCookie = backendResponse.headers.get("set-cookie");
-  if (setCookie) {
-    responseHeaders.set("set-cookie", setCookie);
-  }
+  copySetCookieHeaders(backendResponse.headers, responseHeaders);
 
   if (backendResponse.status === 204 || backendResponse.status === 304) {
     return new Response(null, { status: backendResponse.status, headers: responseHeaders });

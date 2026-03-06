@@ -1,101 +1,233 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { apiClientJson, Placing, Project, Show } from "@/lib/api";
+
+import { apiClientJson, MediaItem, Placing, Profile, Project, Show } from "@/lib/api";
+
+function formatDate(value?: string | null) {
+  if (!value) return "TBD";
+  return new Date(value).toLocaleDateString();
+}
+
+function ribbonClass(ribbon?: string | null) {
+  const key = (ribbon ?? "").toLowerCase();
+  if (key.includes("blue")) return "bg-blue-700/70";
+  if (key.includes("red")) return "bg-red-700/70";
+  if (key.includes("white")) return "bg-slate-400/70 text-black";
+  if (key.includes("purple")) return "bg-purple-700/70";
+  return "bg-[var(--barn-bg)]";
+}
 
 export default function ShowDetailPage() {
   const params = useParams<{ id: string }>();
   const [show, setShow] = useState<Show | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
   const [placings, setPlacings] = useState<Placing[]>([]);
+  const [media, setMedia] = useState<MediaItem[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
-    const [showData, projectData, placingData] = await Promise.all([
+    const [showData, projectData, profileData, placingData, mediaData] = await Promise.all([
       apiClientJson<Show>(`/shows/${params.id}`),
       apiClientJson<Project[]>("/projects"),
-      apiClientJson<Placing[]>(`/shows/${params.id}/placings`)
+      apiClientJson<Profile[]>("/profiles"),
+      apiClientJson<Placing[]>(`/shows/${params.id}/placings`).catch(() => []),
+      apiClientJson<MediaItem[]>(`/media?show_id=${params.id}`).catch(() => [])
     ]);
     setShow(showData);
     setProjects(projectData);
+    setProfiles(profileData);
     setPlacings(placingData);
+    setMedia(mediaData);
   };
 
   useEffect(() => {
-    load().catch(() => undefined);
+    load().catch((loadError) => setError((loadError as Error).message));
   }, [params.id]);
 
-  const addDay = async () => {
-    await apiClientJson(`/shows/${params.id}/days`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ label: `Day ${(show?.days.length ?? 0) + 1}` }) });
-    await load();
-  };
-
-  const addPlacing = async (event: FormEvent<HTMLFormElement>) => {
+  const addEntry = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    await apiClientJson("/placings", {
+    await apiClientJson(`/shows/${params.id}/entry`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        show_id: Number(params.id),
         project_id: Number(form.get("project_id")),
-        show_day_id: form.get("show_day_id") ? Number(form.get("show_day_id")) : null,
-        class_name: form.get("class_name"),
-        placing: form.get("placing"),
-        ribbon_type: form.get("ribbon_type"),
-        notes: form.get("notes")
+        class_name: String(form.get("class_name") || "").trim() || null,
+        division: String(form.get("division") || "").trim() || null,
+        weight: String(form.get("weight") || "").trim() || null,
+        notes: String(form.get("stall_info") || "").trim() || null
       })
     });
     event.currentTarget.reset();
     await load();
   };
 
-  const attending = useMemo(() => new Set(show?.entries.map((e) => e.project_id) ?? []), [show]);
-  const grouped = useMemo(() => placings.reduce<Record<string, Placing[]>>((acc, p) => {
-    const key = p.class_name || "Uncategorized";
-    acc[key] = acc[key] || [];
-    acc[key].push(p);
-    return acc;
-  }, {}), [placings]);
+  const addDay = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    await apiClientJson(`/shows/${params.id}/day`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        label: String(form.get("label") || "").trim() || undefined,
+        date: form.get("date") || undefined,
+        notes: String(form.get("notes") || "").trim() || undefined
+      })
+    });
+    event.currentTarget.reset();
+    await load();
+  };
 
-  if (!show) return <p>Loading...</p>;
+  const addPlacing = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    await apiClientJson(`/shows/${params.id}/placing`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        project_id: Number(form.get("project_id")),
+        show_day_id: form.get("show_day_id") ? Number(form.get("show_day_id")) : null,
+        class_name: String(form.get("class_name") || "").trim() || null,
+        placing: String(form.get("placing") || "").trim(),
+        ribbon_type: String(form.get("ribbon_type") || "").trim() || null,
+        notes: String(form.get("notes") || "").trim() || null
+      })
+    });
+    event.currentTarget.reset();
+    await load();
+  };
 
-  return <div className="space-y-4 pb-4">
-    <header className="rounded-xl border border-white/10 bg-neutral-900 p-4">
-      <h1 className="text-2xl font-semibold">{show.name}</h1>
-      <p className="text-sm text-neutral-300">{show.location} • {show.start_date.slice(0, 10)} - {show.end_date?.slice(0, 10) ?? "TBD"}</p>
-      <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
-        <div className="rounded bg-neutral-800 p-2">Projects attending<br />{attending.size}</div>
-        <div className="rounded bg-neutral-800 p-2">Placings<br />{placings.length}</div>
-        <div className="rounded bg-neutral-800 p-2">Completion<br />{show.days.length ? Math.round((placings.length / (show.days.length * Math.max(attending.size, 1))) * 100) : 0}%</div>
-      </div>
-      <div className="mt-3 flex flex-wrap gap-2 text-sm">
-        <Link className="rounded bg-red-700 px-3 py-2" href={`/shows/${show.id}/day/${show.days[0]?.id ?? ""}`}>Enter Show Day</Link>
-        <button onClick={addDay} className="rounded bg-neutral-700 px-3 py-2">+ Add Day</button>
-      </div>
-    </header>
+  const uploadShowMedia = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.set("file", file);
+    formData.set("show_id", String(params.id));
+    formData.set("kind", "show");
+    await apiClientJson("/media/upload", { method: "POST", body: formData });
+    event.target.value = "";
+    await load();
+  };
 
-    <section className="rounded-xl border border-white/10 bg-neutral-900 p-3">
-      <div className="flex flex-wrap gap-2">{show.days.map((day, i) => <Link key={day.id} href={`/shows/${show.id}/day/${day.id}`} className="rounded bg-neutral-800 px-3 py-1 text-sm">{day.label || `Day ${i + 1}`}</Link>)}</div>
-    </section>
+  const projectMap = useMemo(() => new Map(projects.map((project) => [project.id, project])), [projects]);
+  const profileMap = useMemo(() => new Map(profiles.map((profile) => [profile.id, profile.name])), [profiles]);
 
-    <section className="rounded-xl border border-white/10 bg-neutral-900 p-3">
-      <h2 className="mb-2 font-semibold">Add Placing</h2>
-      <form className="grid gap-2 sm:grid-cols-2" onSubmit={addPlacing}>
-        <select name="project_id" className="rounded bg-neutral-800 p-2" required>{projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
-        <select name="show_day_id" className="rounded bg-neutral-800 p-2"><option value="">No day</option>{show.days.map((d) => <option key={d.id} value={d.id}>{d.label || `Day ${d.day_number}`}</option>)}</select>
-        <input name="class_name" className="rounded bg-neutral-800 p-2" placeholder="Class name" />
-        <input name="placing" className="rounded bg-neutral-800 p-2" placeholder="Placing" required />
-        <input name="ribbon_type" className="rounded bg-neutral-800 p-2" placeholder="Ribbon" />
-        <textarea name="notes" className="rounded bg-neutral-800 p-2 sm:col-span-2" placeholder="Notes" />
-        <button className="rounded bg-red-700 px-3 py-2 sm:col-span-2">Save Placing</button>
-      </form>
-    </section>
+  if (error) return <p className="px-4 py-4 text-sm text-red-300">{error}</p>;
+  if (!show) return <p className="px-4 py-4 text-sm text-[var(--barn-muted)]">Loading show...</p>;
 
-    <section className="rounded-xl border border-white/10 bg-neutral-900 p-3">
-      <h2 className="mb-2 font-semibold">Placings by class</h2>
-      {Object.entries(grouped).map(([klass, rows]) => <div key={klass} className="mb-2 rounded bg-neutral-800 p-2 text-sm"><p className="font-medium">{klass}</p>{rows.map((row) => <p key={row.id}><span className="rounded bg-red-900 px-2 py-0.5">{row.placing}</span> {row.ribbon_type ? <span className="rounded bg-amber-800 px-2 py-0.5">{row.ribbon_type}</span> : null}</p>)}</div>)}
-    </section>
-  </div>;
+  return (
+    <div className="space-y-4 px-4 pb-6">
+      <header className="barn-card space-y-2">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <h1 className="text-2xl font-semibold">{show.name}</h1>
+            <p className="text-sm text-[var(--barn-muted)]">{show.location}</p>
+            <p className="text-xs text-[var(--barn-muted)]">{formatDate(show.start_date)}{show.end_date ? ` to ${formatDate(show.end_date)}` : ""}</p>
+          </div>
+          <Link href={`/shows/${show.id}/edit`} className="see-all-link">Edit</Link>
+        </div>
+      </header>
+
+      <section className="barn-card space-y-2">
+        <h2 className="text-base font-semibold">Projects entered</h2>
+        {show.entries.length === 0 ? <p className="barn-row text-sm text-[var(--barn-muted)]">No entries yet.</p> : null}
+        {show.entries.map((entry) => {
+          const project = projectMap.get(entry.project_id);
+          const owner = project ? profileMap.get(project.owner_profile_id) : null;
+          return (
+            <article key={entry.id} className="barn-row text-sm">
+              <p className="font-medium">{project?.name ?? `Project ${entry.project_id}`}</p>
+              <p className="text-xs capitalize text-[var(--barn-muted)]">{project?.species ?? "Unknown species"} • {owner ?? "Unknown owner"}</p>
+              <p className="text-xs text-[var(--barn-muted)]">Class: {entry.class_name || "Not set"}{entry.weight ? ` • ${entry.weight} lbs` : ""}</p>
+              {entry.notes ? <p className="text-xs text-[var(--barn-muted)]">Stall: {entry.notes}</p> : null}
+            </article>
+          );
+        })}
+
+        <form className="grid gap-2 rounded-lg bg-[var(--barn-bg)] p-3 text-sm" onSubmit={(event) => addEntry(event).catch(() => undefined)}>
+          <h3 className="font-medium">Add Project Entry</h3>
+          <select name="project_id" className="rounded bg-black/20 p-2" required>
+            <option value="">Select project</option>
+            {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+          </select>
+          <input name="class_name" placeholder="Class" className="rounded bg-black/20 p-2" />
+          <input name="weight" placeholder="Weight / class notes" className="rounded bg-black/20 p-2" />
+          <input name="division" placeholder="Division" className="rounded bg-black/20 p-2" />
+          <input name="stall_info" placeholder="Stall info (optional)" className="rounded bg-black/20 p-2" />
+          <button className="rounded bg-[var(--barn-red)] px-3 py-2 text-sm text-white">Save Entry</button>
+        </form>
+      </section>
+
+      <section className="barn-card space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold">Show Days</h2>
+        </div>
+        {show.days.length === 0 ? <p className="barn-row text-sm text-[var(--barn-muted)]">No show days yet.</p> : null}
+        {show.days.map((day) => (
+          <Link key={day.id} href={`/shows/${show.id}/day/${day.id}`} className="barn-row block text-sm">
+            <p className="font-medium">{day.label || `Day ${day.day_number}`}</p>
+            <p className="text-xs text-[var(--barn-muted)]">{formatDate(day.show_date || day.date)}</p>
+          </Link>
+        ))}
+
+        <form className="grid gap-2 rounded-lg bg-[var(--barn-bg)] p-3 text-sm" onSubmit={(event) => addDay(event).catch(() => undefined)}>
+          <h3 className="font-medium">Add Show Day</h3>
+          <input name="label" placeholder="Day label" className="rounded bg-black/20 p-2" />
+          <input name="date" type="date" className="rounded bg-black/20 p-2" />
+          <textarea name="notes" placeholder="Day notes" className="rounded bg-black/20 p-2" />
+          <button className="rounded bg-[var(--barn-red)] px-3 py-2 text-sm text-white">Create Day</button>
+        </form>
+      </section>
+
+      <section className="barn-card space-y-2">
+        <h2 className="text-base font-semibold">Placings</h2>
+        {placings.length === 0 ? <p className="barn-row text-sm text-[var(--barn-muted)]">No placings yet.</p> : null}
+        {placings.map((placing) => (
+          <article key={placing.id} className="barn-row flex items-center justify-between gap-2 text-sm">
+            <div>
+              <p className="font-medium">{projectMap.get(placing.project_id ?? -1)?.name ?? "Project"}</p>
+              <p className="text-xs text-[var(--barn-muted)]">{placing.class_name || "Class not set"} • {placing.placing}</p>
+            </div>
+            <span className={`rounded-full px-2 py-1 text-xs ${ribbonClass(placing.ribbon_type)}`}>{placing.ribbon_type || "Ribbon"}</span>
+          </article>
+        ))}
+
+        <form className="grid gap-2 rounded-lg bg-[var(--barn-bg)] p-3 text-sm" onSubmit={(event) => addPlacing(event).catch(() => undefined)}>
+          <h3 className="font-medium">Add Placing / Ribbon</h3>
+          <select name="project_id" className="rounded bg-black/20 p-2" required>
+            {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+          </select>
+          <select name="show_day_id" className="rounded bg-black/20 p-2">
+            <option value="">No specific day</option>
+            {show.days.map((day) => <option key={day.id} value={day.id}>{day.label || `Day ${day.day_number}`}</option>)}
+          </select>
+          <input name="class_name" placeholder="Class" className="rounded bg-black/20 p-2" />
+          <input name="placing" placeholder="Placing" className="rounded bg-black/20 p-2" required />
+          <input name="ribbon_type" placeholder="Ribbon color" className="rounded bg-black/20 p-2" />
+          <textarea name="notes" placeholder="Notes" className="rounded bg-black/20 p-2" />
+          <button className="rounded bg-[var(--barn-red)] px-3 py-2 text-sm text-white">Save Placing</button>
+        </form>
+      </section>
+
+      <section className="barn-card space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-base font-semibold">Show Media</h2>
+          <label className="rounded bg-[var(--barn-red)] px-3 py-2 text-xs text-white">
+            Upload Photo
+            <input type="file" accept="image/*,video/*" className="hidden" onChange={(event) => uploadShowMedia(event).catch(() => undefined)} />
+          </label>
+        </div>
+        {media.length === 0 ? <p className="barn-row text-sm text-[var(--barn-muted)]">No media uploaded yet.</p> : null}
+        <div className="grid grid-cols-2 gap-2">
+          {media.map((item) => (
+            <img key={item.id} src={item.url} alt={item.caption || item.file_name} className="h-32 w-full rounded-lg object-cover" />
+          ))}
+        </div>
+      </section>
+    </div>
+  );
 }
