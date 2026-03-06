@@ -65,6 +65,15 @@ Use this sequence for stable deployments:
 2. `docker compose build`
 3. `docker compose up -d`
 
+### WHS server pull/build/restart CLI
+
+Run these exact commands on `barn.white-house.cc` from the repository root:
+
+1. `cd /path/to/project-barn`
+2. `git pull --ff-only`
+3. `docker compose build`
+4. `docker compose up -d`
+
 Environment variables:
 
 - `SECRET_KEY`
@@ -96,8 +105,11 @@ Idempotency behavior:
 
 - `/dashboard`
 - `/projects`, `/projects/new`, `/projects/[id]`, `/projects/[id]/edit`
-- `/expenses`, `/expenses/new`, `/expenses/[id]/edit`
-- `/shows` and `/more` placeholders
+- `/projects/[id]/tasks`, `/projects/[id]/weights`, `/projects/[id]/health`, `/projects/[id]/feed`
+- `/expenses`, `/expenses/new`, `/expenses/[id]/edit`, `/expenses/categories`
+- `/feed`, `/inventory`, `/income`, `/auctions`, `/reports`, `/family`, `/more`
+- `/shows`, `/shows/new`, `/shows/[id]`, `/shows/[id]/edit`, `/shows/[id]/day`, `/shows/[id]/day/[dayId]`
+- `/settings`, `/settings/profiles`, `/settings/profiles/[id]`, `/profile-picker`
 
 Parent admin actions are protected by backend PIN unlock endpoints under `/api/auth/*`.
 
