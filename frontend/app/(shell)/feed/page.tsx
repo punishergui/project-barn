@@ -57,6 +57,18 @@ export default function FeedInventoryPage() {
     await load();
   };
 
+  const promptQtyAdjust = async (item: FeedInventoryItem) => {
+    const nextRaw = window.prompt(`Set quantity on hand for ${item.name} (${item.unit})`, String(item.qty_on_hand));
+    if (nextRaw === null) return;
+    const nextQty = Number(nextRaw);
+    if (!Number.isFinite(nextQty) || nextQty < 0) {
+      setError("Quantity must be a non-negative number.");
+      return;
+    }
+    setError(null);
+    await updateQty(item, Number(nextQty.toFixed(2)));
+  };
+
   return (
     <div className="space-y-4 px-4 pb-6">
       <section className="barn-card space-y-2">
@@ -87,7 +99,13 @@ export default function FeedInventoryPage() {
       </section>
 
       <section className="space-y-3">
-        {items.length === 0 ? <p className="barn-card text-sm text-[var(--barn-muted)]">No feed inventory yet.</p> : null}
+        {items.length === 0 ? (
+          <div className="barn-card space-y-2 text-sm text-[var(--barn-muted)]">
+            <p>No feed inventory yet.</p>
+            <p>Add your first feed item above, then use project feed logs to track daily use.</p>
+            <Link href="/projects" className="see-all-link">Open projects to log feed</Link>
+          </div>
+        ) : null}
         {items.map((item) => (
           <article key={item.id} className="barn-card space-y-2 text-sm">
             <div className="flex items-start justify-between gap-3">
@@ -99,28 +117,13 @@ export default function FeedInventoryPage() {
             </div>
             <p>{item.qty_on_hand} {item.unit} on hand</p>
             <p className="text-xs text-[var(--barn-muted)]">Updated {shortDate(item.updated_at)}</p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => updateQty(item, Number((item.qty_on_hand + 1).toFixed(2))).catch((err) => setError((err as Error).message))}
+                onClick={() => promptQtyAdjust(item).catch((err) => setError((err as Error).message))}
                 className="rounded-lg border border-[var(--barn-border)] px-3 py-2"
               >
                 Adjust Qty
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  apiClientJson(`/feed/${item.id}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ name: item.name })
-                  })
-                    .then(load)
-                    .catch((err) => setError((err as Error).message))
-                }
-                className="rounded-lg border border-[var(--barn-border)] px-3 py-2"
-              >
-                Edit Feed
               </button>
               <Link href="/projects" className="rounded-lg border border-[var(--barn-border)] px-3 py-2 text-center">Log Feeding</Link>
             </div>

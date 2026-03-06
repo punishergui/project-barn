@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 
-import { apiClientJson, MediaItem, Placing, Profile, Project, Show } from "@/lib/api";
+import { apiClientJson, AuthStatus, MediaItem, Placing, Profile, Project, Show } from "@/lib/api";
 
 function formatDate(value?: string | null) {
   if (!value) return "TBD";
@@ -28,20 +28,23 @@ export default function ShowDetailPage() {
   const [placings, setPlacings] = useState<Placing[]>([]);
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [auth, setAuth] = useState<AuthStatus | null>(null);
 
   const load = async () => {
-    const [showData, projectData, profileData, placingData, mediaData] = await Promise.all([
+    const [showData, projectData, profileData, placingData, mediaData, authData] = await Promise.all([
       apiClientJson<Show>(`/shows/${params.id}`),
       apiClientJson<Project[]>("/projects"),
       apiClientJson<Profile[]>("/profiles"),
       apiClientJson<Placing[]>(`/shows/${params.id}/placings`).catch(() => []),
-      apiClientJson<MediaItem[]>(`/media?show_id=${params.id}`).catch(() => [])
+      apiClientJson<MediaItem[]>(`/media?show_id=${params.id}`).catch(() => []),
+      apiClientJson<AuthStatus>("/auth/status").catch(() => ({ role: null, is_unlocked: false, unlock_expires_at: null }))
     ]);
     setShow(showData);
     setProjects(projectData);
     setProfiles(profileData);
     setPlacings(placingData);
     setMedia(mediaData);
+    setAuth(authData);
   };
 
   useEffect(() => {
@@ -128,7 +131,7 @@ export default function ShowDetailPage() {
             <p className="text-sm text-[var(--barn-muted)]">{show.location}</p>
             <p className="text-xs text-[var(--barn-muted)]">{formatDate(show.start_date)}{show.end_date ? ` to ${formatDate(show.end_date)}` : ""}</p>
           </div>
-          <Link href={`/shows/${show.id}/edit`} className="see-all-link">Edit</Link>
+          {auth?.role === "parent" && auth.is_unlocked ? <Link href={`/shows/${show.id}/edit`} className="see-all-link">Edit</Link> : null}
         </div>
       </header>
 

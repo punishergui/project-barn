@@ -91,7 +91,12 @@ export default function ExpensesPage() {
 
       {loading ? <p className="text-sm text-neutral-300">Loading expenses...</p> : null}
       {error ? <p className="text-sm text-red-300">{error}</p> : null}
-      {!loading && expenses.length === 0 ? <p className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-sm text-neutral-300">No expenses found.</p> : null}
+      {!loading && expenses.length === 0 ? (
+        <div className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-sm text-neutral-300">
+          <p>No expenses found for the current filters.</p>
+          {auth?.role === "parent" && auth.is_unlocked ? <Link href="/expenses/new" className="see-all-link mt-2 inline-block">Add your first expense</Link> : null}
+        </div>
+      ) : null}
 
       <div className="space-y-2">
         {expenses.map((expense) => (

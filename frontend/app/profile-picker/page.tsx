@@ -64,6 +64,12 @@ export default function ProfilePickerPage() {
       <div className="mt-6 w-full space-y-3">
         {loading ? <p className="text-sm text-neutral-400">Loading profiles...</p> : null}
         {error ? <p className="text-sm text-red-300">{error}</p> : null}
+        {profiles.length === 0 && !loading ? (
+          <div className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-sm text-neutral-300">
+            <p>No profiles found yet.</p>
+            <p className="mt-1">Ask a parent to create a family profile in Settings.</p>
+          </div>
+        ) : null}
         {profiles.map((profile) => (
           <button
             key={profile.id}
