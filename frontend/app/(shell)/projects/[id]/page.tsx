@@ -234,7 +234,7 @@ export default function ProjectDetailPage() {
         <section className="barn-card space-y-3 text-sm">
           <h2 className="text-base font-medium">Media</h2>
           {!mediaAvailable ? <p className="barn-row text-[var(--barn-muted)]">Media endpoint is unavailable in this environment.</p> : null}
-          {mediaAvailable ? <div className="flex flex-wrap items-center gap-2"><input value={mediaCaption} onChange={(event) => setMediaCaption(event.target.value)} placeholder="Caption" className="rounded bg-[var(--barn-bg)] px-3 py-2" /><label className="rounded bg-[var(--barn-red)] px-3 py-2 text-xs">Upload media<input type="file" accept="image/*" className="hidden" onChange={(event) => handleMediaUpload(event).catch(() => undefined)} /></label></div> : null}
+          {mediaAvailable ? <div className="flex flex-wrap items-center gap-2"><input value={mediaCaption} onChange={(event) => setMediaCaption(event.target.value)} placeholder="Caption" className="rounded bg-[var(--barn-bg)] px-3 py-2" /><label className="rounded bg-[var(--barn-red)] px-3 py-2 text-xs">Upload media<input type="file" accept="image/*,video/*" className="hidden" onChange={(event) => handleMediaUpload(event).catch(() => undefined)} /></label></div> : null}
           {mediaAvailable && media.length === 0 ? <p className="barn-row text-[var(--barn-muted)]">No media uploaded for this project yet.</p> : null}
           {mediaAvailable && media.length > 0 ? <div className="grid grid-cols-2 gap-2 md:grid-cols-3">{media.map((item) => <ShowsMediaCard key={item.id} item={item} />)}</div> : null}
         </section>

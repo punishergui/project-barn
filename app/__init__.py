@@ -99,12 +99,14 @@ def create_app() -> Flask:
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["UPLOAD_DIR"] = upload_dir
     app.config["BARN_UPLOAD_DIR"] = upload_dir
-    app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_UPLOAD_BYTES", str(15 * 1024 * 1024)))
+    app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_UPLOAD_BYTES", str(20 * 1024 * 1024)))
 
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     upload_error = None
     try:
         os.makedirs(upload_dir, exist_ok=True)
+        for directory in ("profiles", "projects", "receipts", "media"):
+            os.makedirs(os.path.join(upload_dir, directory), exist_ok=True)
         test_file = os.path.join(upload_dir, ".barn-write-test")
         with open(test_file, "w", encoding="utf-8") as handle:
             handle.write("ok")
@@ -302,6 +304,13 @@ def save_upload(file_storage, upload_dir: str) -> str:
     filename = f"{uuid.uuid4().hex}.{extension}"
     file_storage.save(os.path.join(upload_dir, filename))
     return filename
+
+
+def save_upload_in_subdir(file_storage, upload_root: str, subdir: str) -> str:
+    target_dir = os.path.join(upload_root, subdir)
+    os.makedirs(target_dir, exist_ok=True)
+    filename = save_upload(file_storage, target_dir)
+    return f"{subdir}/{filename}"
 
 
 def seed_default_packing_lists(app) -> None:
