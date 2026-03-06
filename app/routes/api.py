@@ -12,7 +12,7 @@ from flask import Blueprint, Response, current_app, jsonify, request, send_from_
 from sqlalchemy import func, text
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from app import save_upload
+from app import save_upload, save_upload_in_subdir
 from app.models import AppSetting, Expense, ExpenseAllocation, ExpenseReceipt, FeedEntry, FeedInventorySimple, HealthEntry, Media, Placing, Profile, Project, ProjectTask, Show, ShowDay, ShowDayTask, ShowEntry, Task, TaskItem, TimelineEntry, WeightEntry, db
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
@@ -67,7 +67,7 @@ def _validate_upload(file, allowed_prefixes: tuple[str, ...], allowed_exact: set
     return safe_name, None
 
 
-def _save_file(file) -> tuple[str | None, tuple[Response, int] | None]:
+def _save_file(file, subdir: str | None = None) -> tuple[str | None, tuple[Response, int] | None]:
     upload_error = _upload_error_response()
     if upload_error:
         return None, upload_error
@@ -75,7 +75,7 @@ def _save_file(file) -> tuple[str | None, tuple[Response, int] | None]:
     upload_dir = current_app.config["UPLOAD_DIR"]
     try:
         os.makedirs(upload_dir, exist_ok=True)
-        filename = save_upload(file, upload_dir)
+        filename = save_upload_in_subdir(file, upload_dir, subdir) if subdir else save_upload(file, upload_dir)
     except ValueError as exc:
         return None, (jsonify({"error": str(exc)}), 400)
     except OSError as exc:
@@ -551,7 +551,7 @@ def api_expense_receipts_create(expense_id: int):
     if validation_error:
         return validation_error
 
-    filename, save_error = _save_file(file)
+    filename, save_error = _save_file(file, "receipts")
     if save_error:
         return save_error
 
@@ -1064,16 +1064,16 @@ def api_project_timeline_delete(timeline_id: int):
 
 @api_bp.post("/uploads/profile-avatar")
 def api_upload_profile_avatar():
-    profile, error = _require_parent_unlocked()
-    if error:
-        return error
+    profile = _active_profile()
+    if profile is None:
+        return jsonify({"error": "No active profile"}), 401
 
     file = request.files.get("file")
     _, validation_error = _validate_upload(file, ("image/",))
     if validation_error:
         return validation_error
 
-    filename, save_error = _save_file(file)
+    filename, save_error = _save_file(file, "profiles")
     if save_error:
         return save_error
 
@@ -1098,7 +1098,7 @@ def api_upload_project_hero():
     if validation_error:
         return validation_error
 
-    filename, save_error = _save_file(file)
+    filename, save_error = _save_file(file, "projects")
     if save_error:
         return save_error
 
@@ -1124,7 +1124,7 @@ def api_upload_receipt():
     if validation_error:
         return validation_error
 
-    filename, save_error = _save_file(file)
+    filename, save_error = _save_file(file, "receipts")
     if save_error:
         return save_error
 
@@ -1152,11 +1152,11 @@ def api_upload_project_media():
 
     Project.query.get_or_404(project_id)
     file = request.files.get("file")
-    safe_name, validation_error = _validate_upload(file, ("image/",))
+    safe_name, validation_error = _validate_upload(file, ("image/", "video/"))
     if validation_error:
         return validation_error
 
-    filename, save_error = _save_file(file)
+    filename, save_error = _save_file(file, "media")
     if save_error:
         return save_error
 

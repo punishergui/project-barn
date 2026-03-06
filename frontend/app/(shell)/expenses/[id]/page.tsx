@@ -2,24 +2,47 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
 
 import { apiClientJson, Expense, Project } from "@/lib/api";
+import { uploadReceipt } from "@/lib/uploads";
+
+function isPdf(url: string) {
+  return /\.pdf($|\?)/i.test(url);
+}
 
 export default function ExpenseDetailPage() {
   const params = useParams<{ id: string }>();
   const [expense, setExpense] = useState<Expense | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    Promise.all([
+  const load = async () => {
+    const [expenseData, projectData] = await Promise.all([
       apiClientJson<Expense>(`/expenses/${params.id}`),
       apiClientJson<Project[]>("/projects")
-    ]).then(([expenseData, projectData]) => {
-      setExpense(expenseData);
-      setProjects(projectData);
-    }).catch(() => undefined);
+    ]);
+    setExpense(expenseData);
+    setProjects(projectData);
+  };
+
+  useEffect(() => {
+    load().catch(() => undefined);
   }, [params.id]);
+
+  const onUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      await uploadReceipt(Number(params.id), file);
+      await load();
+      setError(null);
+    } catch (uploadError) {
+      setError((uploadError as Error).message);
+    } finally {
+      event.target.value = "";
+    }
+  };
 
   const projectNames = useMemo(() => new Map(projects.map((project) => [project.id, project.name])), [projects]);
 
@@ -53,14 +76,27 @@ export default function ExpenseDetailPage() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="font-semibold">Receipts</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="font-semibold">Receipts</h2>
+          <label className="cursor-pointer rounded bg-red-700 px-3 py-2 text-xs">
+            Upload receipt
+            <input type="file" accept="image/*,.pdf,application/pdf" className="hidden" onChange={(event) => onUpload(event).catch(() => undefined)} />
+          </label>
+        </div>
+        {error ? <p className="text-sm text-red-300">{error}</p> : null}
         {expense.receipts.length === 0 ? <p className="rounded bg-neutral-800 p-3 text-sm text-neutral-300">No receipts attached.</p> : null}
         <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
           {expense.receipts.map((receipt) => (
-            <a key={receipt.id} href={receipt.url} target="_blank" className="rounded bg-neutral-800 p-2" rel="noreferrer">
-              <img src={receipt.url} alt={receipt.caption ?? receipt.file_name} className="h-24 w-full rounded object-cover" />
+            <div key={receipt.id} className="rounded bg-neutral-800 p-2">
+              {isPdf(receipt.url) ? (
+                <a href={receipt.url} target="_blank" className="block rounded border border-white/20 p-4 text-center text-xs text-blue-200 underline" rel="noreferrer">Download PDF receipt</a>
+              ) : (
+                <a href={receipt.url} target="_blank" rel="noreferrer">
+                  <img src={receipt.url} alt={receipt.caption ?? receipt.file_name} className="h-24 w-full rounded object-cover" />
+                </a>
+              )}
               <p className="mt-1 text-xs text-neutral-300">{receipt.caption ?? receipt.file_name}</p>
-            </a>
+            </div>
           ))}
         </div>
       </section>

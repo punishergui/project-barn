@@ -65,8 +65,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               aria-expanded={profileMenuOpen}
               aria-label="Open profile menu"
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--barn-red)] text-xs font-semibold text-white">
-                {initials(profile?.name)}
+              <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-[var(--barn-red)] text-xs font-semibold text-white">
+                {profile?.avatar_url ? <img src={profile.avatar_url} alt={profile.name} className="h-full w-full object-cover" /> : initials(profile?.name)}
               </span>
               <span className="max-w-24 truncate text-xs">{profile?.name ?? "Profile"}</span>
             </button>

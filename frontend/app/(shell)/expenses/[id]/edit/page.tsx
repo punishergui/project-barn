@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { apiClientJson, Expense, ExpenseAllocation, ExpenseReceipt, Project } from "@/lib/api";
-import { uploadExpenseReceipt } from "@/lib/uploads";
+import { uploadReceipt } from "@/lib/uploads";
 
 type AllocationRow = { id: number; project_id: string; amount: string; percent: string };
 type SavedSummary = { amount: number; allocations: Array<{ projectName: string; amount: number }>; receiptCount: number };
@@ -84,10 +84,10 @@ export default function EditExpensePage() {
     setSavedSummary({ amount: Number(payload.amount) || 0, allocations: allocationSummary, receiptCount: receipts.length });
   };
 
-  const uploadReceipt = async () => {
+  const uploadReceipts = async () => {
     if (receiptFiles.length === 0) return;
     for (const file of receiptFiles) {
-      await uploadExpenseReceipt(Number(params.id), file, receiptCaption);
+      await uploadReceipt(Number(params.id), file, receiptCaption);
     }
     setReceiptFiles([]);
     setReceiptCaption("");
@@ -123,9 +123,9 @@ export default function EditExpensePage() {
       <div className="flex flex-wrap items-center gap-2">
         <input type="file" multiple accept="image/*,.pdf,application/pdf" className="rounded bg-neutral-800 p-2 text-sm" onChange={(event) => setReceiptFiles(Array.from(event.target.files ?? []))} />
         <input value={receiptCaption} onChange={(event) => setReceiptCaption(event.target.value)} placeholder="Caption" className="rounded bg-neutral-800 p-2 text-sm" />
-        <button type="button" onClick={uploadReceipt} className="rounded bg-red-700 px-3 py-2 text-sm">Upload</button>
+        <button type="button" onClick={uploadReceipts} className="rounded bg-red-700 px-3 py-2 text-sm">Upload</button>
       </div>
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-3">{receipts.map((receipt) => <div key={receipt.id} className="space-y-1 rounded bg-neutral-800 p-2 text-xs"><img src={receipt.url} alt={receipt.caption ?? receipt.file_name} className="h-20 w-full cursor-pointer rounded object-cover" onClick={() => setPreviewUrl(receipt.url)} /><p>{receipt.caption ?? receipt.file_name}</p></div>)}</div>
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-3">{receipts.map((receipt) => <div key={receipt.id} className="space-y-1 rounded bg-neutral-800 p-2 text-xs">{/\.pdf($|\?)/i.test(receipt.url) ? <a href={receipt.url} target="_blank" rel="noreferrer" className="block rounded border border-white/20 p-3 text-center text-blue-200 underline">Download PDF</a> : <img src={receipt.url} alt={receipt.caption ?? receipt.file_name} className="h-20 w-full cursor-pointer rounded object-cover" onClick={() => setPreviewUrl(receipt.url)} />}<p>{receipt.caption ?? receipt.file_name}</p></div>)}</div>
     </section>
 
     <section className="space-y-2 rounded border border-white/10 p-3">
