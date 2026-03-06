@@ -95,6 +95,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <span className="truncate">Project Barn</span>
           </Link>
           <div className="flex items-center gap-2">
+            <Link href="/profile-picker" className="hidden min-h-11 items-center rounded-full border border-[var(--barn-border)] bg-[var(--barn-bg)] px-3 text-xs font-medium sm:inline-flex" aria-label="Switch profile">
+              Switch
+            </Link>
             <Link href="/notifications" className="relative flex min-h-11 min-w-11 items-center justify-center rounded-full border border-[var(--barn-border)] bg-[var(--barn-bg)]" aria-label="Open notifications">
               <span aria-hidden="true">🔔</span>
               {unreadNotifications > 0 ? <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-[var(--barn-red)] px-1 text-center text-[10px] font-semibold text-white">{unreadNotifications > 99 ? "99+" : unreadNotifications}</span> : null}
