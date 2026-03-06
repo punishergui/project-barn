@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import BarnLogo from "@/components/BarnLogo";
 import { NotificationsResponse, Profile, SessionResponse, apiClientJson } from "@/lib/api";
@@ -27,6 +27,7 @@ function initials(name?: string) {
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -54,6 +55,32 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     setProfileMenuOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    if (!profileMenuOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!profileMenuRef.current?.contains(event.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setProfileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [profileMenuOpen]);
+
   const activeLink = useMemo(
     () => primaryLinks.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))?.href,
     [pathname]
@@ -72,22 +99,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <span aria-hidden="true">🔔</span>
               {unreadNotifications > 0 ? <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-[var(--barn-red)] px-1 text-center text-[10px] font-semibold text-white">{unreadNotifications > 99 ? "99+" : unreadNotifications}</span> : null}
             </Link>
-            <div className="relative">
-            <button
+            <div ref={profileMenuRef} className="relative">
+              <button
               type="button"
               onClick={() => setProfileMenuOpen((open) => !open)}
               className="flex min-h-11 items-center gap-2 rounded-full border border-[var(--barn-border)] bg-[var(--barn-bg)] px-2.5"
               aria-haspopup="menu"
               aria-expanded={profileMenuOpen}
+              aria-controls="profile-menu"
               aria-label="Open profile menu"
             >
               <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-[var(--barn-red)] text-xs font-semibold text-white">
                 {profile?.avatar_url ? <img src={profile.avatar_url} alt={profile.name} className="h-full w-full object-cover" /> : initials(profile?.name)}
               </span>
               <span className="max-w-24 truncate text-xs">{profile?.name ?? "Profile"}</span>
-            </button>
-            {profileMenuOpen ? (
-              <div className="absolute right-0 top-12 w-56 rounded-xl border border-[var(--barn-border)] bg-[var(--barn-surface)] p-1.5 shadow-xl" role="menu">
+              </button>
+              {profileMenuOpen ? (
+              <div id="profile-menu" className="absolute right-0 top-12 w-56 rounded-xl border border-[var(--barn-border)] bg-[var(--barn-surface)] p-1.5 shadow-xl" role="menu">
                 <Link href="/profile-picker" className="block min-h-11 rounded-lg px-3 py-2 text-sm hover:bg-[var(--barn-bg)]" role="menuitem">
                   Switch Profile
                 </Link>
@@ -95,8 +123,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   More / Settings
                 </Link>
               </div>
-            ) : null}
-          </div>
+              ) : null}
+            </div>
           </div>
         </div>
       </header>
