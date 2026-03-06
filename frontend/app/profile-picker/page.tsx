@@ -1,9 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import BarnLogo from "@/components/BarnLogo";
 import { apiClientJson, Profile } from "@/lib/api";
 
 export default function ProfilePickerPage() {
@@ -34,7 +34,7 @@ export default function ProfilePickerPage() {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center px-6 py-10 text-center">
-      <BarnLogo size={90} className="mb-4" />
+      <Image src="/brand/barn-logo.png" alt="Project Barn" width={92} height={92} priority className="mb-4 rounded-2xl" />
       <h1 className="text-3xl font-semibold text-white">Project Barn</h1>
       <p className="mt-2 text-sm text-neutral-300">Choose a profile</p>
 

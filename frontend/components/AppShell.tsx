@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import BarnLogo from "@/components/BarnLogo";
@@ -30,7 +30,6 @@ function initials(name?: string) {
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
@@ -48,17 +47,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     () => primaryLinks.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))?.href,
     [pathname]
   );
-
-  const handleLogout = async () => {
-    setProfileMenuOpen(false);
-    try {
-      await apiClientJson("/session/logout", { method: "POST" });
-    } catch {
-      await Promise.resolve();
-    }
-    router.push("/profile-picker");
-    router.refresh();
-  };
 
   return (
     <div className="min-h-screen w-full bg-[var(--barn-bg)] text-[var(--barn-text)]">
@@ -87,14 +75,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 <Link href="/profile-picker" className="block min-h-11 rounded-lg px-3 py-2 text-sm hover:bg-[var(--barn-bg)]" role="menuitem">
                   Switch Profile
                 </Link>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="w-full min-h-11 rounded-lg px-3 py-2 text-left text-sm hover:bg-[var(--barn-bg)]"
-                  role="menuitem"
-                >
-                  Sign out
-                </button>
+                <Link href="/more" className="block min-h-11 rounded-lg px-3 py-2 text-sm hover:bg-[var(--barn-bg)]" role="menuitem">
+                  Settings
+                </Link>
               </div>
             ) : null}
           </div>
@@ -104,8 +87,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <main
         className="w-full"
         style={{
-          paddingTop: `calc(${headerHeight}px + env(safe-area-inset-top) + 0.75rem)`,
-          paddingBottom: `calc(${bottomNavHeight}px + env(safe-area-inset-bottom) + 0.75rem)`,
+          paddingTop: `calc(${headerHeight}px + env(safe-area-inset-top))`,
+          paddingBottom: `calc(${bottomNavHeight}px + env(safe-area-inset-bottom))`,
           minHeight: "100vh"
         }}
       >
@@ -118,6 +101,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <li key={item.href} className="flex flex-1 justify-center">
               <Link
                 href={item.href}
+                aria-label={item.label}
                 className={`flex min-h-11 w-full flex-col items-center justify-center rounded-lg text-[11px] font-medium ${
                   activeLink === item.href
                     ? "text-[var(--barn-red)]"

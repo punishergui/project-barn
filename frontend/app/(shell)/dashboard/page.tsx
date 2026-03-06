@@ -1,15 +1,24 @@
-import { Expense, Profile, Project, SessionResponse, Show, TimelineEntry } from "@/lib/api";
+import { Expense, MediaItem, Profile, Project, SessionResponse, Show, TimelineEntry } from "@/lib/api";
 import { apiJsonServer } from "@/lib/apiServer";
 
 import DashboardTodayClient from "./DashboardTodayClient";
 
+type ActivityItem = {
+  id: string;
+  title: string;
+  type: string;
+  date: string;
+  href: string;
+};
+
 export default async function DashboardPage() {
-  const [projects, shows, expenses, profiles, session] = await Promise.all([
+  const [projects, shows, expenses, profiles, session, media] = await Promise.all([
     apiJsonServer<Project[]>("/projects"),
     apiJsonServer<Show[]>("/shows"),
     apiJsonServer<Expense[]>("/expenses"),
     apiJsonServer<Profile[]>("/profiles"),
-    apiJsonServer<SessionResponse>("/session").catch(() => ({ active_profile: null, family: { id: null, name: null } }))
+    apiJsonServer<SessionResponse>("/session").catch(() => ({ active_profile: null, family: { id: null, name: null } })),
+    apiJsonServer<MediaItem[]>("/media").catch(() => [])
   ]);
 
   const todayLabel = new Date().toLocaleDateString(undefined, {
@@ -46,12 +55,49 @@ export default async function DashboardPage() {
     });
   });
 
-  const recentTimeline = (
+  const timelineRows = (
     await Promise.all(activeProjects.map((project) => apiJsonServer<TimelineEntry[]>(`/projects/${project.id}/timeline`).catch(() => [])))
-  )
-    .flat()
+  ).flat();
+
+  const timelineActivity: ActivityItem[] = timelineRows.map((entry) => ({
+    id: `timeline-${entry.id}`,
+    title: entry.title,
+    type: entry.type,
+    date: entry.date,
+    href: `/projects/${entry.project_id}?tab=timeline`
+  }));
+
+  const expenseActivity: ActivityItem[] = expenses.map((expense) => ({
+    id: `expense-${expense.id}`,
+    title: `Expense added: ${expense.category}`,
+    type: "expense",
+    date: expense.date,
+    href: `/expenses/${expense.id}`
+  }));
+
+  const placingActivity: ActivityItem[] = shows.flatMap((show) =>
+    show.entries.flatMap((entry) =>
+      entry.placings.map((placing) => ({
+        id: `placing-${placing.id}`,
+        title: `Placing added for ${projectMap.get(entry.project_id) ?? `Project ${entry.project_id}`}`,
+        type: "placing",
+        date: placing.placed_at ?? placing.created_at ?? show.start_date,
+        href: `/shows/${show.id}`
+      }))
+    )
+  );
+
+  const mediaActivity: ActivityItem[] = media.map((item) => ({
+    id: `media-${item.id}`,
+    title: `Media added: ${item.caption?.trim() || item.file_name}`,
+    type: "media",
+    date: item.created_at || new Date().toISOString(),
+    href: item.project_id ? `/projects/${item.project_id}?tab=media` : "/projects"
+  }));
+
+  const recentActivity = [...timelineActivity, ...expenseActivity, ...placingActivity, ...mediaActivity]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 4);
+    .slice(0, 8);
 
   const activeAnimals = activeProjects.map((project) => {
     const nextShow = nextShowByProject.get(project.id);
@@ -67,7 +113,7 @@ export default async function DashboardPage() {
 
   const recentExpenses = [...expenses]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 4);
+    .slice(0, 5);
 
   return (
     <DashboardTodayClient
@@ -75,26 +121,22 @@ export default async function DashboardPage() {
       profileName={session.active_profile?.name ?? "Barn Family"}
       quickStats={{ projects: activeProjects.length, upcomingShows: upcomingShows.length, expenses: recentExpenses.length }}
       activeProjects={activeAnimals}
-      upcomingShows={upcomingShows.slice(0, 4).map((show) => ({
+      upcomingShows={upcomingShows.slice(0, 3).map((show) => ({
         id: show.id,
         name: show.name,
         startDate: show.start_date,
-        location: show.location
+        location: show.location,
+        entryCount: show.entries.length
       }))}
       recentExpenses={recentExpenses.map((expense) => ({
         id: expense.id,
         amount: expense.amount,
         category: expense.category,
         date: expense.date,
-        projectName: projectMap.get(expense.project_id) ?? `Project ${expense.project_id}`
+        projectName: projectMap.get(expense.project_id) ?? `Project ${expense.project_id}`,
+        allocationCount: expense.allocation_count || 1
       }))}
-      recentActivity={recentTimeline.map((entry) => ({
-        id: entry.id,
-        projectId: entry.project_id,
-        title: entry.title,
-        date: entry.date,
-        type: entry.type
-      }))}
+      recentActivity={recentActivity}
     />
   );
 }
