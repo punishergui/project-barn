@@ -1442,6 +1442,7 @@ def api_expense_receipts_create(expense_id: int):
 
     size_bytes = _file_size_bytes(file)
     size_bytes = _file_size_bytes(file)
+    size_bytes = _file_size_bytes(file)
     filename, save_error = _save_file(file, "receipts")
     if save_error:
         return save_error
@@ -2697,9 +2698,16 @@ def api_project_timeline_delete(timeline_id: int):
 
 @api_bp.post("/uploads/profile-avatar")
 def api_upload_profile_avatar():
-    profile = _active_profile()
+    target_profile_id = request.form.get("profile_id", type=int)
+    active_profile = _active_profile()
+    profile = Profile.query.get(target_profile_id) if target_profile_id else active_profile
     if profile is None:
         return jsonify({"error": "No active profile"}), 401
+
+    if target_profile_id and (active_profile is None or active_profile.id != target_profile_id):
+        _, auth_error = _require_parent_unlocked()
+        if auth_error:
+            return auth_error
 
     file = request.files.get("file")
     safe_name, validation_error = _validate_upload(file, ("image/",), max_bytes=MAX_UPLOAD_BYTES_BY_KIND["profile"])
@@ -2773,6 +2781,7 @@ def api_upload_receipt():
     if validation_error:
         return validation_error
 
+    size_bytes = _file_size_bytes(file)
     filename, save_error = _save_file(file, "receipts")
     if save_error:
         return save_error
