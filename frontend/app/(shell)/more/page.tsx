@@ -61,6 +61,8 @@ export default function MorePage() {
       <section className="barn-card grid gap-2 sm:grid-cols-2">
         <Link href="/family" className="quick-action-card justify-start px-4 text-sm">👨‍👩‍👧‍👦 Family</Link>
         <Link href="/reports" className="quick-action-card justify-start px-4 text-sm">📊 Reports</Link>
+        <Link href="/activity" className="quick-action-card justify-start px-4 text-sm">🕒 Activity</Link>
+        <Link href="/notifications" className="quick-action-card justify-start px-4 text-sm">🔔 Notifications</Link>
         <Link href="/income" className="quick-action-card justify-start px-4 text-sm">💰 Income</Link>
         <Link href="/inventory" className="quick-action-card justify-start px-4 text-sm">🧰 Inventory</Link>
         <Link href="/auctions" className="quick-action-card justify-start px-4 text-sm">🏷️ Auctions</Link>

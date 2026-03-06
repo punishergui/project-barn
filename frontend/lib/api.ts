@@ -75,3 +75,46 @@ export type IncomeEntry = { id: number; project_id: number; profile_id: number |
 export type AuctionSale = { id: number; project_id: number; show_id: number | null; sale_date: string; buyer_name: string; sale_amount: number; add_ons_amount: number; fees_amount: number; final_payout: number; notes: string | null };
 export type ProjectFinancialSummary = { project_id: number; project_name: string; owner_profile_id: number; owner_name?: string; total_expenses_cents: number; total_expenses: number; total_feed_cents: number; total_feed: number; total_health_cents: number; total_health: number; total_materials_cents?: number; total_materials?: number; total_income_cents: number; total_income: number; net_profit_loss_cents: number; net_profit_loss: number; latest_sale: AuctionSale | null };
 export type FamilyFinancialSummary = { range: string; start_date: string | null; end_date: string | null; overall_totals: { total_expenses_cents: number; total_expenses: number; total_income_cents: number; total_income: number; net_family_balance_cents: number; net_family_balance: number }; by_project: ProjectFinancialSummary[]; by_member: Array<{ profile_id: number; member_name: string; total_project_expenses_cents: number; total_project_expenses: number; total_project_income_cents: number; total_project_income: number; net_total_cents: number; net_total: number }>; recent_sales: AuctionSale[] };
+
+export type NotificationItem = {
+  id: number;
+  type: string;
+  title: string;
+  body: string | null;
+  timestamp: string | null;
+  profile: Profile | null;
+  actor_profile: Profile | null;
+  project: { id: number; name: string } | null;
+  related_route: string | null;
+  is_read: boolean;
+};
+
+export type NotificationsResponse = { items: NotificationItem[]; unread_count: number };
+
+export type ProjectReminder = {
+  id: number;
+  project_id: number;
+  type: string;
+  enabled: boolean;
+  time_of_day: string | null;
+  frequency: string | null;
+  notes: string | null;
+  parent_locked: boolean;
+  created_by_profile_id: number | null;
+  updated_by_profile_id: number | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type ActivityItem = {
+  id: string;
+  type: string;
+  title: string;
+  description: string | null;
+  timestamp: string;
+  project_id: number | null;
+  project_name: string | null;
+  profile_id: number | null;
+  profile_name: string | null;
+  route: string;
+};

@@ -27,6 +27,8 @@ type DashboardResponse = {
   low_feed_inventory: Array<{ id: number; name: string; qty_on_hand: number; unit: string; low_stock_threshold: number | null }>;
   recent_feed_events: Array<{ id: number; project_id: number; project_name: string; recorded_at: string | null; feed_type: string; amount: number; unit: string }>;
   finance_summary: { total_spent: number; total_income: number; net_balance: number; recent_sale: { id: number; buyer_name: string; sale_date: string; final_payout: number } | null };
+  unread_notifications: number;
+  upcoming_reminders: Array<{ id: number; project_id: number; project_name: string; type: string; time_of_day: string | null; notes: string | null; parent_locked: boolean; route: string }>;
 };
 
 const emptyDashboard: DashboardResponse = {
@@ -38,7 +40,9 @@ const emptyDashboard: DashboardResponse = {
   recent_activity: [],
   low_feed_inventory: [],
   recent_feed_events: [],
-  finance_summary: { total_spent: 0, total_income: 0, net_balance: 0, recent_sale: null }
+  finance_summary: { total_spent: 0, total_income: 0, net_balance: 0, recent_sale: null },
+  unread_notifications: 0,
+  upcoming_reminders: []
 };
 
 export default async function DashboardPage() {
@@ -75,6 +79,8 @@ export default async function DashboardPage() {
       recentFeedEvents={dashboard.recent_feed_events}
       financeSummary={dashboard.finance_summary}
       hasLoadError={hasLoadError}
+      unreadNotifications={dashboard.unread_notifications}
+      upcomingReminders={dashboard.upcoming_reminders}
     />
   );
 }

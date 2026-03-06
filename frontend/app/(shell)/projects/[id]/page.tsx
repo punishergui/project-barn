@@ -4,11 +4,11 @@ import Link from "next/link";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 
-import { apiClientJson, AuthStatus, ChecklistResponse, Expense, FamilyInventoryItem, FeedEntry, MediaItem, Placing, Profile, Project, ProjectFinancialSummary, ProjectMaterial, ProjectTask, Show, ShowReadinessResponse, TimelineEntry, WeightEntry } from "@/lib/api";
+import { apiClientJson, AuthStatus, ChecklistResponse, Expense, FamilyInventoryItem, FeedEntry, MediaItem, Placing, Profile, Project, ProjectFinancialSummary, ProjectMaterial, ProjectReminder, ProjectTask, Show, ShowReadinessResponse, TimelineEntry, WeightEntry } from "@/lib/api";
 import { uploadProjectHero, uploadProjectMedia } from "@/lib/uploads";
 import { ShowsMediaCard } from "@/components/shows-media-card";
 
-const sections = ["overview", "materials", "financial", "feed", "timeline", "expenses", "shows", "media", "tasks", "checklists", "readiness"] as const;
+const sections = ["overview", "materials", "financial", "feed", "timeline", "reminders", "expenses", "shows", "media", "tasks", "checklists", "readiness"] as const;
 
 type SectionName = (typeof sections)[number];
 
@@ -38,12 +38,13 @@ export default function ProjectDetailPage() {
   const [financialSummary, setFinancialSummary] = useState<ProjectFinancialSummary | null>(null);
   const [checklists, setChecklists] = useState<ChecklistResponse | null>(null);
   const [readiness, setReadiness] = useState<ShowReadinessResponse | null>(null);
+  const [reminders, setReminders] = useState<ProjectReminder[]>([]);
   const [auth, setAuth] = useState<AuthStatus | null>(null);
   const [mediaCaption, setMediaCaption] = useState("");
 
   const load = async () => {
     const id = Number(params.id);
-    const [projectData, profileData, expenseData, showData, timelineData, taskData, mediaData, placingData, authData, weightData, feedData, materialData, inventoryData, financialData, checklistData, readinessData] = await Promise.all([
+    const [projectData, profileData, expenseData, showData, timelineData, taskData, mediaData, placingData, authData, weightData, feedData, materialData, inventoryData, financialData, checklistData, readinessData, reminderData] = await Promise.all([
       apiClientJson<Project>(`/projects/${id}`),
       apiClientJson<Profile[]>("/profiles"),
       apiClientJson<Expense[]>(`/expenses?project_id=${id}`),
@@ -59,7 +60,8 @@ export default function ProjectDetailPage() {
       apiClientJson<FamilyInventoryItem[]>("/inventory").catch(() => []),
       apiClientJson<ProjectFinancialSummary>(`/projects/${id}/financial-summary`).catch(() => null),
       apiClientJson<ChecklistResponse>(`/projects/${id}/checklists`).catch(() => null),
-      apiClientJson<ShowReadinessResponse>(`/projects/${id}/show-readiness`).catch(() => null)
+      apiClientJson<ShowReadinessResponse>(`/projects/${id}/show-readiness`).catch(() => null),
+      apiClientJson<ProjectReminder[]>(`/projects/${id}/reminders`).catch(() => [])
     ]);
 
     setProject(projectData);
@@ -78,6 +80,7 @@ export default function ProjectDetailPage() {
     setFinancialSummary(financialData);
     setChecklists(checklistData);
     setReadiness(readinessData);
+    setReminders(reminderData);
   };
 
   useEffect(() => {
@@ -206,6 +209,8 @@ export default function ProjectDetailPage() {
       ) : null}
 
       {activeSection === "feed" ? <section className="barn-card space-y-2 text-sm"><h2 className="text-base font-semibold">Feed</h2>{feedEntries.length === 0 ? <p className="barn-row text-[var(--barn-muted)]">No feed entries yet.</p> : feedEntries.map((row) => <p key={row.id} className="barn-row">{formatDate(row.recorded_at)} • {row.feed_type} • {row.amount} {row.unit}</p>)}</section> : null}
+
+      {activeSection === "reminders" ? <section className="barn-card space-y-3 text-sm"><div className="flex items-center justify-between"><h2 className="text-base font-semibold">Reminders</h2><Link href={`/projects/${project.id}/reminders`} className="rounded bg-[var(--barn-red)] px-3 py-2 text-xs">Open reminders</Link></div>{reminders.length === 0 ? <p className="barn-row text-[var(--barn-muted)]">No reminders configured.</p> : reminders.map((item) => <article key={item.id} className="barn-row"><p className="font-medium">{item.type.replace("_", " ")}{item.parent_locked ? " 🔒" : ""}</p><p className="text-xs text-[var(--barn-muted)]">{item.enabled ? "Enabled" : "Disabled"} • {item.time_of_day || "Any time"} • {item.frequency || "No frequency"}</p></article>)}</section> : null}
 
       {activeSection === "timeline" ? <section className="barn-card space-y-3 text-sm"><h2 className="text-base font-semibold">Timeline</h2><form className="grid gap-2 rounded-lg bg-[var(--barn-bg)] p-3" onSubmit={(event) => addTimeline(event).catch(() => undefined)}><input name="date" type="date" className="rounded bg-black/20 p-2" required /><input name="title" placeholder="Title" className="rounded bg-black/20 p-2" /><input name="type" placeholder="Type" className="rounded bg-black/20 p-2" defaultValue="Other" /><textarea name="note" placeholder="Note" className="rounded bg-black/20 p-2" /><button className="rounded bg-[var(--barn-red)] px-3 py-2 text-sm">Save entry</button></form>{timeline.length === 0 ? <p className="barn-row text-[var(--barn-muted)]">No timeline entries yet.</p> : timeline.map((item) => <article key={item.id} className="barn-row"><p className="font-medium">{item.title}</p><p className="text-xs text-[var(--barn-muted)]">{formatDate(item.date)} • {item.type}</p></article>)}</section> : null}
 

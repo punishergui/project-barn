@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import BarnLogo from "@/components/BarnLogo";
-import { Profile, SessionResponse, apiClientJson } from "@/lib/api";
+import { NotificationsResponse, Profile, SessionResponse, apiClientJson } from "@/lib/api";
 
 const primaryLinks = [
   { href: "/dashboard", label: "Dashboard", icon: "🏠" },
@@ -29,6 +29,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -41,6 +42,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         }
         setProfile(null);
       });
+
+    apiClientJson<NotificationsResponse>("/notifications?scope=unread&limit=1", { signal: controller.signal })
+      .then((payload) => setUnreadNotifications(payload.unread_count))
+      .catch(() => setUnreadNotifications(0));
 
     return () => controller.abort();
   }, [pathname]);
@@ -62,7 +67,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <BarnLogo size={26} />
             <span className="truncate">Project Barn</span>
           </Link>
-          <div className="relative">
+          <div className="flex items-center gap-2">
+            <Link href="/notifications" className="relative flex min-h-11 min-w-11 items-center justify-center rounded-full border border-[var(--barn-border)] bg-[var(--barn-bg)]" aria-label="Open notifications">
+              <span aria-hidden="true">🔔</span>
+              {unreadNotifications > 0 ? <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-[var(--barn-red)] px-1 text-center text-[10px] font-semibold text-white">{unreadNotifications > 99 ? "99+" : unreadNotifications}</span> : null}
+            </Link>
+            <div className="relative">
             <button
               type="button"
               onClick={() => setProfileMenuOpen((open) => !open)}
@@ -86,6 +96,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </Link>
               </div>
             ) : null}
+          </div>
           </div>
         </div>
       </header>

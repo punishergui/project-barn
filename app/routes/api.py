@@ -14,7 +14,7 @@ from sqlalchemy import func, text
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app import save_upload, save_upload_in_subdir
-from app.models import AppSetting, AuctionSale, Expense, ExpenseAllocation, ExpenseReceipt, FamilyInventoryItem, FeedEntry, FeedInventorySimple, HealthEntry, IncomeRecord, Media, Placing, Profile, Project, ProjectMaterial, ProjectTask, Show, ShowDay, ShowDayCheck, ShowDayTask, ShowEntry, SkillsChecklist, Task, TaskItem, TimelineEntry, WeightEntry, db
+from app.models import AppSetting, AuctionSale, Expense, ExpenseAllocation, ExpenseReceipt, FamilyInventoryItem, FeedEntry, FeedInventorySimple, HealthEntry, IncomeRecord, Media, Placing, Profile, Project, ProjectMaterial, ProjectReminder, ProjectTask, Show, ShowDay, ShowDayCheck, ShowDayTask, ShowEntry, SkillsChecklist, Task, TaskItem, TimelineEntry, WeightEntry, Notification, db
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 UNLOCK_DURATION_MINUTES = 15
@@ -328,6 +328,166 @@ def _profile_payload(profile: Profile) -> dict[str, object]:
         "years_in_4h": profile.years_in_4h,
         "birthdate": _iso(profile.birthdate),
     }
+
+
+def _notification_payload(item: Notification) -> dict[str, object]:
+    profile = Profile.query.get(item.profile_id) if item.profile_id else None
+    actor = Profile.query.get(item.actor_profile_id) if getattr(item, "actor_profile_id", None) else None
+    project = Project.query.get(item.project_id) if getattr(item, "project_id", None) else None
+    return {
+        "id": item.id,
+        "type": item.type,
+        "title": item.title,
+        "body": item.body,
+        "timestamp": _iso(item.created_at),
+        "profile": _profile_payload(profile) if profile else None,
+        "actor_profile": _profile_payload(actor) if actor else None,
+        "project": {"id": project.id, "name": project.name} if project else None,
+        "related_route": item.link,
+        "is_read": bool(item.read),
+    }
+
+
+def _project_reminder_payload(item: ProjectReminder) -> dict[str, object]:
+    return {
+        "id": item.id,
+        "project_id": item.project_id,
+        "type": item.type,
+        "enabled": bool(item.enabled),
+        "time_of_day": item.time_of_day,
+        "frequency": item.frequency,
+        "notes": item.notes,
+        "parent_locked": bool(item.parent_locked),
+        "created_by_profile_id": item.created_by_profile_id,
+        "updated_by_profile_id": item.updated_by_profile_id,
+        "created_at": _iso(item.created_at),
+        "updated_at": _iso(item.updated_at),
+    }
+
+
+def _create_family_notification(
+    *,
+    notification_type: str,
+    title: str,
+    body: str | None = None,
+    project_id: int | None = None,
+    actor_profile_id: int | None = None,
+    related_route: str | None = None,
+) -> None:
+    targets = Profile.query.filter_by(archived=False).all()
+    if not targets:
+        return
+    now = datetime.utcnow()
+    rows = [
+        Notification(
+            profile_id=target.id,
+            project_id=project_id,
+            actor_profile_id=actor_profile_id,
+            type=notification_type,
+            title=title,
+            body=body,
+            read=False,
+            created_at=now,
+            link=related_route,
+        )
+        for target in targets
+    ]
+    db.session.add_all(rows)
+
+
+def _build_activity_rows() -> list[dict[str, object]]:
+    project_names = {row.id: row.name for row in Project.query.all()}
+    profile_names = {row.id: row.name for row in Profile.query.all()}
+    rows: list[dict[str, object]] = []
+
+    for item in TimelineEntry.query.order_by(TimelineEntry.date.desc(), TimelineEntry.id.desc()).limit(120).all():
+        rows.append({
+            "id": f"timeline-{item.id}",
+            "type": item.type or "timeline",
+            "title": item.title,
+            "description": item.description,
+            "timestamp": _iso(item.date),
+            "project_id": item.project_id,
+            "project_name": project_names.get(item.project_id),
+            "profile_id": None,
+            "profile_name": None,
+            "route": f"/projects/{item.project_id}?tab=timeline",
+        })
+
+    for item in Expense.query.order_by(Expense.date.desc(), Expense.id.desc()).limit(80).all():
+        actor_name = profile_names.get(item.logged_by_id)
+        rows.append({
+            "id": f"expense-{item.id}",
+            "type": "expense_logged",
+            "title": f"Expense logged: ${float(item.amount):.2f}",
+            "description": f"{actor_name + ' • ' if actor_name else ''}{item.vendor or item.category}",
+            "timestamp": _iso(item.date),
+            "project_id": item.project_id,
+            "project_name": project_names.get(item.project_id),
+            "profile_id": item.logged_by_id,
+            "profile_name": actor_name,
+            "route": f"/expenses/{item.id}",
+        })
+
+    for item in Placing.query.order_by(Placing.created_at.desc(), Placing.id.desc()).limit(80).all():
+        rows.append({
+            "id": f"placing-{item.id}",
+            "type": "show_result",
+            "title": f"Placing added: {item.placing}",
+            "description": item.class_name or "Show result",
+            "timestamp": _iso(item.placed_at or item.created_at),
+            "project_id": item.project_id,
+            "project_name": project_names.get(item.project_id) if item.project_id else None,
+            "profile_id": None,
+            "profile_name": None,
+            "route": f"/shows/{item.show_id}" if item.show_id else "/shows",
+        })
+
+    for item in Media.query.order_by(Media.created_at.desc(), Media.id.desc()).limit(80).all():
+        rows.append({
+            "id": f"media-{item.id}",
+            "type": "media_added",
+            "title": "Photo or media added",
+            "description": item.caption or item.kind,
+            "timestamp": _iso(item.created_at),
+            "project_id": item.project_id,
+            "project_name": project_names.get(item.project_id) if item.project_id else None,
+            "profile_id": None,
+            "profile_name": None,
+            "route": f"/projects/{item.project_id}?tab=media" if item.project_id else "/more",
+        })
+
+    for item in ProjectTask.query.filter(ProjectTask.is_completed.is_(True)).order_by(ProjectTask.updated_at.desc(), ProjectTask.id.desc()).limit(80).all():
+        rows.append({
+            "id": f"task-{item.id}",
+            "type": "task_completed",
+            "title": f"Task completed: {item.title}",
+            "description": "Completed task",
+            "timestamp": _iso(item.completed_at or item.updated_at),
+            "project_id": item.project_id,
+            "project_name": project_names.get(item.project_id),
+            "profile_id": None,
+            "profile_name": None,
+            "route": f"/projects/{item.project_id}?tab=tasks",
+        })
+
+    for item in SkillsChecklist.query.filter(SkillsChecklist.completed.is_(True)).order_by(SkillsChecklist.completed_at.desc(), SkillsChecklist.id.desc()).limit(80).all():
+        rows.append({
+            "id": f"checklist-{item.id}",
+            "type": "checklist_completed",
+            "title": f"Checklist done: {item.skill_name}",
+            "description": "Checklist item completed",
+            "timestamp": _iso(item.completed_at),
+            "project_id": item.project_id,
+            "project_name": project_names.get(item.project_id),
+            "profile_id": item.completed_by_id,
+            "profile_name": profile_names.get(item.completed_by_id),
+            "route": f"/projects/{item.project_id}/checklists",
+        })
+
+    rows = [row for row in rows if row.get("timestamp")]
+    rows.sort(key=lambda row: str(row["timestamp"]), reverse=True)
+    return rows
 
 
 def _skills_checklist_payload(item: SkillsChecklist) -> dict[str, object]:
@@ -1022,6 +1182,14 @@ def api_expenses_create():
         return jsonify({"error": "Invalid expense payload"}), 400
 
     db.session.add(expense)
+    _create_family_notification(
+        notification_type='expense_logged',
+        title='Expense logged',
+        body=f"${float(expense.amount):.2f} • {expense.vendor or expense.category}",
+        project_id=expense.project_id,
+        actor_profile_id=profile.id,
+        related_route='/expenses',
+    )
     db.session.commit()
     return jsonify(_expense_payload(expense)), 201
 
@@ -1482,6 +1650,147 @@ def api_income_csv():
     csv_rows = [[row.id, row.project_id, row.logged_by_id, row.date.isoformat(), INCOME_TYPE_API_MAP.get(row.category, row.category), row.source or '', f"{float(row.amount):.2f}", row.notes or ''] for row in rows]
     return _csv_response('income.csv', ['id', 'project_id', 'profile_id', 'date', 'type', 'source', 'amount', 'notes'], csv_rows)
 
+@api_bp.get('/notifications')
+def api_notifications_list():
+    profile = _active_profile()
+    if profile is None:
+        return jsonify({'error': 'No active profile'}), 401
+    scope = (request.args.get('scope') or 'all').strip().lower()
+    limit = min(max(int(request.args.get('limit', 50)), 1), 200)
+    query = Notification.query.filter_by(profile_id=profile.id)
+    if scope == 'unread':
+        query = query.filter(Notification.read.is_(False))
+    rows = query.order_by(Notification.created_at.desc(), Notification.id.desc()).limit(limit).all()
+    unread_count = Notification.query.filter_by(profile_id=profile.id, read=False).count()
+    return jsonify({'items': [_notification_payload(item) for item in rows], 'unread_count': unread_count})
+
+
+@api_bp.patch('/notifications/<int:notification_id>')
+def api_notifications_update(notification_id: int):
+    profile = _active_profile()
+    if profile is None:
+        return jsonify({'error': 'No active profile'}), 401
+    item = Notification.query.filter_by(id=notification_id, profile_id=profile.id).first_or_404()
+    payload = request.get_json(silent=True) or {}
+    if 'is_read' in payload:
+        item.read = bool(payload.get('is_read'))
+    db.session.commit()
+    return jsonify(_notification_payload(item))
+
+
+@api_bp.post('/notifications/mark-all-read')
+def api_notifications_mark_all_read():
+    profile = _active_profile()
+    if profile is None:
+        return jsonify({'error': 'No active profile'}), 401
+    Notification.query.filter_by(profile_id=profile.id, read=False).update({'read': True})
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@api_bp.get('/activity')
+def api_activity_feed():
+    items = _build_activity_rows()
+    profile_id = request.args.get('profile_id')
+    project_id = request.args.get('project_id')
+    event_type = (request.args.get('type') or '').strip().lower()
+    if profile_id and profile_id.isdigit():
+        pid = int(profile_id)
+        items = [item for item in items if item.get('profile_id') == pid]
+    if project_id and project_id.isdigit():
+        prj = int(project_id)
+        items = [item for item in items if item.get('project_id') == prj]
+    if event_type:
+        items = [item for item in items if str(item.get('type') or '').lower() == event_type]
+    return jsonify(items[:150])
+
+
+@api_bp.get('/projects/<int:project_id>/reminders')
+def api_project_reminders(project_id: int):
+    Project.query.get_or_404(project_id)
+    rows = ProjectReminder.query.filter_by(project_id=project_id).order_by(ProjectReminder.enabled.desc(), ProjectReminder.time_of_day.asc().nulls_last(), ProjectReminder.id.asc()).all()
+    return jsonify([_project_reminder_payload(item) for item in rows])
+
+
+@api_bp.post('/projects/<int:project_id>/reminders')
+def api_project_reminders_create(project_id: int):
+    profile, error = _require_parent_unlocked()
+    if error:
+        return error
+    Project.query.get_or_404(project_id)
+    payload = request.get_json(silent=True) or {}
+    reminder_type = str(payload.get('type') or 'custom').strip().lower()
+    if reminder_type not in {'feed', 'weigh_in', 'exercise', 'show_prep', 'expense', 'custom'}:
+        return jsonify({'error': 'invalid reminder type'}), 400
+    item = ProjectReminder(
+        project_id=project_id,
+        type=reminder_type,
+        enabled=bool(payload.get('enabled', True)),
+        time_of_day=(str(payload.get('time_of_day') or '').strip() or None),
+        frequency=(str(payload.get('frequency') or '').strip() or None),
+        notes=(str(payload.get('notes') or '').strip() or None),
+        parent_locked=bool(payload.get('parent_locked', False)),
+        created_by_profile_id=profile.id,
+        updated_by_profile_id=profile.id,
+    )
+    db.session.add(item)
+    db.session.flush()
+    _create_family_notification(
+        notification_type='reminder_due',
+        title=f"Reminder set for {Project.query.get(project_id).name}",
+        body=f"{reminder_type.replace('_', ' ')} at {item.time_of_day or 'any time'}",
+        project_id=project_id,
+        actor_profile_id=profile.id,
+        related_route=f"/projects/{project_id}/reminders",
+    )
+    db.session.commit()
+    return jsonify(_project_reminder_payload(item)), 201
+
+
+@api_bp.patch('/reminders/<int:reminder_id>')
+def api_reminder_update(reminder_id: int):
+    profile = _active_profile()
+    if profile is None:
+        return jsonify({'error': 'No active profile'}), 401
+    item = ProjectReminder.query.get_or_404(reminder_id)
+    if item.parent_locked and profile.role != 'parent':
+        return jsonify({'error': 'Parent-locked reminder cannot be edited'}), 403
+    if profile.role == 'parent' and not _is_unlocked():
+        return jsonify({'error': 'Parent PIN unlock required'}), 403
+    if profile.role != 'parent':
+        return jsonify({'error': 'Parent profile required'}), 403
+    payload = request.get_json(silent=True) or {}
+    for key in {'type', 'time_of_day', 'frequency', 'notes'}:
+        if key in payload:
+            value = str(payload.get(key) or '').strip()
+            setattr(item, key, value or None)
+    if 'enabled' in payload:
+        item.enabled = bool(payload.get('enabled'))
+    if 'parent_locked' in payload:
+        item.parent_locked = bool(payload.get('parent_locked'))
+    item.updated_by_profile_id = profile.id
+    item.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify(_project_reminder_payload(item))
+
+
+@api_bp.delete('/reminders/<int:reminder_id>')
+def api_reminder_delete(reminder_id: int):
+    profile = _active_profile()
+    if profile is None:
+        return jsonify({'error': 'No active profile'}), 401
+    item = ProjectReminder.query.get_or_404(reminder_id)
+    if item.parent_locked and profile.role != 'parent':
+        return jsonify({'error': 'Parent-locked reminder cannot be deleted'}), 403
+    if profile.role != 'parent':
+        return jsonify({'error': 'Parent profile required'}), 403
+    if not _is_unlocked():
+        return jsonify({'error': 'Parent PIN unlock required'}), 403
+    db.session.delete(item)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
 @api_bp.get("/summary")
 @api_bp.get("/dashboard")
 def api_summary():
@@ -1644,6 +1953,26 @@ def api_summary():
     total_income_cents += sum(int(round(float(row.net_proceeds or 0) * 100)) for row in AuctionSale.query.all())
     recent_sale = AuctionSale.query.order_by(AuctionSale.sale_date.desc(), AuctionSale.id.desc()).first()
 
+    unread_notifications = 0
+    if profile:
+        unread_notifications = Notification.query.filter_by(profile_id=profile.id, read=False).count()
+
+    upcoming_reminders = []
+    for reminder in ProjectReminder.query.filter_by(enabled=True).order_by(ProjectReminder.parent_locked.desc(), ProjectReminder.id.desc()).all():
+        project = Project.query.get(reminder.project_id)
+        if not project:
+            continue
+        upcoming_reminders.append({
+            'id': reminder.id,
+            'project_id': reminder.project_id,
+            'project_name': project.name,
+            'type': reminder.type,
+            'time_of_day': reminder.time_of_day,
+            'notes': reminder.notes,
+            'parent_locked': bool(reminder.parent_locked),
+            'route': f"/projects/{reminder.project_id}/reminders",
+        })
+
     return jsonify({
         "active_profile": {
             "id": profile.id if profile else None,
@@ -1666,6 +1995,8 @@ def api_summary():
         ],
         "recent_expenses": recent_expenses,
         "recent_activity": recent_activity[:10],
+        "unread_notifications": unread_notifications,
+        "upcoming_reminders": upcoming_reminders[:8],
         "low_feed_inventory": low_feed_inventory,
         "recent_feed_events": recent_feed_events,
         "finance_summary": {
@@ -2173,7 +2504,7 @@ def api_upload_receipt():
 
 @api_bp.post("/uploads/project-media")
 def api_upload_project_media():
-    _, error = _require_parent_unlocked()
+    profile, error = _require_parent_unlocked()
     if error:
         return error
 
@@ -2199,13 +2530,21 @@ def api_upload_project_media():
         caption=(request.form.get("caption") or None),
     )
     db.session.add(media)
+    _create_family_notification(
+        notification_type='media_added',
+        title='Photo/media added',
+        body=media.caption or media.kind,
+        project_id=media.project_id,
+        actor_profile_id=profile.id,
+        related_route=f"/projects/{media.project_id}?tab=media",
+    )
     db.session.commit()
     return jsonify({"url": media.url, "media": _media_payload(media)})
 
 
 @api_bp.post('/media/upload')
 def api_media_upload():
-    _, error = _require_parent_unlocked()
+    profile, error = _require_parent_unlocked()
     if error:
         return error
     file = request.files.get('file')
@@ -2215,6 +2554,14 @@ def api_media_upload():
         return jsonify({'error': str(exc)}), 400
     media = Media(project_id=int(request.form['project_id']) if request.form.get('project_id') else None, timeline_entry_id=int(request.form['timeline_entry_id']) if request.form.get('timeline_entry_id') else None, placing_id=int(request.form['placing_id']) if request.form.get('placing_id') else None, show_id=int(request.form['show_id']) if request.form.get('show_id') else None, show_day_id=int(request.form['show_day_id']) if request.form.get('show_day_id') else None, kind=request.form.get('kind') or 'project', file_name=filename, url=f"/uploads/{filename}", caption=request.form.get('caption'))
     db.session.add(media)
+    _create_family_notification(
+        notification_type='media_added',
+        title='Photo/media added',
+        body=media.caption or media.kind,
+        project_id=media.project_id,
+        actor_profile_id=profile.id,
+        related_route=f"/projects/{media.project_id}?tab=media" if media.project_id else '/more',
+    )
     db.session.commit()
     return jsonify(_media_payload(media)), 201
 
@@ -2334,7 +2681,7 @@ def api_show_placings(show_id: int):
 @api_bp.post('/placings')
 @api_bp.post('/shows/<int:show_id>/placing')
 def api_placings_create_v2(show_id: int | None = None):
-    _, error = _require_parent_unlocked()
+    profile, error = _require_parent_unlocked()
     if error:
         return error
     payload = request.get_json(silent=True) or {}
@@ -2350,6 +2697,14 @@ def api_placings_create_v2(show_id: int | None = None):
         db.session.flush()
     placing = Placing(entry_id=entry.id, show_id=int(show_id), show_day_id=int(payload['show_day_id']) if payload.get('show_day_id') else None, project_id=int(project_id), class_name=payload.get('class_name'), ring=payload.get('ring'), placing=placing_value, ribbon_type=payload.get('ribbon_type'), points=float(payload['points']) if payload.get('points') not in (None, '') else None, judge=payload.get('judge'), notes=payload.get('notes'), placed_at=datetime.fromisoformat(payload['placed_at']) if payload.get('placed_at') else None, photo_url=payload.get('photo_url'))
     db.session.add(placing)
+    _create_family_notification(
+        notification_type='show_result',
+        title=f"Show result added: {placing.placing}",
+        body=placing.class_name or 'Placing recorded',
+        project_id=placing.project_id,
+        actor_profile_id=profile.id,
+        related_route=f"/shows/{show_id}",
+    )
     db.session.commit()
     return jsonify(_placing_payload(placing)), 201
 
@@ -2495,6 +2850,15 @@ def api_task_toggle(task_id: int):
     task.is_completed = not bool(task.is_completed)
     task.completed_at = datetime.utcnow() if task.is_completed else None
     task.updated_at = datetime.utcnow()
+    if task.is_completed:
+        _create_family_notification(
+            notification_type='task_completed',
+            title='Task completed',
+            body=task.title,
+            project_id=task.project_id,
+            actor_profile_id=profile.id,
+            related_route=f"/projects/{task.project_id}?tab=tasks",
+        )
     db.session.commit()
     return jsonify(_project_task_payload(task))
 
@@ -2580,6 +2944,15 @@ def api_checklist_update(item_id: int):
         item.completed = bool(payload.get('is_completed'))
         item.completed_at = datetime.utcnow() if item.completed else None
         item.completed_by_id = profile.id if item.completed else None
+        if item.completed:
+            _create_family_notification(
+                notification_type='checklist_completed',
+                title='Checklist item completed',
+                body=item.skill_name,
+                project_id=item.project_id,
+                actor_profile_id=profile.id,
+                related_route=f"/projects/{item.project_id}/checklists",
+            )
     db.session.commit()
     return jsonify(_skills_checklist_payload(item))
 
@@ -2673,6 +3046,15 @@ def api_project_task_complete(project_id: int, task_id: int):
     item.is_completed = True
     item.completed_at = datetime.utcnow()
     item.updated_at = datetime.utcnow()
+    actor = _active_profile()
+    _create_family_notification(
+        notification_type='task_completed',
+        title='Task completed',
+        body=item.title,
+        project_id=item.project_id,
+        actor_profile_id=actor.id if actor else None,
+        related_route=f"/projects/{item.project_id}?tab=tasks",
+    )
     db.session.commit()
     return jsonify(_project_task_payload(item))
 

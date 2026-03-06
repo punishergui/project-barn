@@ -362,12 +362,29 @@ class Goal(db.Model):
 class Notification(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     profile_id = db.Column(db.Integer, db.ForeignKey("profile.id"), nullable=False)
+    project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=True)
+    actor_profile_id = db.Column(db.Integer, db.ForeignKey("profile.id"), nullable=True)
     title = db.Column(db.String(120), nullable=False)
     body = db.Column(db.String(255), nullable=True)
-    type = db.Column(db.String(20), nullable=False, default="reminder")
+    type = db.Column(db.String(40), nullable=False, default="reminder")
     read = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     link = db.Column(db.String(255), nullable=True)
+
+
+class ProjectReminder(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=False)
+    type = db.Column(db.String(40), nullable=False, default="custom")
+    enabled = db.Column(db.Boolean, default=True, nullable=False)
+    time_of_day = db.Column(db.String(10), nullable=True)
+    frequency = db.Column(db.String(40), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    parent_locked = db.Column(db.Boolean, default=False, nullable=False)
+    created_by_profile_id = db.Column(db.Integer, db.ForeignKey("profile.id"), nullable=True)
+    updated_by_profile_id = db.Column(db.Integer, db.ForeignKey("profile.id"), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
 
 class FeedInventory(db.Model):
