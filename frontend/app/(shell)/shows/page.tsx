@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-import { apiClientJson, AuthStatus, Show } from "@/lib/api";
+import { AuthStatus, Show, apiClientJson } from "@/lib/api";
+import { toUserErrorMessage } from "@/lib/errorMessage";
 
 function formatDate(value?: string | null) {
   if (!value) return "TBD";
@@ -14,14 +15,25 @@ export default function ShowsPage() {
   const [shows, setShows] = useState<Show[]>([]);
   const [auth, setAuth] = useState<AuthStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const [showList, authStatus] = await Promise.all([apiClientJson<Show[]>("/shows"), apiClientJson<AuthStatus>("/auth/status")]);
+      setShows(showList);
+      setAuth(authStatus);
+    } catch (loadError) {
+      setError(toUserErrorMessage(loadError, "Unable to load shows right now."));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    Promise.all([apiClientJson<Show[]>("/shows"), apiClientJson<AuthStatus>("/auth/status")])
-      .then(([showList, authStatus]) => {
-        setShows(showList);
-        setAuth(authStatus);
-      })
-      .finally(() => setLoading(false));
+    load().catch(() => undefined);
   }, []);
 
   const sortedShows = useMemo(
@@ -45,7 +57,16 @@ export default function ShowsPage() {
 
       {loading ? <p className="text-sm text-[var(--barn-muted)]">Loading shows...</p> : null}
 
-      {!loading && sortedShows.length === 0 ? (
+      {error ? (
+        <div className="barn-card space-y-2 text-sm">
+          <p className="text-red-200">{error}</p>
+          <button type="button" onClick={() => load().catch(() => undefined)} className="rounded bg-neutral-700 px-3 py-2 text-sm">
+            Retry
+          </button>
+        </div>
+      ) : null}
+
+      {!loading && !error && sortedShows.length === 0 ? (
         <div className="barn-card space-y-2 text-sm text-[var(--barn-muted)]">
           <p>No shows yet. Add your first show to start planning.</p>
           {auth?.role === "parent" && auth.is_unlocked ? (

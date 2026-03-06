@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 
-import { apiClientJson, Expense, Project } from "@/lib/api";
+import { Expense, Project, apiClientJson } from "@/lib/api";
+import { toUserErrorMessage } from "@/lib/errorMessage";
 import { uploadReceipt } from "@/lib/uploads";
 
 function isPdf(url: string) {
@@ -16,14 +17,23 @@ export default function ExpenseDetailPage() {
   const [expense, setExpense] = useState<Expense | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const load = async () => {
-    const [expenseData, projectData] = await Promise.all([
-      apiClientJson<Expense>(`/expenses/${params.id}`),
-      apiClientJson<Project[]>("/projects")
-    ]);
-    setExpense(expenseData);
-    setProjects(projectData);
+    setLoading(true);
+    setError(null);
+    try {
+      const [expenseData, projectData] = await Promise.all([
+        apiClientJson<Expense>(`/expenses/${params.id}`),
+        apiClientJson<Project[]>("/projects")
+      ]);
+      setExpense(expenseData);
+      setProjects(projectData);
+    } catch (loadError) {
+      setError(toUserErrorMessage(loadError, "Unable to load this expense."));
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -38,7 +48,7 @@ export default function ExpenseDetailPage() {
       await load();
       setError(null);
     } catch (uploadError) {
-      setError((uploadError as Error).message);
+      setError(toUserErrorMessage(uploadError, "Unable to upload receipt."));
     } finally {
       event.target.value = "";
     }
@@ -46,8 +56,12 @@ export default function ExpenseDetailPage() {
 
   const projectNames = useMemo(() => new Map(projects.map((project) => [project.id, project.name])), [projects]);
 
+  if (loading) {
+    return <p className="text-sm text-neutral-300">Loading expense...</p>;
+  }
+
   if (!expense) {
-    return <p>Loading expense...</p>;
+    return <div className="space-y-2"><p className="text-sm text-red-200">{error ?? "Expense not found."}</p><button type="button" className="rounded bg-neutral-700 px-3 py-2 text-sm" onClick={() => load().catch(() => undefined)}>Retry</button></div>;
   }
 
   return (
@@ -89,9 +103,9 @@ export default function ExpenseDetailPage() {
           {expense.receipts.map((receipt) => (
             <div key={receipt.id} className="rounded bg-neutral-800 p-2">
               {isPdf(receipt.url) ? (
-                <a href={receipt.url} target="_blank" className="block rounded border border-white/20 p-4 text-center text-xs text-blue-200 underline" rel="noreferrer">Download PDF receipt</a>
+                <a href={receipt.url} className="block rounded border border-white/20 p-4 text-center text-xs text-blue-200 underline">View PDF receipt</a>
               ) : (
-                <a href={receipt.url} target="_blank" rel="noreferrer">
+                <a href={receipt.url}>
                   <img src={receipt.url} alt={receipt.caption ?? receipt.file_name} className="h-24 w-full rounded object-cover" />
                 </a>
               )}

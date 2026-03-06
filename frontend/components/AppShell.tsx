@@ -5,10 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import BarnLogo from "@/components/BarnLogo";
-import { apiClientJson, Profile, SessionResponse } from "@/lib/api";
-
-const headerHeight = 56;
-const bottomNavHeight = 68;
+import { Profile, SessionResponse, apiClientJson } from "@/lib/api";
 
 const primaryLinks = [
   { href: "/dashboard", label: "Dashboard", icon: "🏠" },
@@ -58,9 +55,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="min-h-screen w-full bg-[var(--barn-bg)] text-[var(--barn-text)]">
-      <header className="fixed inset-x-0 top-0 z-50 h-[calc(56px+env(safe-area-inset-top))] w-full border-b border-[var(--barn-border)] bg-[var(--barn-surface)] pt-[env(safe-area-inset-top)]">
-        <div className="flex h-14 w-full items-center justify-between gap-2 px-4">
+    <div className="min-h-dvh w-full bg-[var(--barn-bg)] text-[var(--barn-text)]">
+      <header className="fixed inset-x-0 top-0 z-50 h-[calc(var(--barn-header-height)+env(safe-area-inset-top))] w-full border-b border-[var(--barn-border)] bg-[var(--barn-surface)] pt-[env(safe-area-inset-top)]">
+        <div className="flex h-[var(--barn-header-height)] w-full items-center justify-between gap-2 px-4">
           <Link href="/dashboard" className="flex min-h-11 min-w-0 items-center gap-2 text-base font-semibold text-[var(--barn-text)]" aria-label="Go to dashboard">
             <BarnLogo size={26} />
             <span className="truncate">Project Barn</span>
@@ -96,16 +93,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <main
         className="w-full overflow-x-hidden"
         style={{
-          paddingTop: `calc(${headerHeight}px + env(safe-area-inset-top))`,
-          paddingBottom: `calc(${bottomNavHeight}px + env(safe-area-inset-bottom) + 12px)`,
-          minHeight: "100vh"
+          paddingTop: "calc(var(--barn-header-height) + env(safe-area-inset-top))",
+          paddingBottom: "calc(var(--barn-bottom-nav-height) + env(safe-area-inset-bottom) + 12px)",
+          minHeight: "100dvh"
         }}
       >
         {children}
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-50 h-[calc(68px+env(safe-area-inset-bottom))] w-full border-t border-[var(--barn-border)] bg-[var(--barn-surface)] pb-[env(safe-area-inset-bottom)]">
-        <ul className="flex h-[68px] w-full items-center justify-between gap-1 px-2">
+      <nav className="fixed inset-x-0 bottom-0 z-50 h-[calc(var(--barn-bottom-nav-height)+env(safe-area-inset-bottom))] w-full border-t border-[var(--barn-border)] bg-[var(--barn-surface)] pb-[env(safe-area-inset-bottom)]">
+        <ul className="flex h-[var(--barn-bottom-nav-height)] w-full items-center justify-between gap-1 px-2">
           {primaryLinks.map((item) => (
             <li key={item.href} className="flex flex-1 justify-center">
               <Link

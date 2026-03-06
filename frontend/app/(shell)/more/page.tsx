@@ -3,13 +3,21 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 
-import { apiClientJson, AuthStatus } from "@/lib/api";
+import { AuthStatus, apiClientJson } from "@/lib/api";
+import { toUserErrorMessage } from "@/lib/errorMessage";
 
 export default function MorePage() {
   const [auth, setAuth] = useState<AuthStatus | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const load = async () => setAuth(await apiClientJson<AuthStatus>("/auth/status"));
+  const load = async () => {
+    try {
+      setAuth(await apiClientJson<AuthStatus>("/auth/status"));
+    } catch (error) {
+      setMessage(toUserErrorMessage(error, "Unable to load settings status."));
+    }
+  };
+
   useEffect(() => {
     load().catch(() => undefined);
   }, []);
@@ -21,8 +29,8 @@ export default function MorePage() {
       await apiClientJson("/auth/unlock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin }) });
       setMessage("Unlocked for 15 minutes.");
       await load();
-    } catch (e) {
-      setMessage((e as Error).message);
+    } catch (error) {
+      setMessage(toUserErrorMessage(error, "Unable to unlock right now."));
     }
   };
 
@@ -32,42 +40,32 @@ export default function MorePage() {
     try {
       await apiClientJson("/auth/set-pin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin }) });
       setMessage("PIN saved.");
-    } catch (e) {
-      setMessage((e as Error).message);
+    } catch (error) {
+      setMessage(toUserErrorMessage(error, "Unable to save PIN right now."));
     }
   };
 
   const lock = async () => {
-    await apiClientJson("/auth/lock", { method: "POST" });
-    await load();
+    try {
+      await apiClientJson("/auth/lock", { method: "POST" });
+      await load();
+      setMessage("Locked.");
+    } catch (error) {
+      setMessage(toUserErrorMessage(error, "Unable to lock right now."));
+    }
   };
 
   return (
     <div className="w-full space-y-4 px-4 pb-4">
       <h1 className="text-2xl font-semibold">More</h1>
       <section className="barn-card grid gap-2 sm:grid-cols-2">
-        <Link href="/family" className="quick-action-card justify-start px-4 text-sm">
-          👨‍👩‍👧‍👦 Family
-        </Link>
-        <Link href="/reports" className="quick-action-card justify-start px-4 text-sm">
-          📊 Reports
-        </Link>
-        <Link href="/income" className="quick-action-card justify-start px-4 text-sm">
-          💰 Income
-        </Link>
-        <Link href="/inventory" className="quick-action-card justify-start px-4 text-sm">
-          🧰 Inventory
-        </Link>
-        <Link href="/auctions" className="quick-action-card justify-start px-4 text-sm">
-          🏷️ Auctions
-        </Link>
-        <Link href="/settings" className="quick-action-card justify-start px-4 text-sm"
-        >
-          ⚙️ Settings
-        </Link>
-        <Link href="/profile-picker" className="quick-action-card justify-start px-4 text-sm">
-          🔄 Switch Profile
-        </Link>
+        <Link href="/family" className="quick-action-card justify-start px-4 text-sm">👨‍👩‍👧‍👦 Family</Link>
+        <Link href="/reports" className="quick-action-card justify-start px-4 text-sm">📊 Reports</Link>
+        <Link href="/income" className="quick-action-card justify-start px-4 text-sm">💰 Income</Link>
+        <Link href="/inventory" className="quick-action-card justify-start px-4 text-sm">🧰 Inventory</Link>
+        <Link href="/auctions" className="quick-action-card justify-start px-4 text-sm">🏷️ Auctions</Link>
+        <Link href="/settings" className="quick-action-card justify-start px-4 text-sm">⚙️ Settings</Link>
+        <Link href="/profile-picker" className="quick-action-card justify-start px-4 text-sm">🔄 Switch Profile</Link>
       </section>
       <section className="barn-card text-sm">
         <p>Role: {auth?.role ?? "..."}</p>
@@ -79,9 +77,7 @@ export default function MorePage() {
         <input name="pin" type="password" className="w-full rounded-lg border border-[var(--barn-border)] bg-black/20 p-2" placeholder="PIN" />
         <div className="flex gap-2">
           <button className="rounded-lg bg-[var(--barn-red)] px-3 py-2 text-sm">Unlock</button>
-          <button type="button" onClick={lock} className="rounded-lg bg-neutral-700 px-3 py-2 text-sm">
-            Lock
-          </button>
+          <button type="button" onClick={() => lock().catch(() => undefined)} className="rounded-lg bg-neutral-700 px-3 py-2 text-sm">Lock</button>
         </div>
       </form>
       <form onSubmit={setPin} className="barn-card space-y-2">

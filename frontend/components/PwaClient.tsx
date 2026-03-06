@@ -56,9 +56,9 @@ export default function PwaClient() {
 
   return (
     <>
-      {offline ? <div className="fixed left-0 right-0 top-14 z-30 bg-amber-600 px-4 py-2 text-center text-sm">Offline mode</div> : null}
+      {offline ? <div className="fixed left-0 right-0 top-[calc(var(--barn-header-height)+env(safe-area-inset-top))] z-30 bg-amber-600 px-4 py-2 text-center text-sm">Offline mode</div> : null}
       {deferredPrompt && !dismissed ? (
-        <div className="fixed bottom-20 right-4 z-30 flex items-center gap-2 rounded-lg border border-[var(--barn-border)] bg-[var(--barn-dark)] p-2 text-sm">
+        <div className="fixed bottom-[calc(var(--barn-bottom-nav-height)+env(safe-area-inset-bottom)+12px)] right-4 z-30 flex items-center gap-2 rounded-lg border border-[var(--barn-border)] bg-[var(--barn-dark)] p-2 text-sm">
           <span>Install Project Barn</span>
           <button onClick={install} className="rounded bg-[var(--barn-red)] px-2 py-1 text-white">Install</button>
           <button onClick={hideBanner} className="rounded border border-[var(--barn-border)] px-2 py-1">Later</button>

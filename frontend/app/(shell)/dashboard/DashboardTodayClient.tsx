@@ -38,6 +38,7 @@ type Props = {
   lowFeedInventory: LowFeedInventory[];
   recentFeedEvents: RecentFeedEvent[];
   financeSummary: FinanceSummary;
+  hasLoadError: boolean;
 };
 
 function shortDate(value: string | null) {
@@ -56,7 +57,8 @@ export default function DashboardTodayClient({
   recentActivity,
   lowFeedInventory,
   recentFeedEvents,
-  financeSummary
+  financeSummary,
+  hasLoadError
 }: Props) {
   return (
     <div className="w-full space-y-4 px-4 pb-6">
@@ -66,6 +68,12 @@ export default function DashboardTodayClient({
         <p className="mt-1 text-sm text-[var(--barn-muted)]">{familyName ?? "Welcome back to Project Barn"}</p>
       </section>
 
+
+      {hasLoadError ? (
+        <section className="barn-card space-y-2 text-sm">
+          <p className="text-red-200">We could not refresh dashboard data. Pull to refresh or revisit this page.</p>
+        </section>
+      ) : null}
       <section className="barn-card space-y-3">
         <h2 className="text-base font-semibold">Quick actions</h2>
         <div className="grid grid-cols-2 gap-2">
