@@ -13,7 +13,7 @@ from sqlalchemy import func, text
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app import save_upload, save_upload_in_subdir
-from app.models import AppSetting, AuctionSale, Expense, ExpenseAllocation, ExpenseReceipt, FeedEntry, FeedInventorySimple, HealthEntry, IncomeRecord, Media, Placing, Profile, Project, ProjectTask, Show, ShowDay, ShowDayTask, ShowEntry, Task, TaskItem, TimelineEntry, WeightEntry, db
+from app.models import AppSetting, AuctionSale, Expense, ExpenseAllocation, ExpenseReceipt, FamilyInventoryItem, FeedEntry, FeedInventorySimple, HealthEntry, IncomeRecord, Media, Placing, Profile, Project, ProjectMaterial, ProjectTask, Show, ShowDay, ShowDayTask, ShowEntry, Task, TaskItem, TimelineEntry, WeightEntry, db
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 UNLOCK_DURATION_MINUTES = 15
@@ -30,6 +30,37 @@ INCOME_TYPE_STORAGE_MAP = {
 
 INCOME_TYPE_API_MAP = {value: key for key, value in INCOME_TYPE_STORAGE_MAP.items()}
 INCOME_TYPE_API_MAP["premium"] = "prize_money"
+
+PROJECT_TYPE_API_TO_DB = {
+    "livestock": "cow",
+    "cooking": "baking",
+    "crafts": "other",
+    "woodworking": "other",
+    "gardening": "garden",
+    "photography": "photography",
+    "sewing": "sewing",
+    "other": "other",
+    "steer": "cow",
+    "goat": "goat",
+    "pig": "pig",
+}
+PROJECT_TYPE_DB_TO_API = {
+    "cow": "livestock",
+    "goat": "livestock",
+    "pig": "livestock",
+    "sheep": "livestock",
+    "chicken": "livestock",
+    "rabbit": "livestock",
+    "horse": "livestock",
+    "dairy": "livestock",
+    "baking": "cooking",
+    "garden": "gardening",
+    "photography": "photography",
+    "sewing": "sewing",
+    "other": "other",
+}
+
+LIVESTOCK_TYPES = {"cow", "goat", "pig", "sheep", "chicken", "rabbit", "horse", "dairy"}
 
 
 def _parse_date_value(value: object) -> date | None:
@@ -94,12 +125,14 @@ def _project_financial_summary(project: Project, start: date | None = None, end:
 
     feed_total_cents = 0
     health_total_cents = 0
+    materials_total_cents = 0
     income_total_cents = 0
 
     feed_query = FeedEntry.query.filter_by(project_id=project.id)
     health_query = HealthEntry.query.filter_by(project_id=project.id)
     income_query = IncomeRecord.query.filter_by(project_id=project.id)
     auction_query = AuctionSale.query.filter_by(project_id=project.id)
+    material_query = ProjectMaterial.query.filter_by(project_id=project.id)
 
     if start:
         feed_query = feed_query.filter(FeedEntry.recorded_at >= start)
@@ -111,13 +144,17 @@ def _project_financial_summary(project: Project, start: date | None = None, end:
         health_query = health_query.filter(HealthEntry.recorded_at <= end)
         income_query = income_query.filter(IncomeRecord.date <= end)
         auction_query = auction_query.filter(AuctionSale.sale_date <= end)
+        material_query = material_query.filter(ProjectMaterial.date_purchased <= end)
+    if start:
+        material_query = material_query.filter(ProjectMaterial.date_purchased >= start)
 
     feed_total_cents = sum(int(row.cost_cents or 0) for row in feed_query.all())
     health_total_cents = sum(int(row.cost_cents or 0) for row in health_query.all())
+    materials_total_cents = sum(int(round(float((row.total_cost or 0)) * 100)) for row in material_query.all())
     income_total_cents = sum(int(round(float(row.amount) * 100)) for row in income_query.all())
     income_total_cents += sum(int(round(float(row.net_proceeds or 0) * 100)) for row in auction_query.all())
 
-    total_expenses_cents = expense_total_cents + feed_total_cents + health_total_cents
+    total_expenses_cents = expense_total_cents + feed_total_cents + health_total_cents + materials_total_cents
     net_cents = income_total_cents - total_expenses_cents
     latest_sale = auction_query.order_by(AuctionSale.sale_date.desc(), AuctionSale.id.desc()).first()
 
@@ -131,6 +168,8 @@ def _project_financial_summary(project: Project, start: date | None = None, end:
         "total_feed": feed_total_cents / 100.0,
         "total_health_cents": health_total_cents,
         "total_health": health_total_cents / 100.0,
+        "total_materials_cents": materials_total_cents,
+        "total_materials": materials_total_cents / 100.0,
         "total_income_cents": income_total_cents,
         "total_income": income_total_cents / 100.0,
         "net_profit_loss_cents": net_cents,
@@ -275,10 +314,24 @@ def _require_parent_unlocked() -> tuple[Profile | None, tuple[object, int] | Non
 
 
 def _project_payload(project: Project) -> dict[str, object]:
+    project_kind = PROJECT_TYPE_DB_TO_API.get(project.type, "other")
+    is_livestock = project.type in LIVESTOCK_TYPES
     return {
         "id": project.id,
         "name": project.name,
         "species": "steer" if project.type == "cow" else project.type,
+        "project_type": project_kind,
+        "is_livestock": is_livestock,
+        "project_category": project.sub_type,
+        "breed": project.breed,
+        "sex": project.sex,
+        "ear_tag": project.ear_tag,
+        "target_weight": project.target_weight,
+        "purchase_date": _iso(project.purchase_date),
+        "goal": project.goal,
+        "materials_needed": project.materials_needed,
+        "completion_target_date": _iso(project.completion_target_date),
+        "competition_category": project.competition_category,
         "tag": project.ear_tag,
         "status": project.status,
         "owner_profile_id": project.owner_id,
@@ -481,12 +534,18 @@ def api_lock():
 @api_bp.get("/projects")
 def api_projects():
     species = request.args.get("species")
+    project_type = request.args.get("project_type")
     status = request.args.get("status")
     owner_profile_id = request.args.get("owner")
 
     query = Project.query
     if species:
         query = query.filter(Project.type == species)
+    if project_type:
+        if project_type == "livestock":
+            query = query.filter(Project.type.in_(tuple(LIVESTOCK_TYPES)))
+        elif project_type in PROJECT_TYPE_API_TO_DB:
+            query = query.filter(Project.type == PROJECT_TYPE_API_TO_DB[project_type])
     if status:
         query = query.filter(Project.status == status)
     if owner_profile_id and owner_profile_id.isdigit():
@@ -505,12 +564,14 @@ def api_create_project():
     payload = request.get_json(silent=True) or {}
     name = str(payload.get("name", "")).strip()
     species = str(payload.get("species", "")).strip() or "other"
+    project_type = str(payload.get("project_type", "")).strip()
     owner_profile_id = payload.get("owner_profile_id")
 
     if not name:
         return jsonify({"error": "name is required"}), 400
-    if species not in {"goat", "steer", "pig", "other"}:
-        return jsonify({"error": "species must be goat, steer, pig, or other"}), 400
+    normalized = project_type or species
+    if normalized not in PROJECT_TYPE_API_TO_DB:
+        return jsonify({"error": "project_type must be one of livestock, cooking, crafts, woodworking, gardening, photography, sewing, other"}), 400
     if not owner_profile_id:
         return jsonify({"error": "owner_profile_id is required"}), 400
 
@@ -518,12 +579,21 @@ def api_create_project():
     if owner is None:
         return jsonify({"error": "owner_profile_id is invalid"}), 400
 
-    mapped_type = "cow" if species == "steer" else species
+    mapped_type = PROJECT_TYPE_API_TO_DB[normalized]
     project = Project(
         name=name,
         type=mapped_type,
         owner_id=owner_profile_id,
+        breed=(payload.get("breed") or None),
+        sex=(payload.get("sex") or None),
+        target_weight=(float(payload["target_weight"]) if payload.get("target_weight") not in (None, "") else None),
+        purchase_date=_parse_date_value(payload.get("purchase_date")),
         ear_tag=(payload.get("tag") or None),
+        sub_type=(payload.get("project_category") or None),
+        goal=(payload.get("goal") or None),
+        materials_needed=(payload.get("materials_needed") or None),
+        completion_target_date=_parse_date_value(payload.get("completion_target_date")),
+        competition_category=(payload.get("competition_category") or None),
         status=(payload.get("status") or "active"),
         notes=(payload.get("notes") or None),
     )
@@ -549,13 +619,31 @@ def api_project_update(project_id: int):
 
     if "name" in payload:
         project.name = str(payload["name"]).strip()
-    if "species" in payload:
-        species = str(payload["species"]).strip()
-        if species not in {"goat", "steer", "pig", "other"}:
-            return jsonify({"error": "species must be goat, steer, pig, or other"}), 400
-        project.type = "cow" if species == "steer" else species
+    if "species" in payload or "project_type" in payload:
+        normalized = str(payload.get("project_type") or payload.get("species") or "").strip()
+        if normalized not in PROJECT_TYPE_API_TO_DB:
+            return jsonify({"error": "invalid project type"}), 400
+        project.type = PROJECT_TYPE_API_TO_DB[normalized]
     if "tag" in payload:
         project.ear_tag = payload["tag"]
+    if "breed" in payload:
+        project.breed = str(payload.get("breed") or "").strip() or None
+    if "sex" in payload:
+        project.sex = str(payload.get("sex") or "").strip() or None
+    if "target_weight" in payload:
+        project.target_weight = float(payload["target_weight"]) if payload.get("target_weight") not in (None, "") else None
+    if "purchase_date" in payload:
+        project.purchase_date = _parse_date_value(payload.get("purchase_date"))
+    if "project_category" in payload:
+        project.sub_type = str(payload.get("project_category") or "").strip() or None
+    if "goal" in payload:
+        project.goal = str(payload.get("goal") or "").strip() or None
+    if "materials_needed" in payload:
+        project.materials_needed = str(payload.get("materials_needed") or "").strip() or None
+    if "completion_target_date" in payload:
+        project.completion_target_date = _parse_date_value(payload.get("completion_target_date"))
+    if "competition_category" in payload:
+        project.competition_category = str(payload.get("competition_category") or "").strip() or None
     if "status" in payload:
         project.status = payload["status"]
     if "owner_profile_id" in payload:
@@ -582,6 +670,207 @@ def api_project_delete(project_id: int):
     db.session.delete(project)
     db.session.commit()
     return jsonify({"success": True})
+
+
+def _inventory_payload(item: FamilyInventoryItem) -> dict[str, object]:
+    return {
+        "id": item.id,
+        "name": item.name,
+        "category": item.category,
+        "quantity": float(item.quantity or 0),
+        "unit": item.unit,
+        "location": item.location,
+        "condition": item.condition,
+        "assigned_project_id": item.assigned_project_id,
+        "notes": item.notes,
+        "low_stock": bool(item.low_stock),
+        "archived": bool(item.archived),
+        "created_at": _iso(item.created_at),
+        "updated_at": _iso(item.updated_at),
+    }
+
+
+def _project_material_payload(row: ProjectMaterial) -> dict[str, object]:
+    return {
+        "id": row.id,
+        "project_id": row.project_id,
+        "logged_by_id": row.logged_by_id,
+        "item_name": row.item_name,
+        "quantity": row.quantity,
+        "unit": row.unit,
+        "unit_cost": row.unit_cost,
+        "total_cost": row.total_cost,
+        "category": row.category,
+        "inventory_item_id": row.inventory_item_id,
+        "status": row.status,
+        "notes": row.notes,
+        "date_purchased": _iso(row.date_purchased),
+    }
+
+
+@api_bp.get('/inventory')
+def api_inventory_list():
+    include_archived = request.args.get('include_archived') == '1'
+    query = FamilyInventoryItem.query
+    if not include_archived:
+        query = query.filter(FamilyInventoryItem.archived.is_(False))
+    rows = query.order_by(FamilyInventoryItem.updated_at.desc(), FamilyInventoryItem.id.desc()).all()
+    return jsonify([_inventory_payload(item) for item in rows])
+
+
+@api_bp.post('/inventory')
+def api_inventory_create():
+    profile, error = _require_parent_unlocked()
+    if error:
+        return error
+
+    payload = request.get_json(silent=True) or {}
+    name = str(payload.get('name') or '').strip()
+    if not name:
+        return jsonify({'error': 'name is required'}), 400
+
+    row = FamilyInventoryItem(
+        name=name,
+        category=str(payload.get('category') or 'general').strip() or 'general',
+        quantity=float(payload.get('quantity') or 1),
+        unit=str(payload.get('unit') or '').strip() or None,
+        location=str(payload.get('location') or '').strip() or None,
+        condition=str(payload.get('condition') or '').strip() or None,
+        assigned_project_id=(int(payload['assigned_project_id']) if payload.get('assigned_project_id') not in (None, '') else None),
+        notes=str(payload.get('notes') or '').strip() or None,
+        low_stock=bool(payload.get('low_stock', False)),
+        archived=bool(payload.get('archived', False)),
+    )
+    if row.assigned_project_id is not None and Project.query.get(row.assigned_project_id) is None:
+        return jsonify({'error': 'assigned_project_id is invalid'}), 400
+
+    db.session.add(row)
+    db.session.commit()
+    return jsonify(_inventory_payload(row)), 201
+
+
+@api_bp.patch('/inventory/<int:item_id>')
+def api_inventory_update(item_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    row = FamilyInventoryItem.query.get_or_404(item_id)
+    payload = request.get_json(silent=True) or {}
+
+    if 'name' in payload:
+        row.name = str(payload.get('name') or '').strip() or row.name
+    if 'category' in payload:
+        row.category = str(payload.get('category') or '').strip() or 'general'
+    if 'quantity' in payload:
+        row.quantity = float(payload.get('quantity') or 0)
+    if 'unit' in payload:
+        row.unit = str(payload.get('unit') or '').strip() or None
+    if 'location' in payload:
+        row.location = str(payload.get('location') or '').strip() or None
+    if 'condition' in payload:
+        row.condition = str(payload.get('condition') or '').strip() or None
+    if 'assigned_project_id' in payload:
+        assigned_project_id = int(payload['assigned_project_id']) if payload.get('assigned_project_id') not in (None, '') else None
+        if assigned_project_id is not None and Project.query.get(assigned_project_id) is None:
+            return jsonify({'error': 'assigned_project_id is invalid'}), 400
+        row.assigned_project_id = assigned_project_id
+    if 'notes' in payload:
+        row.notes = str(payload.get('notes') or '').strip() or None
+    if 'low_stock' in payload:
+        row.low_stock = bool(payload.get('low_stock'))
+    if 'archived' in payload:
+        row.archived = bool(payload.get('archived'))
+    row.updated_at = datetime.utcnow()
+
+    db.session.commit()
+    return jsonify(_inventory_payload(row))
+
+
+@api_bp.delete('/inventory/<int:item_id>')
+def api_inventory_delete(item_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    row = FamilyInventoryItem.query.get_or_404(item_id)
+    row.archived = True
+    row.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({'success': True, 'archived': True})
+
+
+@api_bp.get('/projects/<int:project_id>/materials')
+def api_project_materials(project_id: int):
+    Project.query.get_or_404(project_id)
+    rows = ProjectMaterial.query.filter_by(project_id=project_id).order_by(ProjectMaterial.id.desc()).all()
+    return jsonify([_project_material_payload(row) for row in rows])
+
+
+@api_bp.post('/projects/<int:project_id>/materials')
+def api_project_materials_create(project_id: int):
+    profile, error = _require_parent_unlocked()
+    if error:
+        return error
+    Project.query.get_or_404(project_id)
+    payload = request.get_json(silent=True) or {}
+    item_name = str(payload.get('item_name') or '').strip()
+    if not item_name:
+        return jsonify({'error': 'item_name is required'}), 400
+
+    inventory_item_id = int(payload['inventory_item_id']) if payload.get('inventory_item_id') not in (None, '') else None
+    if inventory_item_id is not None and FamilyInventoryItem.query.get(inventory_item_id) is None:
+        return jsonify({'error': 'inventory_item_id is invalid'}), 400
+
+    row = ProjectMaterial(
+        project_id=project_id,
+        logged_by_id=profile.id,
+        item_name=item_name,
+        quantity=float(payload['quantity']) if payload.get('quantity') not in (None, '') else None,
+        unit=str(payload.get('unit') or '').strip() or None,
+        unit_cost=float(payload['unit_cost']) if payload.get('unit_cost') not in (None, '') else None,
+        total_cost=float(payload['total_cost']) if payload.get('total_cost') not in (None, '') else None,
+        category=str(payload.get('category') or '').strip() or None,
+        inventory_item_id=inventory_item_id,
+        status=str(payload.get('status') or '').strip() or None,
+        notes=str(payload.get('notes') or '').strip() or None,
+        date_purchased=_parse_date_value(payload.get('date_purchased')),
+    )
+    if row.total_cost is None and row.unit_cost is not None and row.quantity is not None:
+        row.total_cost = row.unit_cost * row.quantity
+    db.session.add(row)
+    db.session.commit()
+    return jsonify(_project_material_payload(row)), 201
+
+
+@api_bp.patch('/projects/<int:project_id>/materials/<int:material_id>')
+def api_project_materials_update(project_id: int, material_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    Project.query.get_or_404(project_id)
+    row = ProjectMaterial.query.filter_by(project_id=project_id, id=material_id).first_or_404()
+    payload = request.get_json(silent=True) or {}
+
+    for key in ('item_name', 'unit', 'category', 'status', 'notes'):
+        if key in payload:
+            setattr(row, key, str(payload.get(key) or '').strip() or None)
+    if 'quantity' in payload:
+        row.quantity = float(payload['quantity']) if payload.get('quantity') not in (None, '') else None
+    if 'unit_cost' in payload:
+        row.unit_cost = float(payload['unit_cost']) if payload.get('unit_cost') not in (None, '') else None
+    if 'total_cost' in payload:
+        row.total_cost = float(payload['total_cost']) if payload.get('total_cost') not in (None, '') else None
+    if 'date_purchased' in payload:
+        row.date_purchased = _parse_date_value(payload.get('date_purchased'))
+    if 'inventory_item_id' in payload:
+        inventory_item_id = int(payload['inventory_item_id']) if payload.get('inventory_item_id') not in (None, '') else None
+        if inventory_item_id is not None and FamilyInventoryItem.query.get(inventory_item_id) is None:
+            return jsonify({'error': 'inventory_item_id is invalid'}), 400
+        row.inventory_item_id = inventory_item_id
+
+    if row.total_cost is None and row.unit_cost is not None and row.quantity is not None:
+        row.total_cost = row.unit_cost * row.quantity
+    db.session.commit()
+    return jsonify(_project_material_payload(row))
 
 
 @api_bp.get("/expenses")
@@ -1153,12 +1442,16 @@ def api_summary():
             "id": project.id,
             "name": project.name,
             "species": "steer" if project.type == "cow" else project.type,
+            "project_type": PROJECT_TYPE_DB_TO_API.get(project.type, "other"),
+            "project_category": project.sub_type,
+            "is_livestock": project.type in LIVESTOCK_TYPES,
             "owner": owner_names.get(project.owner_id, "Unknown"),
             "status": project.status,
             "photo_url": _avatar_url(project.photo_path),
             "spent_total": expense_by_project.get(project.id, 0) / 100.0,
             "open_tasks": int(open_tasks_by_project.get(project.id, 0)),
             "latest_weight_lbs": latest_weight.weight_lbs if latest_weight else None,
+            "next_event": next_show.name if next_show else None,
             "next_show": {
                 "id": next_show.id,
                 "name": next_show.name,

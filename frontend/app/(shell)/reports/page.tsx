@@ -63,7 +63,7 @@ export default function ReportsPage() {
               <article key={project.project_id} className="barn-row text-sm">
                 <p className="font-medium">{project.project_name}</p>
                 <p className="text-xs text-[var(--barn-muted)]">Owner: {project.owner_name ?? "Unknown"}</p>
-                <p className="text-xs text-[var(--barn-muted)]">Expenses ${project.total_expenses.toFixed(2)} • Income ${project.total_income.toFixed(2)} • Net ${project.net_profit_loss.toFixed(2)}</p>
+                <p className="text-xs text-[var(--barn-muted)]">Expenses ${project.total_expenses.toFixed(2)} • Materials ${(project.total_materials ?? 0).toFixed(2)} • Income ${project.total_income.toFixed(2)} • Net ${project.net_profit_loss.toFixed(2)}</p>
                 <Link className="see-all-link" href={`/reports/projects/${project.project_id}`}>Project record book</Link>
               </article>
             ))}

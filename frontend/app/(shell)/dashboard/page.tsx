@@ -9,6 +9,9 @@ type DashboardResponse = {
     id: number;
     name: string;
     species: string;
+    project_type: string;
+    project_category: string | null;
+    is_livestock: boolean;
     owner: string;
     status: string;
     photo_url: string | null;
@@ -16,6 +19,7 @@ type DashboardResponse = {
     open_tasks: number;
     latest_weight_lbs: number | null;
     next_show: { id: number; name: string; date: string | null } | null;
+    next_event: string | null;
   }>;
   upcoming_shows: Array<{ id: number; name: string; date: string | null; location: string | null }>;
   recent_expenses: Array<{ id: number; amount: number; date: string | null; category: string; vendor: string | null; has_receipt: boolean; project_name: string }>;
@@ -55,6 +59,7 @@ export default async function DashboardPage() {
         { href: "/projects/new", label: "Add Project", emoji: "🐄" },
         { href: "/expenses/new", label: "Add Expense", emoji: "💵" },
         { href: "/income", label: "Add Income", emoji: "💰" },
+        { href: "/inventory", label: "Inventory", emoji: "🧰" },
         { href: "/shows", label: "View Shows", emoji: "🏆" },
         { href: "/profile-picker", label: "Switch Profile", emoji: "👤" }
       ]}
