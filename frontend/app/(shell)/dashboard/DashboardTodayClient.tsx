@@ -16,6 +16,8 @@ type Props = {
   todayLabel: string;
   profileName: string;
   familyName: string | null;
+  profileRole: string | null;
+  profileAvatarUrl: string | null;
   quickActions: QuickAction[];
   activeProjects: DashboardProject[];
   upcomingShows: DashboardShow[];
@@ -34,12 +36,16 @@ function shortDate(value: string | null) {
   return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-export default function DashboardTodayClient({ todayLabel, profileName, familyName, quickActions, activeProjects, upcomingShows, recentExpenses, recentActivity, lowFeedInventory, recentFeedEvents, financeSummary, hasLoadError, unreadNotifications, upcomingReminders }: Props) {
+export default function DashboardTodayClient({ todayLabel, profileName, familyName, profileRole, profileAvatarUrl, quickActions, activeProjects, upcomingShows, recentExpenses, recentActivity, lowFeedInventory, recentFeedEvents, financeSummary, hasLoadError, unreadNotifications, upcomingReminders }: Props) {
   return <div className="w-full space-y-4 px-4 pb-6">
     <section className="rounded-2xl border border-[var(--barn-border)] bg-gradient-to-br from-[var(--barn-red)]/25 via-[var(--barn-surface)] to-[var(--barn-surface)] p-5 shadow-lg shadow-black/20">
       <p className="text-xs uppercase tracking-wide text-[var(--barn-muted)]">{todayLabel}</p>
       <h1 className="mt-2 text-3xl font-semibold">Hi, {profileName}</h1>
       <p className="mt-1 text-sm text-[var(--barn-muted)]">{familyName ?? "Welcome back to Project Barn"}</p>
+      <div className="mt-3 flex items-center gap-2 text-xs text-[var(--barn-muted)]">
+        {profileAvatarUrl ? <img src={profileAvatarUrl} alt={profileName} className="h-8 w-8 rounded-full object-cover" /> : <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/30">👤</span>}
+        <span>Active profile: <strong className="text-[var(--barn-text)]">{profileName}</strong>{profileRole ? ` (${profileRole})` : ""}</span>
+      </div>
       <div className="mt-4 flex flex-wrap gap-2 text-xs">
         <Link href="/profile-picker" className="rounded-full border border-[var(--barn-border)] bg-black/20 px-3 py-1.5">Switch profile</Link>
         <Link href="/notifications" className="rounded-full border border-[var(--barn-border)] bg-black/20 px-3 py-1.5">{unreadNotifications} unread alerts</Link>

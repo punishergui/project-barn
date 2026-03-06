@@ -13,9 +13,9 @@ type UploadRule = {
 const MB = 1024 * 1024;
 
 const uploadRules: Record<UploadKind, UploadRule> = {
-  avatar: { maxBytes: 8 * MB, acceptedMimePrefixes: ["image/"] },
-  "project-image": { maxBytes: 12 * MB, acceptedMimePrefixes: ["image/"] },
-  "project-media": { maxBytes: 50 * MB, acceptedMimePrefixes: ["image/", "video/"] },
+  avatar: { maxBytes: 5 * MB, acceptedMimePrefixes: ["image/"] },
+  "project-image": { maxBytes: 10 * MB, acceptedMimePrefixes: ["image/"] },
+  "project-media": { maxBytes: 25 * MB, acceptedMimePrefixes: ["image/", "video/"] },
   receipt: {
     maxBytes: 12 * MB,
     acceptedMimePrefixes: ["image/", "application/pdf"],

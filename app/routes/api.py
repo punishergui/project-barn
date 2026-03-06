@@ -291,7 +291,21 @@ def _avatar_url(path: str | None) -> str | None:
         return None
     if path.startswith("http://") or path.startswith("https://"):
         return path
-    return f"/uploads/{path}"
+    return f"/api/uploads/{path}"
+
+
+def _public_upload_url(value: str | None) -> str | None:
+    if not value:
+        return None
+    if value.startswith("http://") or value.startswith("https://"):
+        return value
+    if value.startswith("/api/uploads/"):
+        return value
+    if value.startswith("/uploads/"):
+        return f"/api{value}"
+    if value.startswith("uploads/"):
+        return f"/api/{value}"
+    return f"/api/uploads/{value.lstrip('/')}"
 
 
 def _upload_error_response() -> tuple[Response, int] | None:
@@ -686,7 +700,7 @@ def _expense_payload(expense: Expense) -> dict[str, object]:
         "amount": float(expense.amount),
         "amount_cents": int(round(float(expense.amount) * 100)),
         "note": expense.notes,
-        "receipt_url": expense.receipt_url,
+        "receipt_url": _public_upload_url(expense.receipt_url),
         "is_split": len(allocations) > 0,
         "allocation_count": len(allocations),
         "receipt_count": len(receipts),
@@ -702,7 +716,7 @@ def _receipt_payload(receipt: ExpenseReceipt) -> dict[str, object]:
         "id": receipt.id,
         "expense_id": receipt.expense_id,
         "file_name": receipt.file_name,
-        "url": receipt.url,
+        "url": _public_upload_url(receipt.url),
         "caption": receipt.caption,
         "created_at": _iso(receipt.created_at),
     }
@@ -1450,7 +1464,7 @@ def api_expense_receipts_create(expense_id: int):
     receipt = ExpenseReceipt(
         expense_id=expense.id,
         file_name=filename,
-        url=f"/uploads/{filename}",
+        url=_public_upload_url(f"/uploads/{filename}"),
         caption=(request.form.get("caption") or None),
     )
     expense.receipt_url = receipt.url
@@ -2374,6 +2388,7 @@ def _media_payload(item: Media) -> dict[str, object]:
     show = Show.query.get(item.show_id) if item.show_id else None
     tags = _parse_tags(item.tags_json)
     media_type = item.media_type or _media_type_from_mime(item.mime_type, item.file_name)
+    media_url = _public_upload_url(item.url)
 
     return {
         "id": item.id,
@@ -2391,8 +2406,8 @@ def _media_payload(item: Media) -> dict[str, object]:
         "size": item.size,
         "profile_id": item.profile_id,
         "file_name": item.file_name,
-        "file_url": item.url,
-        "url": item.url,
+        "file_url": media_url,
+        "url": media_url,
         "caption": item.caption,
         "tags": tags,
         "show_name": show.name if show else None,
@@ -2728,12 +2743,12 @@ def api_upload_profile_avatar():
         original_filename=file.filename,
         file_name=safe_name or filename,
         size=size_bytes,
-        url=f"/uploads/{filename}",
+        url=_public_upload_url(f"/uploads/{filename}"),
         uploaded_at=datetime.utcnow(),
     )
     db.session.add(media)
     db.session.commit()
-    return jsonify({"url": f"/uploads/{filename}", "profile_id": profile.id, "media": _media_payload(media)})
+    return jsonify({"url": _public_upload_url(f"/uploads/{filename}"), "profile_id": profile.id, "media": _media_payload(media)})
 
 
 @api_bp.post("/uploads/project-hero")
@@ -2759,10 +2774,10 @@ def api_upload_project_hero():
 
     project.photo_path = filename
     project.updated_at = datetime.utcnow()
-    media = Media(project_id=project.id, profile_id=profile.id, kind="project-hero", media_type="photo", mime_type=file.mimetype or _guess_mime(safe_name or filename), original_filename=file.filename, file_name=safe_name or filename, size=size_bytes, url=f"/uploads/{filename}", uploaded_at=datetime.utcnow())
+    media = Media(project_id=project.id, profile_id=profile.id, kind="project-hero", media_type="photo", mime_type=file.mimetype or _guess_mime(safe_name or filename), original_filename=file.filename, file_name=safe_name or filename, size=size_bytes, url=_public_upload_url(f"/uploads/{filename}"), uploaded_at=datetime.utcnow())
     db.session.add(media)
     db.session.commit()
-    return jsonify({"url": f"/uploads/{filename}", "project_id": project.id, "media": _media_payload(media)})
+    return jsonify({"url": _public_upload_url(f"/uploads/{filename}"), "project_id": project.id, "media": _media_payload(media)})
 
 
 @api_bp.post("/uploads/receipt")
@@ -2789,7 +2804,7 @@ def api_upload_receipt():
     receipt = ExpenseReceipt(
         expense_id=expense.id,
         file_name=filename,
-        url=f"/uploads/{filename}",
+        url=_public_upload_url(f"/uploads/{filename}"),
         caption=(request.form.get("caption") or None),
     )
     expense.receipt_url = receipt.url
@@ -2797,7 +2812,7 @@ def api_upload_receipt():
     media = Media(project_id=expense.project_id, profile_id=expense.logged_by_id, kind="receipt", media_type="photo" if (file.mimetype or '').startswith('image/') else "document", mime_type=file.mimetype or _guess_mime(safe_name or filename), original_filename=file.filename, file_name=safe_name or filename, size=size_bytes, url=receipt.url, caption=receipt.caption, uploaded_at=datetime.utcnow())
     db.session.add(media)
     db.session.commit()
-    return jsonify({"url": receipt.url, "receipt": _receipt_payload(receipt), "media": _media_payload(media)})
+    return jsonify({"url": _public_upload_url(receipt.url), "receipt": _receipt_payload(receipt), "media": _media_payload(media)})
 
 
 @api_bp.post("/uploads/project-media")
@@ -2836,7 +2851,7 @@ def api_upload_project_media():
         original_filename=file.filename,
         size=size_bytes,
         file_name=safe_name or filename,
-        url=f"/uploads/{filename}",
+        url=_public_upload_url(f"/uploads/{filename}"),
         caption=(request.form.get("caption") or None),
         tags_json=json.dumps(tags) if tags else None,
     )
@@ -2851,7 +2866,7 @@ def api_upload_project_media():
         related_route=f"/projects/{media.project_id}?tab=media",
     )
     db.session.commit()
-    return jsonify({"url": media.url, "media": _media_payload(media)})
+    return jsonify({"url": _public_upload_url(media.url), "media": _media_payload(media)})
 
 
 @api_bp.post('/media/upload')
@@ -2888,7 +2903,7 @@ def api_media_upload():
         original_filename=file.filename,
         size=size_bytes,
         file_name=safe_name or filename,
-        url=f"/uploads/{filename}",
+        url=_public_upload_url(f"/uploads/{filename}"),
         caption=request.form.get('caption'),
         tags_json=json.dumps(tags) if tags else None,
     )
@@ -3092,7 +3107,7 @@ def api_project_media_create(project_id: int):
         original_filename=file.filename,
         size=size_bytes,
         file_name=safe_name or filename,
-        url=f"/uploads/{filename}",
+        url=_public_upload_url(f"/uploads/{filename}"),
         caption=request.form.get('caption'),
         tags_json=json.dumps(tags) if tags else None,
     )
@@ -3138,7 +3153,7 @@ def api_placing_media_create(placing_id: int):
         original_filename=file.filename,
         size=size_bytes,
         file_name=safe_name or filename,
-        url=f"/uploads/{filename}",
+        url=_public_upload_url(f"/uploads/{filename}"),
         caption=request.form.get('caption'),
         tags_json=json.dumps(tags) if tags else None,
     )
