@@ -69,11 +69,11 @@ export default function ProfilePickerPage() {
     }
   };
 
-  const onUploadAvatar = async (event: ChangeEvent<HTMLInputElement>) => {
+  const onUploadAvatar = async (event: ChangeEvent<HTMLInputElement>, profileId: number) => {
     const file = event.target.files?.[0];
     if (!file) return;
     try {
-      await uploadProfileAvatar(file);
+      await uploadProfileAvatar(file, profileId);
       await loadProfiles();
       router.refresh();
       setError(null);
@@ -90,11 +90,6 @@ export default function ProfilePickerPage() {
       <h1 className="text-3xl font-semibold text-white">Project Barn</h1>
       <p className="mt-2 text-sm text-neutral-300">Choose a profile to continue</p>
 
-      <label className="mt-4 flex cursor-pointer items-center gap-2 rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] px-3 py-2 text-sm">
-        Upload my avatar
-        <input type="file" accept="image/*" className="hidden" onChange={onUploadAvatar} />
-      </label>
-
       <div className="mt-6 w-full space-y-3">
         {loading ? <p className="text-sm text-neutral-400">Loading profiles...</p> : null}
         {error ? <div className="space-y-2 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-100"><p>{error}</p><button type="button" onClick={() => loadProfiles().then(() => setError(null)).catch((err) => setError(toUserErrorMessage(err, "Unable to load profiles.")))} className="rounded bg-neutral-700 px-3 py-2 text-xs">Retry</button></div> : null}
@@ -107,21 +102,26 @@ export default function ProfilePickerPage() {
           />
         ) : null}
         {profiles.map((profile) => (
-          <button
-            key={profile.id}
-            type="button"
-            onClick={() => onProfileTap(profile).catch(() => undefined)}
-            className="flex w-full items-center gap-3 rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-left"
-          >
-            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[var(--barn-red)] text-base font-semibold text-white">
-              {profile.avatar_url ? <img src={profile.avatar_url} alt={profile.name} className="h-full w-full object-cover" /> : profile.name.slice(0, 1).toUpperCase()}
-            </div>
-            <div className="flex-1">
-              <p className="font-medium text-white">{profile.name}</p>
-              <p className="text-sm capitalize text-neutral-300">{profile.role}</p>
-            </div>
-            {profile.requires_pin ? <span className="rounded bg-neutral-700 px-2 py-1 text-xs">PIN</span> : null}
-          </button>
+          <div key={profile.id} className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-3">
+            <button
+              type="button"
+              onClick={() => onProfileTap(profile).catch(() => undefined)}
+              className="flex w-full items-center gap-3 text-left"
+            >
+              <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[var(--barn-red)] text-base font-semibold text-white">
+                {profile.avatar_url ? <img src={profile.avatar_url} alt={profile.name} className="h-full w-full object-cover" /> : profile.name.slice(0, 1).toUpperCase()}
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-white">{profile.name}</p>
+                <p className="text-sm capitalize text-neutral-300">{profile.role}</p>
+              </div>
+              {profile.requires_pin ? <span className="rounded bg-neutral-700 px-2 py-1 text-xs">PIN</span> : null}
+            </button>
+            <label className="mt-3 inline-flex cursor-pointer rounded-lg border border-[var(--barn-border)] bg-black/20 px-3 py-2 text-xs">
+              Upload avatar
+              <input type="file" accept="image/*" className="hidden" onChange={(event) => onUploadAvatar(event, profile.id).catch(() => undefined)} />
+            </label>
+          </div>
         ))}
       </div>
 

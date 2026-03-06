@@ -49,8 +49,9 @@ async function upload(path: string, fields: Record<string, string>, file: File, 
   return response.url;
 }
 
-export function uploadProfileAvatar(file: File): Promise<string> {
-  return upload("/uploads/profile-avatar", {}, file, "avatar");
+export function uploadProfileAvatar(file: File, profileId?: number): Promise<string> {
+  const fields = profileId ? { profile_id: String(profileId) } : {};
+  return upload("/uploads/profile-avatar", fields, file, "avatar");
 }
 
 export function uploadProjectHero(projectId: number, file: File): Promise<string> {
