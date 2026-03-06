@@ -12,6 +12,7 @@
   --barn-text: #f6f2f3;
   --barn-muted: #c3b5b9;
   --barn-header-height: 56px;
+  --barn-gold: #d5ab52;
   --barn-bottom-nav-height: 68px;
 }
 
@@ -44,6 +45,7 @@ button {
   background: color-mix(in srgb, var(--barn-surface) 92%, black);
   border-radius: 14px;
   padding: 14px;
+  box-shadow: 0 8px 20px color-mix(in srgb, black 35%, transparent);
 }
 
 .barn-row {
@@ -60,7 +62,7 @@ button {
   justify-content: center;
   border: 1px solid var(--barn-border);
   border-radius: 12px;
-  background: var(--barn-surface);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--barn-surface) 94%, white), var(--barn-surface));
   font-size: 14px;
   font-weight: 600;
 }
@@ -74,7 +76,7 @@ button {
 .barn-chip {
   border: 1px solid var(--barn-border);
   border-radius: 10px;
-  background: var(--barn-surface);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--barn-surface) 94%, white), var(--barn-surface));
   display: flex;
   min-height: 54px;
   align-items: center;

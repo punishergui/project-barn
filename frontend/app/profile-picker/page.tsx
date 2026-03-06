@@ -7,6 +7,7 @@ import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { Profile, apiClientJson } from "@/lib/api";
 import { toUserErrorMessage } from "@/lib/errorMessage";
 import { uploadProfileAvatar } from "@/lib/uploads";
+import EmptyState from "@/components/empty-state";
 
 export default function ProfilePickerPage() {
   const router = useRouter();
@@ -87,7 +88,7 @@ export default function ProfilePickerPage() {
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center px-6 py-10 text-center">
       <Image src="/brand/barn-logo.png" alt="Project Barn" width={92} height={92} priority className="mb-4 rounded-2xl" />
       <h1 className="text-3xl font-semibold text-white">Project Barn</h1>
-      <p className="mt-2 text-sm text-neutral-300">Choose a profile</p>
+      <p className="mt-2 text-sm text-neutral-300">Choose a profile to continue</p>
 
       <label className="mt-4 flex cursor-pointer items-center gap-2 rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] px-3 py-2 text-sm">
         Upload my avatar
@@ -98,10 +99,12 @@ export default function ProfilePickerPage() {
         {loading ? <p className="text-sm text-neutral-400">Loading profiles...</p> : null}
         {error ? <div className="space-y-2 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-100"><p>{error}</p><button type="button" onClick={() => loadProfiles().then(() => setError(null)).catch((err) => setError(toUserErrorMessage(err, "Unable to load profiles.")))} className="rounded bg-neutral-700 px-3 py-2 text-xs">Retry</button></div> : null}
         {profiles.length === 0 && !loading ? (
-          <div className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-sm text-neutral-300">
-            <p>No profiles found yet.</p>
-            <p className="mt-1">Ask a parent to create a family profile in Settings.</p>
-          </div>
+          <EmptyState
+            icon="👨‍👩‍👧‍👦"
+            title="No family profiles yet"
+            description="Run the guided setup to create a parent profile and your first project."
+            actions={[{ href: "/setup", label: "Start setup" }, { href: "/dashboard", label: "Open dashboard", variant: "secondary" }]}
+          />
         ) : null}
         {profiles.map((profile) => (
           <button
