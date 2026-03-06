@@ -4,11 +4,11 @@ import Link from "next/link";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 
-import { apiClientJson, AuthStatus, CareEntry, Expense, FeedEntry, MediaItem, Placing, Profile, Project, ProjectTask, Show, TimelineEntry, WeightEntry } from "@/lib/api";
+import { apiClientJson, AuthStatus, CareEntry, Expense, FeedEntry, MediaItem, Placing, Profile, Project, ProjectFinancialSummary, ProjectTask, Show, TimelineEntry, WeightEntry } from "@/lib/api";
 import { uploadProjectHero, uploadProjectMedia } from "@/lib/uploads";
 import { ShowsMediaCard } from "@/components/shows-media-card";
 
-const sections = ["overview", "feed", "timeline", "expenses", "shows", "media", "tasks"] as const;
+const sections = ["overview", "financial", "feed", "timeline", "expenses", "shows", "media", "tasks"] as const;
 const timelineTypes = ["Feeding", "Training", "Health", "Vet", "Wash", "Clip", "Show", "Expense", "Other"];
 
 function formatDate(value?: string | null) {
@@ -33,6 +33,7 @@ export default function ProjectDetailPage() {
   const [placings, setPlacings] = useState<Placing[]>([]);
   const [feedEntries, setFeedEntries] = useState<FeedEntry[]>([]);
   const [careEntries, setCareEntries] = useState<CareEntry[]>([]);
+  const [financialSummary, setFinancialSummary] = useState<ProjectFinancialSummary | null>(null);
   const [auth, setAuth] = useState<AuthStatus | null>(null);
   const [mediaCaption, setMediaCaption] = useState("");
   const [showAddTimeline, setShowAddTimeline] = useState(false);
@@ -40,7 +41,7 @@ export default function ProjectDetailPage() {
 
   const load = async () => {
     const id = Number(params.id);
-    const [projectData, profileData, expenseData, showData, timelineData, taskData, mediaData, placingData, authData, weightData, feedData, careData] = await Promise.all([
+    const [projectData, profileData, expenseData, showData, timelineData, taskData, mediaData, placingData, authData, weightData, feedData, careData, financialData] = await Promise.all([
       apiClientJson<Project>(`/projects/${id}`),
       apiClientJson<Profile[]>("/profiles"),
       apiClientJson<Expense[]>(`/expenses?project_id=${id}`),
@@ -52,7 +53,8 @@ export default function ProjectDetailPage() {
       apiClientJson<AuthStatus>("/auth/status").catch(() => null),
       apiClientJson<WeightEntry[]>(`/projects/${id}/weights`).catch(() => []),
       apiClientJson<FeedEntry[]>(`/projects/${id}/feed`).catch(() => []),
-      apiClientJson<CareEntry[]>(`/projects/${id}/care`).catch(() => [])
+      apiClientJson<CareEntry[]>(`/projects/${id}/care`).catch(() => []),
+      apiClientJson<ProjectFinancialSummary>(`/projects/${id}/financial-summary`).catch(() => null)
     ]);
 
     setProject(projectData);
@@ -67,6 +69,7 @@ export default function ProjectDetailPage() {
     setWeights(weightData);
     setFeedEntries(feedData);
     setCareEntries(careData);
+    setFinancialSummary(financialData);
   };
 
   useEffect(() => {
@@ -204,6 +207,29 @@ export default function ProjectDetailPage() {
         </section>
       ) : null}
 
+
+
+      {activeSection === "financial" ? (
+        <section className="barn-card space-y-3 text-sm">
+          <h2 className="text-base font-semibold">Financial Summary</h2>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <article className="barn-chip">${(financialSummary?.total_expenses ?? 0).toFixed(2)}<span>Expenses</span></article>
+            <article className="barn-chip">${(financialSummary?.total_income ?? 0).toFixed(2)}<span>Income</span></article>
+            <article className="barn-chip">${(financialSummary?.net_profit_loss ?? 0).toFixed(2)}<span>Net</span></article>
+          </div>
+          <article className="barn-row">
+            <p className="font-medium">Expense breakdown</p>
+            <p className="text-xs text-[var(--barn-muted)]">Feed ${(financialSummary?.total_feed ?? 0).toFixed(2)} • Health ${(financialSummary?.total_health ?? 0).toFixed(2)}</p>
+          </article>
+          {financialSummary?.latest_sale ? (
+            <article className="barn-row">
+              <p className="font-medium">Most recent sale</p>
+              <p className="text-xs text-[var(--barn-muted)]">{new Date(financialSummary.latest_sale.sale_date).toLocaleDateString()} • {financialSummary.latest_sale.buyer_name}</p>
+              <p className="text-xs text-[var(--barn-muted)]">Gross ${financialSummary.latest_sale.sale_amount.toFixed(2)} • Net ${financialSummary.latest_sale.final_payout.toFixed(2)}</p>
+            </article>
+          ) : <p className="barn-row text-[var(--barn-muted)]">No auction/sale result logged yet.</p>}
+        </section>
+      ) : null}
 
       {activeSection === "feed" ? (
         <section className="barn-card space-y-3 text-sm">

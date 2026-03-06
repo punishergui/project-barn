@@ -22,6 +22,7 @@ type DashboardResponse = {
   recent_activity: Array<{ id: string; kind: string; title: string; subtitle: string; date: string; href: string }>;
   low_feed_inventory: Array<{ id: number; name: string; qty_on_hand: number; unit: string; low_stock_threshold: number | null }>;
   recent_feed_events: Array<{ id: number; project_id: number; project_name: string; recorded_at: string | null; feed_type: string; amount: number; unit: string }>;
+  finance_summary: { total_spent: number; total_income: number; net_balance: number; recent_sale: { id: number; buyer_name: string; sale_date: string; final_payout: number } | null };
 };
 
 const emptyDashboard: DashboardResponse = {
@@ -32,7 +33,8 @@ const emptyDashboard: DashboardResponse = {
   recent_expenses: [],
   recent_activity: [],
   low_feed_inventory: [],
-  recent_feed_events: []
+  recent_feed_events: [],
+  finance_summary: { total_spent: 0, total_income: 0, net_balance: 0, recent_sale: null }
 };
 
 export default async function DashboardPage() {
@@ -52,6 +54,7 @@ export default async function DashboardPage() {
       quickActions={[
         { href: "/projects/new", label: "Add Project", emoji: "🐄" },
         { href: "/expenses/new", label: "Add Expense", emoji: "💵" },
+        { href: "/income", label: "Add Income", emoji: "💰" },
         { href: "/shows", label: "View Shows", emoji: "🏆" },
         { href: "/profile-picker", label: "Switch Profile", emoji: "👤" }
       ]}
@@ -61,6 +64,7 @@ export default async function DashboardPage() {
       recentActivity={dashboard.recent_activity}
       lowFeedInventory={dashboard.low_feed_inventory}
       recentFeedEvents={dashboard.recent_feed_events}
+      financeSummary={dashboard.finance_summary}
     />
   );
 }
