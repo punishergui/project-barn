@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime, time, timedelta
 import csv
 import io
+import json
 import mimetypes
 import os
 
@@ -13,7 +14,7 @@ from sqlalchemy import func, text
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app import save_upload, save_upload_in_subdir
-from app.models import AppSetting, AuctionSale, Expense, ExpenseAllocation, ExpenseReceipt, FamilyInventoryItem, FeedEntry, FeedInventorySimple, HealthEntry, IncomeRecord, Media, Placing, Profile, Project, ProjectMaterial, ProjectTask, Show, ShowDay, ShowDayTask, ShowEntry, Task, TaskItem, TimelineEntry, WeightEntry, db
+from app.models import AppSetting, AuctionSale, Expense, ExpenseAllocation, ExpenseReceipt, FamilyInventoryItem, FeedEntry, FeedInventorySimple, HealthEntry, IncomeRecord, Media, Placing, Profile, Project, ProjectMaterial, ProjectTask, Show, ShowDay, ShowDayCheck, ShowDayTask, ShowEntry, SkillsChecklist, Task, TaskItem, TimelineEntry, WeightEntry, db
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 UNLOCK_DURATION_MINUTES = 15
@@ -313,6 +314,49 @@ def _require_parent_unlocked() -> tuple[Profile | None, tuple[object, int] | Non
     return profile, None
 
 
+def _profile_payload(profile: Profile) -> dict[str, object]:
+    return {
+        "id": profile.id,
+        "name": profile.name,
+        "role": profile.role,
+        "avatar_url": _avatar_url(profile.avatar_path),
+        "color": profile.color,
+        "archived": bool(profile.archived),
+        "club_name": profile.club_name,
+        "county": profile.county,
+        "state": profile.state,
+        "years_in_4h": profile.years_in_4h,
+        "birthdate": _iso(profile.birthdate),
+    }
+
+
+def _skills_checklist_payload(item: SkillsChecklist) -> dict[str, object]:
+    return {
+        "id": item.id,
+        "project_id": item.project_id,
+        "title": item.skill_name,
+        "category": None,
+        "is_completed": bool(item.completed),
+        "completed_at": _iso(item.completed_at),
+        "notes": None,
+        "sort_order": item.sort_order,
+        "created_at": _iso(getattr(item, "created_at", None)),
+        "updated_at": _iso(getattr(item, "updated_at", None)),
+    }
+
+
+def _show_readiness_payload(item: ShowDayCheck) -> dict[str, object]:
+    return {
+        "id": item.id,
+        "project_id": item.project_id,
+        "show_id": item.show_id,
+        "item_name": item.item_name,
+        "is_completed": bool(item.completed),
+        "completed_at": _iso(item.completed_at),
+        "show_day_id": item.show_day_id,
+    }
+
+
 def _project_payload(project: Project) -> dict[str, object]:
     project_kind = PROJECT_TYPE_DB_TO_API.get(project.type, "other")
     is_livestock = project.type in LIVESTOCK_TYPES
@@ -441,11 +485,66 @@ def api_session():
 
 @api_bp.get("/profiles")
 def api_profiles():
-    profiles = Profile.query.filter_by(archived=False).order_by(Profile.name.asc()).all()
-    return jsonify([
-        {"id": p.id, "name": p.name, "role": p.role, "avatar_url": _avatar_url(p.avatar_path)}
-        for p in profiles
-    ])
+    include_archived = request.args.get("include_archived") in {"1", "true", "yes"}
+    query = Profile.query.order_by(Profile.name.asc())
+    if not include_archived:
+        query = query.filter_by(archived=False)
+    profiles = query.all()
+    return jsonify([_profile_payload(profile) for profile in profiles])
+
+
+@api_bp.get("/profiles/<int:profile_id>")
+def api_profile_detail(profile_id: int):
+    profile = Profile.query.get_or_404(profile_id)
+    project_ids = [item.id for item in Project.query.filter_by(owner_id=profile_id).all()]
+    show_count = ShowEntry.query.filter(ShowEntry.project_id.in_(project_ids)).count() if project_ids else 0
+    expense_count = Expense.query.filter(Expense.project_id.in_(project_ids)).count() if project_ids else 0
+    payload = _profile_payload(profile)
+    payload["summary"] = {
+        "active_projects": Project.query.filter_by(owner_id=profile_id, status="active").count(),
+        "shows": int(show_count),
+        "expenses": int(expense_count),
+    }
+    payload["projects"] = [_project_payload(project) for project in Project.query.filter_by(owner_id=profile_id).order_by(Project.created_at.desc(), Project.id.desc()).all()]
+    return jsonify(payload)
+
+
+@api_bp.patch("/profiles/<int:profile_id>")
+def api_profile_patch(profile_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    profile = Profile.query.get_or_404(profile_id)
+    payload = request.get_json(silent=True) or {}
+    if "name" in payload:
+        name = str(payload.get("name") or "").strip()
+        if not name:
+            return jsonify({"error": "name is required"}), 400
+        profile.name = name
+    if "role" in payload:
+        role = str(payload.get("role") or "").strip()
+        if role not in {"parent", "kid", "grandparent"}:
+            return jsonify({"error": "role must be parent, kid, or grandparent"}), 400
+        profile.role = role
+    if "color" in payload:
+        color = str(payload.get("color") or "").strip()
+        if not color:
+            return jsonify({"error": "color is required"}), 400
+        profile.color = color
+    if "archived" in payload:
+        profile.archived = bool(payload.get("archived"))
+    for key in ["club_name", "county", "state"]:
+        if key in payload:
+            value = str(payload.get(key)).strip() if payload.get(key) not in (None, "") else None
+            setattr(profile, key, value)
+    if "years_in_4h" in payload:
+        value = payload.get("years_in_4h")
+        profile.years_in_4h = int(value) if value not in (None, "") else None
+    if "birthdate" in payload:
+        value = payload.get("birthdate")
+        profile.birthdate = date.fromisoformat(value) if value else None
+    db.session.commit()
+    return jsonify(_profile_payload(profile))
 
 
 @api_bp.get("/uploads/status")
@@ -2424,6 +2523,146 @@ def api_project_task_create_v2(project_id: int):
     return jsonify(_project_task_payload(item)), 201
 
 
+@api_bp.get('/projects/<int:project_id>/checklists')
+def api_project_checklists(project_id: int):
+    Project.query.get_or_404(project_id)
+    rows = SkillsChecklist.query.filter_by(project_id=project_id).order_by(SkillsChecklist.sort_order.asc(), SkillsChecklist.id.asc()).all()
+    completed = len([item for item in rows if item.completed])
+    return jsonify({
+        'items': [_skills_checklist_payload(item) for item in rows],
+        'summary': {
+            'total': len(rows),
+            'completed': completed,
+            'remaining': len(rows) - completed,
+            'completion_percent': round((completed / len(rows)) * 100, 1) if rows else 0,
+        }
+    })
+
+
+@api_bp.post('/projects/<int:project_id>/checklists')
+def api_project_checklists_create(project_id: int):
+    profile, error = _require_parent_unlocked()
+    if error:
+        return error
+    Project.query.get_or_404(project_id)
+    payload = request.get_json(silent=True) or {}
+    title = str(payload.get('title') or payload.get('skill_name') or '').strip()
+    if not title:
+        return jsonify({'error': 'title is required'}), 400
+    item = SkillsChecklist(
+        project_id=project_id,
+        skill_name=title,
+        completed=bool(payload.get('is_completed', False)),
+        completed_at=datetime.utcnow() if payload.get('is_completed') else None,
+        completed_by_id=profile.id if payload.get('is_completed') else None,
+        sort_order=int(payload.get('sort_order') or 0),
+    )
+    db.session.add(item)
+    db.session.commit()
+    return jsonify(_skills_checklist_payload(item)), 201
+
+
+@api_bp.patch('/checklists/<int:item_id>')
+def api_checklist_update(item_id: int):
+    profile, error = _require_parent_unlocked()
+    if error:
+        return error
+    item = SkillsChecklist.query.get_or_404(item_id)
+    payload = request.get_json(silent=True) or {}
+    if 'title' in payload or 'skill_name' in payload:
+        title = str(payload.get('title') or payload.get('skill_name') or '').strip()
+        if not title:
+            return jsonify({'error': 'title is required'}), 400
+        item.skill_name = title
+    if 'sort_order' in payload:
+        item.sort_order = int(payload.get('sort_order') or 0)
+    if 'is_completed' in payload:
+        item.completed = bool(payload.get('is_completed'))
+        item.completed_at = datetime.utcnow() if item.completed else None
+        item.completed_by_id = profile.id if item.completed else None
+    db.session.commit()
+    return jsonify(_skills_checklist_payload(item))
+
+
+@api_bp.delete('/checklists/<int:item_id>')
+def api_checklist_delete(item_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    item = SkillsChecklist.query.get_or_404(item_id)
+    db.session.delete(item)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@api_bp.get('/projects/<int:project_id>/show-readiness')
+def api_project_show_readiness(project_id: int):
+    Project.query.get_or_404(project_id)
+    rows = ShowDayCheck.query.filter_by(project_id=project_id).order_by(ShowDayCheck.id.asc()).all()
+    if not rows:
+        defaults = [
+            'Papers ready', 'Entry submitted', 'Tack packed', 'Feed packed', 'Grooming supplies packed',
+            'Fan / extension cord packed', 'Show clothes packed', 'Animal washed', 'Animal clipped', 'Trailer loaded'
+        ]
+        rows = [ShowDayCheck(project_id=project_id, item_name=item_name, completed=False) for item_name in defaults]
+        db.session.add_all(rows)
+        db.session.commit()
+    completed = len([item for item in rows if item.completed])
+    return jsonify({
+        'items': [_show_readiness_payload(item) for item in rows],
+        'summary': {
+            'total': len(rows),
+            'completed': completed,
+            'remaining': len(rows) - completed,
+            'completion_percent': round((completed / len(rows)) * 100, 1) if rows else 0,
+        }
+    })
+
+
+@api_bp.post('/projects/<int:project_id>/show-readiness')
+def api_project_show_readiness_create(project_id: int):
+    profile, error = _require_parent_unlocked()
+    if error:
+        return error
+    Project.query.get_or_404(project_id)
+    payload = request.get_json(silent=True) or {}
+    item_name = str(payload.get('item_name') or '').strip()
+    if not item_name:
+        return jsonify({'error': 'item_name is required'}), 400
+    row = ShowDayCheck(
+        project_id=project_id,
+        show_id=payload.get('show_id'),
+        show_day_id=payload.get('show_day_id'),
+        item_name=item_name,
+        completed=bool(payload.get('is_completed', False)),
+        completed_by_id=profile.id if payload.get('is_completed') else None,
+        completed_at=datetime.utcnow() if payload.get('is_completed') else None,
+    )
+    db.session.add(row)
+    db.session.commit()
+    return jsonify(_show_readiness_payload(row)), 201
+
+
+@api_bp.patch('/show-readiness/<int:item_id>')
+def api_show_readiness_update(item_id: int):
+    profile, error = _require_parent_unlocked()
+    if error:
+        return error
+    row = ShowDayCheck.query.get_or_404(item_id)
+    payload = request.get_json(silent=True) or {}
+    if 'item_name' in payload:
+        item_name = str(payload.get('item_name') or '').strip()
+        if not item_name:
+            return jsonify({'error': 'item_name is required'}), 400
+        row.item_name = item_name
+    if 'is_completed' in payload:
+        row.completed = bool(payload.get('is_completed'))
+        row.completed_by_id = profile.id if row.completed else None
+        row.completed_at = datetime.utcnow() if row.completed else None
+    db.session.commit()
+    return jsonify(_show_readiness_payload(row))
+
+
 @api_bp.post('/projects/<int:project_id>/tasks/<int:task_id>/complete')
 def api_project_task_complete(project_id: int, task_id: int):
     _, error = _require_parent_unlocked()
@@ -2728,20 +2967,49 @@ def api_project_record_book(project_id: int):
     show_ids = [item.show_id for item in show_entries]
     shows = Show.query.filter(Show.id.in_(show_ids)).all() if show_ids else []
     placings = Placing.query.filter_by(project_id=project_id).all()
+    checklist_rows = SkillsChecklist.query.filter_by(project_id=project_id).all()
+    readiness_rows = ShowDayCheck.query.filter_by(project_id=project_id).all()
     media_count = Media.query.filter_by(project_id=project_id).count()
+    income_total_cents = sum(int(round(float(item.amount) * 100)) for item in IncomeRecord.query.filter_by(project_id=project_id).all())
     return jsonify({
         'project': _project_payload(project),
         'owner': {'id': owner.id, 'name': owner.name, 'role': owner.role} if owner else None,
         'expenses': {'count': len(expenses), 'total_cents': sum(int(round(float(x.amount) * 100)) for x in expenses), 'total': sum(float(x.amount) for x in expenses)},
         'feed': {'count': len(feed_rows), 'total_cents': sum(int(x.cost_cents or 0) for x in feed_rows), 'total': sum(int(x.cost_cents or 0) for x in feed_rows) / 100.0},
         'health': {'count': len(health_rows), 'total_cents': sum(int(x.cost_cents or 0) for x in health_rows), 'total': sum(int(x.cost_cents or 0) for x in health_rows) / 100.0},
+        'income': {'count': IncomeRecord.query.filter_by(project_id=project_id).count(), 'total_cents': income_total_cents, 'total': income_total_cents / 100.0},
         'tasks': {'completed': sum(1 for item in task_rows if item.is_completed), 'open': sum(1 for item in task_rows if not item.is_completed), 'total': len(task_rows)},
+        'checklists': {'total': len(checklist_rows), 'completed': len([row for row in checklist_rows if row.completed]), 'items': [_skills_checklist_payload(row) for row in checklist_rows]},
+        'show_readiness': {'total': len(readiness_rows), 'completed': len([row for row in readiness_rows if row.completed]), 'items': [_show_readiness_payload(row) for row in readiness_rows]},
         'timeline': {'count': len(timeline_rows), 'entries': [_timeline_payload(item) for item in sorted(timeline_rows, key=lambda item: (item.date, item.id), reverse=True)[:25]]},
         'shows': {'count': len(shows), 'items': [_show_payload(item) for item in shows]},
         'placings': {'count': len(placings), 'items': [_placing_payload(item) for item in placings]},
         'ribbons': {'count': len([item for item in placings if item.ribbon_type])},
         'media': {'count': media_count},
     })
+
+
+@api_bp.get('/reports/projects/<int:project_id>')
+def api_project_record_book_alias(project_id: int):
+    return api_project_record_book(project_id)
+
+
+@api_bp.get('/reports/projects/<int:project_id>.csv')
+def api_project_record_book_csv(project_id: int):
+    project = Project.query.get_or_404(project_id)
+    rows = []
+    summary = _project_financial_summary(project)
+    rows.append(['project_id', project.id])
+    rows.append(['project_name', project.name])
+    rows.append(['owner_profile_id', project.owner_id])
+    rows.append(['expenses_total', summary['total_expenses']])
+    rows.append(['income_total', summary['total_income']])
+    rows.append(['net_profit_loss', summary['net_profit_loss']])
+    rows.append(['checklist_total', SkillsChecklist.query.filter_by(project_id=project_id).count()])
+    rows.append(['checklist_completed', SkillsChecklist.query.filter_by(project_id=project_id, completed=True).count()])
+    rows.append(['show_readiness_total', ShowDayCheck.query.filter_by(project_id=project_id).count()])
+    rows.append(['show_readiness_completed', ShowDayCheck.query.filter_by(project_id=project_id, completed=True).count()])
+    return _csv_response(f'project-{project_id}-record.csv', ['key', 'value'], rows)
 
 
 @api_bp.get('/reports/family-season-summary')
@@ -2798,6 +3066,41 @@ def api_family_season_summary():
     }
     totals['grand_total_cents'] = totals['expenses_total_cents'] + totals['feed_total_cents'] + totals['health_total_cents']
     return jsonify({'totals': totals, 'by_kid': by_kid, 'by_project': by_project})
+
+
+@api_bp.get('/reports/family-summary')
+def api_family_summary_alias():
+    base = api_family_season_summary().get_json()
+    checklist_total = SkillsChecklist.query.count()
+    checklist_completed = SkillsChecklist.query.filter_by(completed=True).count()
+    project_type_distribution: dict[str, int] = {}
+    for project in Project.query.all():
+        key = project.type or 'other'
+        project_type_distribution[key] = project_type_distribution.get(key, 0) + 1
+    base['checklists'] = {
+        'total': checklist_total,
+        'completed': checklist_completed,
+        'completion_percent': round((checklist_completed / checklist_total) * 100, 1) if checklist_total else 0,
+    }
+    base['project_type_distribution'] = project_type_distribution
+    return jsonify(base)
+
+
+@api_bp.get('/reports/family-summary.csv')
+def api_family_summary_csv():
+    summary = api_family_summary_alias().get_json()
+    rows = [
+        ['total_expenses_cents', summary['totals']['expenses_total_cents']],
+        ['total_feed_cents', summary['totals']['feed_total_cents']],
+        ['total_health_cents', summary['totals']['health_total_cents']],
+        ['total_shows', summary['totals']['shows_count']],
+        ['total_placings', summary['totals']['placings_count']],
+        ['checklist_total', summary['checklists']['total']],
+        ['checklist_completed', summary['checklists']['completed']],
+    ]
+    for key, value in summary['project_type_distribution'].items():
+        rows.append([f'project_type_{key}', value])
+    return _csv_response('family-summary.csv', ['key', 'value'], rows)
 
 
 @api_bp.get('/reports/summary')
@@ -2973,7 +3276,25 @@ def api_settings_get():
         setting = AppSetting(family_name='', allow_kid_task_toggle=False)
         db.session.add(setting)
         db.session.commit()
-    return jsonify({'family_name': setting.family_name, 'allow_kid_task_toggle': setting.allow_kid_task_toggle})
+    default_show_tasks = []
+    if setting.default_show_tasks:
+        try:
+            default_show_tasks = json.loads(setting.default_show_tasks)
+        except Exception:
+            default_show_tasks = []
+    return jsonify({
+        'family_name': setting.family_name,
+        'county': setting.county,
+        'state': setting.state,
+        'club_name': setting.club_name,
+        'default_project_year': setting.default_project_year,
+        'default_species': setting.default_species,
+        'default_checklist_template': setting.default_checklist_template,
+        'default_show_tasks': default_show_tasks,
+        'brand_logo_url': setting.brand_logo_url,
+        'brand_show_name': bool(setting.brand_show_name),
+        'allow_kid_task_toggle': setting.allow_kid_task_toggle,
+    })
 
 
 @api_bp.patch('/settings')
@@ -2987,8 +3308,24 @@ def api_settings_patch():
         db.session.add(setting)
     payload = request.get_json(silent=True) or {}
     if 'family_name' in payload:
-        setting.family_name = payload['family_name']
+        setting.family_name = str(payload.get('family_name') or '').strip() or None
+    for key in ['county', 'state', 'club_name', 'default_species', 'default_checklist_template', 'brand_logo_url']:
+        if key in payload:
+            value = str(payload.get(key) or '').strip()
+            setattr(setting, key, value or None)
+    if 'default_project_year' in payload:
+        value = payload.get('default_project_year')
+        setting.default_project_year = int(value) if value not in (None, '') else None
+    if 'default_show_tasks' in payload:
+        value = payload.get('default_show_tasks')
+        if isinstance(value, list):
+            cleaned = [str(item).strip() for item in value if str(item).strip()]
+            setting.default_show_tasks = json.dumps(cleaned)
+        else:
+            setting.default_show_tasks = None
+    if 'brand_show_name' in payload:
+        setting.brand_show_name = bool(payload.get('brand_show_name'))
     if 'allow_kid_task_toggle' in payload:
         setting.allow_kid_task_toggle = bool(payload['allow_kid_task_toggle'])
     db.session.commit()
-    return jsonify({'family_name': setting.family_name, 'allow_kid_task_toggle': setting.allow_kid_task_toggle})
+    return api_settings_get()

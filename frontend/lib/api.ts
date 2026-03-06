@@ -1,6 +1,6 @@
 export const API_BASE_URL = "/api";
 
-export type Profile = { id: number; name: string; role: "parent" | "kid" | string; avatar_url: string | null };
+export type Profile = { id: number; name: string; role: "parent" | "kid" | string; avatar_url: string | null; color?: string; archived?: boolean; club_name?: string | null; county?: string | null; state?: string | null; years_in_4h?: number | null; birthdate?: string | null; summary?: { active_projects: number; shows: number; expenses: number }; projects?: Project[] };
 export type SessionResponse = { active_profile: Profile | null; family: { id: null; name: null } };
 export type AuthStatus = { role: string | null; is_unlocked: boolean; unlock_expires_at: string | null };
 export type Project = { id: number; name: string; species: string; project_type: string; is_livestock: boolean; project_category: string | null; breed: string | null; sex: string | null; ear_tag: string | null; target_weight: number | null; purchase_date: string | null; goal: string | null; materials_needed: string | null; completion_target_date: string | null; competition_category: string | null; tag: string | null; status: string; owner_profile_id: number; notes: string | null; photo_url: string | null; created_at: string | null; updated_at: string | null };
@@ -15,7 +15,7 @@ export type ShowDayTask = { id: number; show_day_id: number; project_id: number 
 export type TaskItem = { id: number; project_id: number | null; title: string; due_date: string | null; recurrence: "none" | "daily" | "weekly"; assigned_profile_id: number | null; status: "open" | "done"; priority: "low" | "normal" | "high"; notes: string | null; created_at: string | null; updated_at: string | null; completed_at: string | null };
 export type MediaItem = { id: number; project_id: number | null; timeline_entry_id: number | null; placing_id: number | null; show_id: number | null; show_day_id: number | null; kind: string; file_name: string; file_url: string; url: string; caption: string | null; created_at: string | null };
 export type TimelineEntry = { id: number; project_id: number; type: string; title: string; description: string | null; date: string; created_at: string | null };
-export type AppSettings = { family_name: string | null; allow_kid_task_toggle: boolean };
+export type AppSettings = { family_name: string | null; county: string | null; state: string | null; club_name: string | null; default_project_year: number | null; default_species: string | null; default_checklist_template: string | null; default_show_tasks: string[]; brand_logo_url: string | null; brand_show_name: boolean; allow_kid_task_toggle: boolean };
 
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
@@ -63,6 +63,10 @@ export type ReportsSummary = { start_date: string | null; end_date: string | nul
 
 export type FamilySeasonSummary = { totals: { expenses_total_cents: number; feed_total_cents: number; health_total_cents: number; shows_count: number; placings_count: number; grand_total_cents: number }; by_kid: Array<{ profile_id: number; profile_name: string; project_count: number; expenses_total_cents: number; feed_total_cents: number; health_total_cents: number; shows_count: number; placings_count: number; ribbons_count: number; total_cents: number }>; by_project: Array<{ project_id: number; project_name: string; owner_profile_id: number; owner_name: string; expenses_total_cents: number; feed_total_cents: number; health_total_cents: number; shows_count: number; placings_count: number; ribbons_count: number }> };
 export type ProjectRecordBook = { project: Project; owner: { id: number; name: string; role: string } | null; expenses: { count: number; total_cents: number; total: number }; feed: { count: number; total_cents: number; total: number }; health: { count: number; total_cents: number; total: number }; tasks: { completed: number; open: number; total: number }; timeline: { count: number; entries: TimelineEntry[] }; shows: { count: number; items: Show[] }; placings: { count: number; items: Placing[] }; ribbons: { count: number }; media: { count: number } };
+export type ChecklistItem = { id: number; project_id: number; title: string; category: string | null; is_completed: boolean; completed_at: string | null; notes: string | null; sort_order: number | null; created_at: string | null; updated_at: string | null };
+export type ChecklistResponse = { items: ChecklistItem[]; summary: { total: number; completed: number; remaining: number; completion_percent: number } };
+export type ShowReadinessItem = { id: number; project_id: number | null; show_id: number | null; item_name: string; is_completed: boolean; completed_at: string | null; show_day_id: number | null };
+export type ShowReadinessResponse = { items: ShowReadinessItem[]; summary: { total: number; completed: number; remaining: number; completion_percent: number } };
 
 
 export type IncomeType = "auction_sale" | "add_on" | "sponsorship" | "private_sale" | "prize_money" | "refund" | "other";

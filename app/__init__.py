@@ -243,6 +243,15 @@ def run_migrations() -> None:
         "ALTER TABLE show_entry ADD COLUMN weight REAL",
         "ALTER TABLE placing ADD COLUMN placing TEXT",
         "ALTER TABLE placing ADD COLUMN created_at DATETIME",
+        "ALTER TABLE app_setting ADD COLUMN county TEXT",
+        "ALTER TABLE app_setting ADD COLUMN state TEXT",
+        "ALTER TABLE app_setting ADD COLUMN club_name TEXT",
+        "ALTER TABLE app_setting ADD COLUMN default_project_year INTEGER",
+        "ALTER TABLE app_setting ADD COLUMN default_species TEXT",
+        "ALTER TABLE app_setting ADD COLUMN default_checklist_template TEXT",
+        "ALTER TABLE app_setting ADD COLUMN default_show_tasks TEXT",
+        "ALTER TABLE app_setting ADD COLUMN brand_logo_url TEXT",
+        "ALTER TABLE app_setting ADD COLUMN brand_show_name BOOLEAN NOT NULL DEFAULT 1",
         "CREATE TABLE IF NOT EXISTS timeline_entry (id INTEGER NOT NULL PRIMARY KEY, project_id INTEGER NOT NULL, type VARCHAR(40) NOT NULL, title VARCHAR(120) NOT NULL, description TEXT, date DATE NOT NULL, created_at DATETIME NOT NULL, FOREIGN KEY(project_id) REFERENCES project (id))",
         "CREATE TABLE IF NOT EXISTS media (id INTEGER NOT NULL PRIMARY KEY, project_id INTEGER, show_id INTEGER, show_day_id INTEGER, file_name VARCHAR(255) NOT NULL, url VARCHAR(255) NOT NULL, caption TEXT, created_at DATETIME NOT NULL, FOREIGN KEY(project_id) REFERENCES project (id), FOREIGN KEY(show_id) REFERENCES show (id), FOREIGN KEY(show_day_id) REFERENCES show_day (id))",
     ]
@@ -256,7 +265,7 @@ def run_migrations() -> None:
         try:
             conn.execute(text("CREATE TABLE IF NOT EXISTS placing (id INTEGER PRIMARY KEY, entry_id INTEGER NOT NULL REFERENCES show_entry(id), show_day_id INTEGER NOT NULL REFERENCES show_day(id), ring TEXT, placing TEXT NOT NULL, points REAL, judge TEXT, notes TEXT, created_at DATETIME)"))
             conn.execute(text("CREATE TABLE IF NOT EXISTS task_item (id INTEGER PRIMARY KEY, project_id INTEGER REFERENCES project(id), title TEXT NOT NULL, due_date DATE, recurrence TEXT NOT NULL DEFAULT 'none', assigned_profile_id INTEGER REFERENCES profile(id), status TEXT NOT NULL DEFAULT 'open', priority TEXT NOT NULL DEFAULT 'normal', notes TEXT, created_at DATETIME, updated_at DATETIME, completed_at DATETIME)"))
-            conn.execute(text("CREATE TABLE IF NOT EXISTS app_setting (id INTEGER PRIMARY KEY, family_name TEXT, allow_kid_task_toggle BOOLEAN NOT NULL DEFAULT 0)"))
+            conn.execute(text("CREATE TABLE IF NOT EXISTS app_setting (id INTEGER PRIMARY KEY, family_name TEXT, county TEXT, state TEXT, club_name TEXT, default_project_year INTEGER, default_species TEXT, default_checklist_template TEXT, default_show_tasks TEXT, brand_logo_url TEXT, brand_show_name BOOLEAN NOT NULL DEFAULT 1, allow_kid_task_toggle BOOLEAN NOT NULL DEFAULT 0)"))
             conn.execute(text("CREATE TABLE IF NOT EXISTS timeline_entry (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL REFERENCES project(id), type TEXT NOT NULL, title TEXT NOT NULL, description TEXT, date DATE NOT NULL, created_at DATETIME NOT NULL)"))
             conn.execute(text("CREATE TABLE IF NOT EXISTS media (id INTEGER PRIMARY KEY, project_id INTEGER REFERENCES project(id), show_id INTEGER REFERENCES show(id), show_day_id INTEGER REFERENCES show_day(id), file_name TEXT NOT NULL, url TEXT NOT NULL, caption TEXT, created_at DATETIME NOT NULL)"))
             conn.execute(text("CREATE TABLE IF NOT EXISTS show_day_task (id INTEGER PRIMARY KEY, show_day_id INTEGER NOT NULL REFERENCES show_day(id), project_id INTEGER NOT NULL REFERENCES project(id), task_key TEXT NOT NULL, task_label TEXT NOT NULL, is_completed BOOLEAN NOT NULL DEFAULT 0, completed_at DATETIME, notes TEXT)"))

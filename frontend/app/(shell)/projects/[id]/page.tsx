@@ -4,11 +4,11 @@ import Link from "next/link";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 
-import { apiClientJson, AuthStatus, Expense, FamilyInventoryItem, FeedEntry, MediaItem, Placing, Profile, Project, ProjectFinancialSummary, ProjectMaterial, ProjectTask, Show, TimelineEntry, WeightEntry } from "@/lib/api";
+import { apiClientJson, AuthStatus, ChecklistResponse, Expense, FamilyInventoryItem, FeedEntry, MediaItem, Placing, Profile, Project, ProjectFinancialSummary, ProjectMaterial, ProjectTask, Show, ShowReadinessResponse, TimelineEntry, WeightEntry } from "@/lib/api";
 import { uploadProjectHero, uploadProjectMedia } from "@/lib/uploads";
 import { ShowsMediaCard } from "@/components/shows-media-card";
 
-const sections = ["overview", "materials", "financial", "feed", "timeline", "expenses", "shows", "media", "tasks"] as const;
+const sections = ["overview", "materials", "financial", "feed", "timeline", "expenses", "shows", "media", "tasks", "checklists", "readiness"] as const;
 
 type SectionName = (typeof sections)[number];
 
@@ -36,12 +36,14 @@ export default function ProjectDetailPage() {
   const [materials, setMaterials] = useState<ProjectMaterial[]>([]);
   const [inventory, setInventory] = useState<FamilyInventoryItem[]>([]);
   const [financialSummary, setFinancialSummary] = useState<ProjectFinancialSummary | null>(null);
+  const [checklists, setChecklists] = useState<ChecklistResponse | null>(null);
+  const [readiness, setReadiness] = useState<ShowReadinessResponse | null>(null);
   const [auth, setAuth] = useState<AuthStatus | null>(null);
   const [mediaCaption, setMediaCaption] = useState("");
 
   const load = async () => {
     const id = Number(params.id);
-    const [projectData, profileData, expenseData, showData, timelineData, taskData, mediaData, placingData, authData, weightData, feedData, materialData, inventoryData, financialData] = await Promise.all([
+    const [projectData, profileData, expenseData, showData, timelineData, taskData, mediaData, placingData, authData, weightData, feedData, materialData, inventoryData, financialData, checklistData, readinessData] = await Promise.all([
       apiClientJson<Project>(`/projects/${id}`),
       apiClientJson<Profile[]>("/profiles"),
       apiClientJson<Expense[]>(`/expenses?project_id=${id}`),
@@ -55,7 +57,9 @@ export default function ProjectDetailPage() {
       apiClientJson<FeedEntry[]>(`/projects/${id}/feed`).catch(() => []),
       apiClientJson<ProjectMaterial[]>(`/projects/${id}/materials`).catch(() => []),
       apiClientJson<FamilyInventoryItem[]>("/inventory").catch(() => []),
-      apiClientJson<ProjectFinancialSummary>(`/projects/${id}/financial-summary`).catch(() => null)
+      apiClientJson<ProjectFinancialSummary>(`/projects/${id}/financial-summary`).catch(() => null),
+      apiClientJson<ChecklistResponse>(`/projects/${id}/checklists`).catch(() => null),
+      apiClientJson<ShowReadinessResponse>(`/projects/${id}/show-readiness`).catch(() => null)
     ]);
 
     setProject(projectData);
@@ -72,6 +76,8 @@ export default function ProjectDetailPage() {
     setMaterials(materialData);
     setInventory(inventoryData);
     setFinancialSummary(financialData);
+    setChecklists(checklistData);
+    setReadiness(readinessData);
   };
 
   useEffect(() => {
@@ -210,6 +216,10 @@ export default function ProjectDetailPage() {
       {activeSection === "media" ? <section className="barn-card space-y-3 text-sm"><h2 className="text-base font-semibold">Media</h2><div className="flex flex-wrap items-center gap-2"><input value={mediaCaption} onChange={(event) => setMediaCaption(event.target.value)} placeholder="Caption" className="rounded bg-[var(--barn-bg)] px-3 py-2" /><label className="rounded bg-[var(--barn-red)] px-3 py-2 text-xs">Add Media<input type="file" accept="image/*,video/*" className="hidden" onChange={(event) => handleMediaUpload(event).catch(() => undefined)} /></label></div>{media.length === 0 ? <p className="barn-row text-[var(--barn-muted)]">No media uploaded for this project yet.</p> : <div className="grid grid-cols-2 gap-2 md:grid-cols-3">{media.map((item) => <ShowsMediaCard key={item.id} item={item} />)}</div>}</section> : null}
 
       {activeSection === "tasks" ? <section className="barn-card space-y-3 text-sm"><h2 className="text-base font-semibold">Tasks</h2>{tasks.length === 0 ? <p className="barn-row text-[var(--barn-muted)]">No tasks yet.</p> : tasks.map((task) => <article key={task.id} className="barn-row"><p className={task.is_completed ? "line-through" : ""}>{task.title}</p></article>)}</section> : null}
+
+      {activeSection === "checklists" ? <section className="barn-card space-y-3 text-sm"><div className="flex items-center justify-between"><h2 className="text-base font-semibold">Checklist / Skills</h2><Link href={`/projects/${project.id}/checklists`} className="rounded bg-neutral-700 px-2 py-1 text-xs">Open</Link></div><p className="text-[var(--barn-muted)]">Completed {checklists?.summary.completed ?? 0} of {checklists?.summary.total ?? 0} ({checklists?.summary.completion_percent ?? 0}%)</p><div className="h-2 w-full overflow-hidden rounded bg-neutral-800"><div className="h-full bg-green-600" style={{ width: `${checklists?.summary.completion_percent ?? 0}%` }} /></div></section> : null}
+
+      {activeSection === "readiness" ? <section className="barn-card space-y-3 text-sm"><div className="flex items-center justify-between"><h2 className="text-base font-semibold">Show readiness</h2><Link href={`/projects/${project.id}/show-readiness`} className="rounded bg-neutral-700 px-2 py-1 text-xs">Open</Link></div><p className="text-[var(--barn-muted)]">Ready items {readiness?.summary.completed ?? 0} of {readiness?.summary.total ?? 0} ({readiness?.summary.completion_percent ?? 0}%)</p><div className="h-2 w-full overflow-hidden rounded bg-neutral-800"><div className="h-full bg-amber-500" style={{ width: `${readiness?.summary.completion_percent ?? 0}%` }} /></div></section> : null}
 
       {auth?.role === "parent" && auth.is_unlocked ? (
         <section className="barn-card space-y-2 text-sm">
