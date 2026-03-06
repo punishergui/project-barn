@@ -53,7 +53,7 @@ export default function ProjectsPage() {
         ) : null}
       </div>
 
-      <section className="grid gap-2 rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-3 sm:grid-cols-3">
+      <section className="barn-card grid gap-2 sm:grid-cols-3">
         <input value={species} onChange={(e) => setSpecies(e.target.value)} placeholder="species" className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-2" />
         <input value={status} onChange={(e) => setStatus(e.target.value)} placeholder="status" className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-2" />
         <select value={owner} onChange={(e) => setOwner(e.target.value)} className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-2">
@@ -68,15 +68,20 @@ export default function ProjectsPage() {
 
       {loading ? <p className="text-sm text-neutral-300">Loading projects...</p> : null}
       {error ? <p className="text-sm text-red-300">{error}</p> : null}
-      {!loading && projects.length === 0 ? <p className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-sm text-neutral-300">No projects yet.</p> : null}
+      {!loading && projects.length === 0 ? <p className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-bg)] p-4 text-sm text-neutral-300">No projects yet.</p> : null}
       <div className="grid gap-3 md:grid-cols-2">
         {projects.map((project) => (
-          <Link key={project.id} href={`/projects/${project.id}`} className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4">
-            <h2 className="font-semibold">{project.name}</h2>
-            <p className="text-sm text-neutral-300">
-              {project.species} • {project.status}
-            </p>
-            <p className="text-sm text-neutral-300">Owner: {owners.get(project.owner_profile_id) ?? project.owner_profile_id}</p>
+          <Link key={project.id} href={`/projects/${project.id}`} className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-bg)] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="font-semibold">{project.name}</h2>
+                <p className="text-sm capitalize text-neutral-300">
+                  {project.species} • {project.status}
+                </p>
+                <p className="text-sm text-neutral-300">Owner: {owners.get(project.owner_profile_id) ?? project.owner_profile_id}</p>
+              </div>
+              {project.photo_url ? <img src={project.photo_url} alt={project.name} className="h-14 w-14 rounded-lg object-cover" /> : null}
+            </div>
           </Link>
         ))}
       </div>

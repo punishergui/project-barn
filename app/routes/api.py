@@ -643,6 +643,9 @@ def api_expense_allocations_list(expense_id: int):
 @api_bp.get("/summary")
 @api_bp.get("/dashboard")
 def api_summary():
+    profile = _active_profile()
+    setting = AppSetting.query.order_by(AppSetting.id.asc()).first()
+
     counts = {
         "projects": Project.query.count(),
         "profiles": Profile.query.count(),
@@ -656,14 +659,142 @@ def api_summary():
     for expense in Expense.query.filter(Expense.date >= month_start).all():
         month_total_cents += sum(row["amount_cents"] for row in _allocation_rows_for_expense(expense))
 
+    profiles = Profile.query.filter_by(archived=False).all()
+    owner_names = {row.id: row.name for row in profiles}
+
+    all_projects = Project.query.order_by(Project.id.asc()).all()
+    project_names = {row.id: row.name for row in all_projects}
+    active_projects = [row for row in all_projects if row.status == "active"][:8]
+    all_expenses = Expense.query.order_by(Expense.date.desc(), Expense.id.desc()).all()
+
+    expense_by_project: dict[int, int] = {}
+    for expense in all_expenses:
+        for row in _allocation_rows_for_expense(expense):
+            expense_by_project[row["project_id"]] = expense_by_project.get(row["project_id"], 0) + row["amount_cents"]
+
+    open_tasks_by_project = {
+        project_id: count
+        for project_id, count in db.session.query(ProjectTask.project_id, func.count(ProjectTask.id))
+        .filter(ProjectTask.is_completed.is_(False))
+        .group_by(ProjectTask.project_id)
+        .all()
+    }
+
+    shows = Show.query.order_by(Show.start_date.asc(), Show.id.asc()).all()
+    today = date.today()
+    upcoming_shows = [show for show in shows if show.start_date and show.start_date >= today][:5]
+
+    next_show_by_project: dict[int, Show] = {}
+    for show in upcoming_shows:
+        entries = ShowEntry.query.filter_by(show_id=show.id).all()
+        for entry in entries:
+            if entry.project_id not in next_show_by_project:
+                next_show_by_project[entry.project_id] = show
+
+    project_cards = []
+    for project in active_projects:
+        next_show = next_show_by_project.get(project.id)
+        latest_weight = WeightEntry.query.filter_by(project_id=project.id).order_by(WeightEntry.recorded_at.desc(), WeightEntry.id.desc()).first()
+        project_cards.append({
+            "id": project.id,
+            "name": project.name,
+            "species": "steer" if project.type == "cow" else project.type,
+            "owner": owner_names.get(project.owner_id, "Unknown"),
+            "status": project.status,
+            "photo_url": _avatar_url(project.photo_path),
+            "spent_total": expense_by_project.get(project.id, 0) / 100.0,
+            "open_tasks": int(open_tasks_by_project.get(project.id, 0)),
+            "latest_weight_lbs": latest_weight.weight_lbs if latest_weight else None,
+            "next_show": {
+                "id": next_show.id,
+                "name": next_show.name,
+                "date": _iso(next_show.start_date),
+            } if next_show else None,
+        })
+
+    recent_expenses = []
+    for expense in all_expenses[:6]:
+        recent_expenses.append({
+            "id": expense.id,
+            "project_id": expense.project_id,
+            "project_name": project_names.get(expense.project_id, f"Project {expense.project_id}"),
+            "amount": float(expense.amount),
+            "date": _iso(expense.date),
+            "category": expense.category,
+            "vendor": expense.vendor,
+            "has_receipt": len(expense.receipts) > 0,
+        })
+
+    recent_activity = []
+    timeline_rows = TimelineEntry.query.order_by(TimelineEntry.date.desc(), TimelineEntry.id.desc()).limit(10).all()
+    for item in timeline_rows:
+        recent_activity.append({
+            "id": f"timeline-{item.id}",
+            "kind": "timeline",
+            "title": item.title,
+            "subtitle": item.type,
+            "date": _iso(item.date),
+            "href": f"/projects/{item.project_id}?tab=timeline",
+        })
+
+    for expense in all_expenses[:10]:
+        recent_activity.append({
+            "id": f"expense-{expense.id}",
+            "kind": "expense",
+            "title": f"Expense: {expense.category}",
+            "subtitle": expense.vendor or "Expense recorded",
+            "date": _iso(expense.date),
+            "href": f"/expenses/{expense.id}",
+        })
+
+    placing_rows = Placing.query.order_by(Placing.created_at.desc(), Placing.id.desc()).limit(10).all()
+    for placing in placing_rows:
+        recent_activity.append({
+            "id": f"placing-{placing.id}",
+            "kind": "show",
+            "title": f"Placing: {placing.placing}",
+            "subtitle": placing.class_name or "Show placing",
+            "date": _iso(placing.placed_at or placing.created_at),
+            "href": f"/shows/{placing.show_id}" if placing.show_id else "/shows",
+        })
+
+    task_rows = ProjectTask.query.order_by(ProjectTask.updated_at.desc(), ProjectTask.id.desc()).limit(10).all()
+    for task in task_rows:
+        recent_activity.append({
+            "id": f"task-{task.id}",
+            "kind": "task",
+            "title": task.title,
+            "subtitle": "Completed" if task.is_completed else "Task updated",
+            "date": _iso(task.updated_at or task.created_at),
+            "href": f"/projects/{task.project_id}?tab=tasks",
+        })
+
+    recent_activity = [item for item in recent_activity if item.get("date")]
+    recent_activity.sort(key=lambda item: item["date"], reverse=True)
+
     return jsonify({
+        "active_profile": {
+            "id": profile.id if profile else None,
+            "name": profile.name if profile else None,
+            "role": profile.role if profile else None,
+            "avatar_url": _avatar_url(profile.avatar_path) if profile else None,
+        },
+        "family_name": setting.family_name if setting and setting.family_name else None,
         "counts": counts,
         "month_total": month_total_cents / 100.0,
-        "by_project": [{"name": row["name"], "total": row["total"], "project_id": row["project_id"]} for row in _project_totals()],
-        "recent_activity": [],
-        "upcoming": [],
+        "active_projects": project_cards,
+        "upcoming_shows": [
+            {
+                "id": show.id,
+                "name": show.name,
+                "date": _iso(show.start_date),
+                "location": show.location,
+            }
+            for show in upcoming_shows
+        ],
+        "recent_expenses": recent_expenses,
+        "recent_activity": recent_activity[:10],
     })
-
 
 def _show_day_payload(show_day: ShowDay) -> dict[str, object]:
     return {

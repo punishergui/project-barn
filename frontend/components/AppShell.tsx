@@ -34,9 +34,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   useEffect(() => {
-    apiClientJson<SessionResponse>("/session")
+    const controller = new AbortController();
+
+    apiClientJson<SessionResponse>("/session", { signal: controller.signal })
       .then((sessionData) => setProfile(sessionData.active_profile))
-      .catch(() => setProfile(null));
+      .catch((error: unknown) => {
+        if ((error as { name?: string })?.name === "AbortError") {
+          return;
+        }
+        setProfile(null);
+      });
+
+    return () => controller.abort();
   }, [pathname]);
 
   useEffect(() => {
