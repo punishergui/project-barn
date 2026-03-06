@@ -2572,8 +2572,12 @@ def api_show_day_delete(show_day_id: int):
     if error:
         return error
     show_day = ShowDay.query.get_or_404(show_day_id)
+    placing_ids = [row.id for row in Placing.query.filter_by(show_day_id=show_day.id).all()]
+    if placing_ids:
+        Media.query.filter(Media.placing_id.in_(placing_ids), Media.deleted_at.is_(None)).update({"deleted_at": datetime.utcnow(), "orphaned_at": datetime.utcnow()}, synchronize_session=False)
+    Media.query.filter_by(show_day_id=show_day.id, deleted_at=None).update({"deleted_at": datetime.utcnow(), "orphaned_at": datetime.utcnow()}, synchronize_session=False)
     Placing.query.filter_by(show_day_id=show_day.id).delete()
-    Media.query.filter_by(show_day_id=show_day.id).delete()
+    ShowDayTask.query.filter_by(show_day_id=show_day.id).delete()
     db.session.delete(show_day)
     db.session.commit()
     return jsonify({'success': True})
@@ -2622,6 +2626,9 @@ def api_show_entry_delete(entry_id: int):
     if error:
         return error
     entry = ShowEntry.query.get_or_404(entry_id)
+    placing_ids = [row.id for row in Placing.query.filter_by(entry_id=entry.id).all()]
+    if placing_ids:
+        Media.query.filter(Media.placing_id.in_(placing_ids), Media.deleted_at.is_(None)).update({"deleted_at": datetime.utcnow(), "orphaned_at": datetime.utcnow()}, synchronize_session=False)
     Placing.query.filter_by(entry_id=entry.id).delete()
     db.session.delete(entry)
     db.session.commit()

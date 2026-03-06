@@ -36,10 +36,21 @@ export default function MorePage() {
 
   const setPin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const pin = new FormData(event.currentTarget).get("pin");
+    const formData = new FormData(event.currentTarget);
+    const pin = String(formData.get("pin") || "").trim();
+    const currentPin = String(formData.get("current_pin") || "").trim();
     try {
-      await apiClientJson("/auth/set-pin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin }) });
+      await apiClientJson("/auth/set-pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pin,
+          current_pin: currentPin || undefined
+        })
+      });
       setMessage("PIN saved.");
+      event.currentTarget.reset();
+      await load();
     } catch (error) {
       setMessage(toUserErrorMessage(error, "Unable to save PIN right now."));
     }
@@ -91,7 +102,8 @@ export default function MorePage() {
       </form>
       <form onSubmit={setPin} className="barn-card space-y-2">
         <h2 className="font-semibold">Set or rotate PIN</h2>
-        <input name="pin" type="password" className="w-full rounded-lg border border-[var(--barn-border)] bg-black/20 p-2" placeholder="New PIN" />
+        <input name="current_pin" type="password" inputMode="numeric" pattern="[0-9]*" className="w-full rounded-lg border border-[var(--barn-border)] bg-black/20 p-2" placeholder="Current PIN (required when rotating)" />
+        <input name="pin" type="password" inputMode="numeric" pattern="[0-9]*" minLength={4} maxLength={12} className="w-full rounded-lg border border-[var(--barn-border)] bg-black/20 p-2" placeholder="New PIN (4-12 digits)" required />
         <button className="rounded-lg bg-[var(--barn-red)] px-3 py-2 text-sm">Save PIN</button>
       </form>
       {message ? <p className="text-sm text-neutral-300">{message}</p> : null}
