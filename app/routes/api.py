@@ -13,10 +13,130 @@ from sqlalchemy import func, text
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app import save_upload, save_upload_in_subdir
-from app.models import AppSetting, Expense, ExpenseAllocation, ExpenseReceipt, FeedEntry, FeedInventorySimple, HealthEntry, Media, Placing, Profile, Project, ProjectTask, Show, ShowDay, ShowDayTask, ShowEntry, Task, TaskItem, TimelineEntry, WeightEntry, db
+from app.models import AppSetting, AuctionSale, Expense, ExpenseAllocation, ExpenseReceipt, FeedEntry, FeedInventorySimple, HealthEntry, IncomeRecord, Media, Placing, Profile, Project, ProjectTask, Show, ShowDay, ShowDayTask, ShowEntry, Task, TaskItem, TimelineEntry, WeightEntry, db
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 UNLOCK_DURATION_MINUTES = 15
+
+INCOME_TYPE_STORAGE_MAP = {
+    "auction_sale": "auction_sale",
+    "add_on": "add_on",
+    "sponsorship": "sponsorship",
+    "private_sale": "private_sale",
+    "prize_money": "prize",
+    "refund": "other",
+    "other": "other",
+}
+
+INCOME_TYPE_API_MAP = {value: key for key, value in INCOME_TYPE_STORAGE_MAP.items()}
+INCOME_TYPE_API_MAP["premium"] = "prize_money"
+
+
+def _parse_date_value(value: object) -> date | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, date):
+        return value
+    return date.fromisoformat(str(value))
+
+
+def _income_payload(row: IncomeRecord) -> dict[str, object]:
+    return {
+        "id": row.id,
+        "project_id": row.project_id,
+        "profile_id": row.logged_by_id,
+        "date": _iso(row.date),
+        "type": INCOME_TYPE_API_MAP.get(row.category, row.category),
+        "source": row.source,
+        "amount": float(row.amount),
+        "amount_cents": int(round(float(row.amount) * 100)),
+        "notes": row.notes,
+        "created_at": _iso(getattr(row, "created_at", None) or row.date),
+        "updated_at": _iso(getattr(row, "updated_at", None) or getattr(row, "created_at", None) or row.date),
+    }
+
+
+def _auction_payload(row: AuctionSale) -> dict[str, object]:
+    return {
+        "id": row.id,
+        "project_id": row.project_id,
+        "show_id": row.show_id,
+        "sale_date": _iso(row.sale_date),
+        "buyer_name": row.buyer_name,
+        "sale_amount": float(row.total_price or 0),
+        "add_ons_amount": float(row.addon_amount or 0),
+        "fees_amount": float(row.deductions or 0),
+        "final_payout": float(row.net_proceeds or 0),
+        "notes": row.notes,
+    }
+
+
+def _date_window_from_request() -> tuple[date | None, date | None]:
+    range_key = (request.args.get("range") or "all").strip().lower()
+    start = _parse_date_value(request.args.get("start_date"))
+    end = _parse_date_value(request.args.get("end_date"))
+    if range_key == "this_year":
+        today = date.today()
+        return date(today.year, 1, 1), date(today.year, 12, 31)
+    return start, end
+
+
+def _project_financial_summary(project: Project, start: date | None = None, end: date | None = None) -> dict[str, object]:
+    expense_total_cents = 0
+    for expense in Expense.query.all():
+        if start and expense.date < start:
+            continue
+        if end and expense.date > end:
+            continue
+        for row in _allocation_rows_for_expense(expense):
+            if row["project_id"] == project.id:
+                expense_total_cents += row["amount_cents"]
+
+    feed_total_cents = 0
+    health_total_cents = 0
+    income_total_cents = 0
+
+    feed_query = FeedEntry.query.filter_by(project_id=project.id)
+    health_query = HealthEntry.query.filter_by(project_id=project.id)
+    income_query = IncomeRecord.query.filter_by(project_id=project.id)
+    auction_query = AuctionSale.query.filter_by(project_id=project.id)
+
+    if start:
+        feed_query = feed_query.filter(FeedEntry.recorded_at >= start)
+        health_query = health_query.filter(HealthEntry.recorded_at >= start)
+        income_query = income_query.filter(IncomeRecord.date >= start)
+        auction_query = auction_query.filter(AuctionSale.sale_date >= start)
+    if end:
+        feed_query = feed_query.filter(FeedEntry.recorded_at <= end)
+        health_query = health_query.filter(HealthEntry.recorded_at <= end)
+        income_query = income_query.filter(IncomeRecord.date <= end)
+        auction_query = auction_query.filter(AuctionSale.sale_date <= end)
+
+    feed_total_cents = sum(int(row.cost_cents or 0) for row in feed_query.all())
+    health_total_cents = sum(int(row.cost_cents or 0) for row in health_query.all())
+    income_total_cents = sum(int(round(float(row.amount) * 100)) for row in income_query.all())
+    income_total_cents += sum(int(round(float(row.net_proceeds or 0) * 100)) for row in auction_query.all())
+
+    total_expenses_cents = expense_total_cents + feed_total_cents + health_total_cents
+    net_cents = income_total_cents - total_expenses_cents
+    latest_sale = auction_query.order_by(AuctionSale.sale_date.desc(), AuctionSale.id.desc()).first()
+
+    return {
+        "project_id": project.id,
+        "project_name": project.name,
+        "owner_profile_id": project.owner_id,
+        "total_expenses_cents": total_expenses_cents,
+        "total_expenses": total_expenses_cents / 100.0,
+        "total_feed_cents": feed_total_cents,
+        "total_feed": feed_total_cents / 100.0,
+        "total_health_cents": health_total_cents,
+        "total_health": health_total_cents / 100.0,
+        "total_income_cents": income_total_cents,
+        "total_income": income_total_cents / 100.0,
+        "net_profit_loss_cents": net_cents,
+        "net_profit_loss": net_cents / 100.0,
+        "latest_sale": _auction_payload(latest_sale) if latest_sale else None,
+    }
 
 
 CARE_CATEGORY_LABELS = {
@@ -666,6 +786,314 @@ def api_expense_allocations_list(expense_id: int):
     return jsonify(fallback)
 
 
+
+
+@api_bp.get('/income')
+def api_income_list():
+    query = IncomeRecord.query
+    project_id = request.args.get('project_id')
+    if project_id:
+        query = query.filter(IncomeRecord.project_id == int(project_id))
+    start, end = _date_window_from_request()
+    if start:
+        query = query.filter(IncomeRecord.date >= start)
+    if end:
+        query = query.filter(IncomeRecord.date <= end)
+    rows = query.order_by(IncomeRecord.date.desc(), IncomeRecord.id.desc()).all()
+    return jsonify([_income_payload(row) for row in rows])
+
+
+@api_bp.post('/income')
+def api_income_create():
+    profile, error = _require_parent_unlocked()
+    if error:
+        return error
+    payload = request.get_json(silent=True) or {}
+    income_type = str(payload.get('type') or 'other').strip().lower()
+    category = INCOME_TYPE_STORAGE_MAP.get(income_type)
+    if category is None:
+        return jsonify({'error': 'Invalid income type'}), 400
+    try:
+        logged_date = _parse_date_value(payload.get('date')) or date.today()
+    except ValueError:
+        return jsonify({'error': 'Invalid date'}), 400
+    project_id_value = payload.get('project_id')
+    if project_id_value in (None, ''):
+        first_project = Project.query.order_by(Project.id.asc()).first()
+        if not first_project:
+            return jsonify({'error': 'project_id is required when no projects exist'}), 400
+        project_id = first_project.id
+    else:
+        project_id = int(project_id_value)
+    if Project.query.get(project_id) is None:
+        return jsonify({'error': 'project not found'}), 404
+    amount = float(payload.get('amount') or 0)
+    if amount <= 0:
+        return jsonify({'error': 'amount must be greater than 0'}), 400
+    source = str(payload.get('source') or '').strip() or None
+    notes = str(payload.get('notes') or '').strip() or None
+    profile_id = payload.get('profile_id')
+    logged_by_id = int(profile_id) if profile_id not in (None, '') else profile.id
+
+    row = IncomeRecord(
+        project_id=project_id,
+        logged_by_id=logged_by_id,
+        date=logged_date,
+        category=category,
+        amount=amount,
+        source=source,
+        notes=notes,
+    )
+    db.session.add(row)
+    db.session.commit()
+    return jsonify(_income_payload(row)), 201
+
+
+@api_bp.patch('/income/<int:income_id>')
+def api_income_update(income_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    row = IncomeRecord.query.get_or_404(income_id)
+    payload = request.get_json(silent=True) or {}
+    if 'type' in payload:
+        income_type = str(payload.get('type') or '').strip().lower()
+        category = INCOME_TYPE_STORAGE_MAP.get(income_type)
+        if category is None:
+            return jsonify({'error': 'Invalid income type'}), 400
+        row.category = category
+    if 'project_id' in payload and payload.get('project_id') not in (None, ''):
+        project_id = int(payload['project_id'])
+        if Project.query.get(project_id) is None:
+            return jsonify({'error': 'project not found'}), 404
+        row.project_id = project_id
+    if 'profile_id' in payload and payload.get('profile_id') not in (None, ''):
+        row.logged_by_id = int(payload['profile_id'])
+    if 'date' in payload:
+        try:
+            parsed_date = _parse_date_value(payload.get('date'))
+        except ValueError:
+            return jsonify({'error': 'Invalid date'}), 400
+        if parsed_date is not None:
+            row.date = parsed_date
+    if 'source' in payload:
+        row.source = str(payload.get('source') or '').strip() or None
+    if 'notes' in payload:
+        row.notes = str(payload.get('notes') or '').strip() or None
+    if 'amount' in payload:
+        amount = float(payload.get('amount') or 0)
+        if amount <= 0:
+            return jsonify({'error': 'amount must be greater than 0'}), 400
+        row.amount = amount
+    db.session.commit()
+    return jsonify(_income_payload(row))
+
+
+@api_bp.delete('/income/<int:income_id>')
+def api_income_delete(income_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    row = IncomeRecord.query.get_or_404(income_id)
+    db.session.delete(row)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@api_bp.get('/auction-sales')
+def api_auction_sales_list():
+    query = AuctionSale.query
+    project_id = request.args.get('project_id')
+    if project_id:
+        query = query.filter(AuctionSale.project_id == int(project_id))
+    start, end = _date_window_from_request()
+    if start:
+        query = query.filter(AuctionSale.sale_date >= start)
+    if end:
+        query = query.filter(AuctionSale.sale_date <= end)
+    rows = query.order_by(AuctionSale.sale_date.desc(), AuctionSale.id.desc()).all()
+    return jsonify([_auction_payload(row) for row in rows])
+
+
+@api_bp.post('/auction-sales')
+def api_auction_sales_create():
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    payload = request.get_json(silent=True) or {}
+    try:
+        project_id = int(payload.get('project_id'))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'project_id is required'}), 400
+    if Project.query.get(project_id) is None:
+        return jsonify({'error': 'project not found'}), 404
+    try:
+        sale_date = _parse_date_value(payload.get('sale_date')) or date.today()
+    except ValueError:
+        return jsonify({'error': 'Invalid sale date'}), 400
+    sale_amount = float(payload.get('sale_amount') or 0)
+    add_ons_amount = float(payload.get('add_ons_amount') or 0)
+    fees_amount = float(payload.get('fees_amount') or 0)
+    final_payout = payload.get('final_payout')
+    if final_payout in (None, ''):
+        final_payout = sale_amount + add_ons_amount - fees_amount
+    final_payout = float(final_payout)
+    row = AuctionSale(
+        project_id=project_id,
+        show_id=(int(payload.get('show_id')) if payload.get('show_id') not in (None, '') else None),
+        sale_date=sale_date,
+        buyer_name=str(payload.get('buyer_name') or 'Buyer').strip(),
+        total_price=sale_amount,
+        addon_amount=add_ons_amount,
+        deductions=fees_amount,
+        net_proceeds=final_payout,
+        notes=str(payload.get('notes') or '').strip() or None,
+    )
+    db.session.add(row)
+    db.session.flush()
+    income_row = IncomeRecord(
+        project_id=project_id,
+        logged_by_id=_active_profile().id if _active_profile() else Project.query.get(project_id).owner_id,
+        date=sale_date,
+        category='auction_sale',
+        amount=final_payout,
+        source=f"Auction buyer: {row.buyer_name}",
+        notes=f"Auction sale #{row.id}" + (f" - {row.notes}" if row.notes else ''),
+    )
+    db.session.add(income_row)
+    db.session.commit()
+    return jsonify(_auction_payload(row)), 201
+
+
+@api_bp.patch('/auction-sales/<int:sale_id>')
+def api_auction_sales_update(sale_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    row = AuctionSale.query.get_or_404(sale_id)
+    payload = request.get_json(silent=True) or {}
+    if 'project_id' in payload and payload.get('project_id') not in (None, ''):
+        row.project_id = int(payload['project_id'])
+    if 'show_id' in payload:
+        row.show_id = int(payload['show_id']) if payload.get('show_id') not in (None, '') else None
+    if 'sale_date' in payload:
+        try:
+            parsed = _parse_date_value(payload.get('sale_date'))
+        except ValueError:
+            return jsonify({'error': 'Invalid sale date'}), 400
+        if parsed is not None:
+            row.sale_date = parsed
+    if 'buyer_name' in payload:
+        row.buyer_name = str(payload.get('buyer_name') or '').strip() or row.buyer_name
+    if 'sale_amount' in payload:
+        row.total_price = float(payload.get('sale_amount') or 0)
+    if 'add_ons_amount' in payload:
+        row.addon_amount = float(payload.get('add_ons_amount') or 0)
+    if 'fees_amount' in payload:
+        row.deductions = float(payload.get('fees_amount') or 0)
+    if 'final_payout' in payload:
+        row.net_proceeds = float(payload.get('final_payout') or 0)
+    else:
+        row.net_proceeds = float(row.total_price or 0) + float(row.addon_amount or 0) - float(row.deductions or 0)
+    if 'notes' in payload:
+        row.notes = str(payload.get('notes') or '').strip() or None
+    db.session.commit()
+    return jsonify(_auction_payload(row))
+
+
+@api_bp.get('/projects/<int:project_id>/financial-summary')
+def api_project_financial_summary(project_id: int):
+    project = Project.query.get_or_404(project_id)
+    start, end = _date_window_from_request()
+    return jsonify(_project_financial_summary(project, start, end))
+
+
+@api_bp.get('/reports/financial-summary')
+def api_reports_financial_summary():
+    start, end = _date_window_from_request()
+    profiles = {profile.id: profile.name for profile in Profile.query.filter_by(archived=False).all()}
+    projects = Project.query.order_by(Project.name.asc()).all()
+    by_project = []
+    by_member_totals: dict[int, dict[str, object]] = {}
+    for project in projects:
+        summary = _project_financial_summary(project, start, end)
+        owner_id = summary['owner_profile_id']
+        summary['owner_name'] = profiles.get(owner_id, 'Unknown')
+        by_project.append(summary)
+        member = by_member_totals.setdefault(owner_id, {
+            'profile_id': owner_id,
+            'member_name': profiles.get(owner_id, 'Unknown'),
+            'total_project_expenses_cents': 0,
+            'total_project_income_cents': 0,
+            'net_total_cents': 0,
+        })
+        member['total_project_expenses_cents'] += int(summary['total_expenses_cents'])
+        member['total_project_income_cents'] += int(summary['total_income_cents'])
+        member['net_total_cents'] += int(summary['net_profit_loss_cents'])
+
+    overall_expenses = sum(int(row['total_expenses_cents']) for row in by_project)
+    overall_income = sum(int(row['total_income_cents']) for row in by_project)
+    recent_sales = AuctionSale.query.order_by(AuctionSale.sale_date.desc(), AuctionSale.id.desc()).limit(10).all()
+    if start:
+        recent_sales = [row for row in recent_sales if row.sale_date >= start]
+    if end:
+        recent_sales = [row for row in recent_sales if row.sale_date <= end]
+
+    by_member = []
+    for row in by_member_totals.values():
+        by_member.append({
+            **row,
+            'total_project_expenses': row['total_project_expenses_cents'] / 100.0,
+            'total_project_income': row['total_project_income_cents'] / 100.0,
+            'net_total': row['net_total_cents'] / 100.0,
+        })
+
+    return jsonify({
+        'range': request.args.get('range') or 'all',
+        'start_date': start.isoformat() if start else None,
+        'end_date': end.isoformat() if end else None,
+        'overall_totals': {
+            'total_expenses_cents': overall_expenses,
+            'total_expenses': overall_expenses / 100.0,
+            'total_income_cents': overall_income,
+            'total_income': overall_income / 100.0,
+            'net_family_balance_cents': overall_income - overall_expenses,
+            'net_family_balance': (overall_income - overall_expenses) / 100.0,
+        },
+        'by_project': by_project,
+        'by_member': by_member,
+        'recent_sales': [_auction_payload(row) for row in recent_sales],
+    })
+
+
+@api_bp.get('/reports/financial-summary.csv')
+def api_reports_financial_summary_csv():
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    data = api_reports_financial_summary().get_json()
+    rows = []
+    for row in data['by_project']:
+        rows.append([
+            row['project_id'],
+            row['project_name'],
+            row['owner_name'],
+            f"{row['total_expenses']:.2f}",
+            f"{row['total_income']:.2f}",
+            f"{row['net_profit_loss']:.2f}",
+        ])
+    return _csv_response('financial-summary.csv', ['project_id', 'project_name', 'owner', 'expenses', 'income', 'net'], rows)
+
+
+@api_bp.get('/income.csv')
+def api_income_csv():
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    rows = IncomeRecord.query.order_by(IncomeRecord.date.asc(), IncomeRecord.id.asc()).all()
+    csv_rows = [[row.id, row.project_id, row.logged_by_id, row.date.isoformat(), INCOME_TYPE_API_MAP.get(row.category, row.category), row.source or '', f"{float(row.amount):.2f}", row.notes or ''] for row in rows]
+    return _csv_response('income.csv', ['id', 'project_id', 'profile_id', 'date', 'type', 'source', 'amount', 'notes'], csv_rows)
+
 @api_bp.get("/summary")
 @api_bp.get("/dashboard")
 def api_summary():
@@ -817,6 +1245,13 @@ def api_summary():
             "unit": feed_row.unit,
         })
 
+    total_spent_cents = 0
+    for expense in all_expenses:
+        total_spent_cents += sum(row["amount_cents"] for row in _allocation_rows_for_expense(expense))
+    total_income_cents = sum(int(round(float(row.amount) * 100)) for row in IncomeRecord.query.all())
+    total_income_cents += sum(int(round(float(row.net_proceeds or 0) * 100)) for row in AuctionSale.query.all())
+    recent_sale = AuctionSale.query.order_by(AuctionSale.sale_date.desc(), AuctionSale.id.desc()).first()
+
     return jsonify({
         "active_profile": {
             "id": profile.id if profile else None,
@@ -841,6 +1276,12 @@ def api_summary():
         "recent_activity": recent_activity[:10],
         "low_feed_inventory": low_feed_inventory,
         "recent_feed_events": recent_feed_events,
+        "finance_summary": {
+            "total_spent": total_spent_cents / 100.0,
+            "total_income": total_income_cents / 100.0,
+            "net_balance": (total_income_cents - total_spent_cents) / 100.0,
+            "recent_sale": _auction_payload(recent_sale) if recent_sale else None,
+        },
     })
 
 def _show_day_payload(show_day: ShowDay) -> dict[str, object]:

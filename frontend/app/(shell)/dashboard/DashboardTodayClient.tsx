@@ -20,6 +20,7 @@ type DashboardExpense = { id: number; amount: number; date: string | null; categ
 type DashboardActivity = { id: string; kind: string; title: string; subtitle: string; date: string; href: string };
 type LowFeedInventory = { id: number; name: string; qty_on_hand: number; unit: string; low_stock_threshold: number | null };
 type RecentFeedEvent = { id: number; project_id: number; project_name: string; recorded_at: string | null; feed_type: string; amount: number; unit: string };
+type FinanceSummary = { total_spent: number; total_income: number; net_balance: number; recent_sale: { id: number; buyer_name: string; sale_date: string; final_payout: number } | null };
 
 type Props = {
   todayLabel: string;
@@ -32,6 +33,7 @@ type Props = {
   recentActivity: DashboardActivity[];
   lowFeedInventory: LowFeedInventory[];
   recentFeedEvents: RecentFeedEvent[];
+  financeSummary: FinanceSummary;
 };
 
 function shortDate(value: string | null) {
@@ -49,7 +51,8 @@ export default function DashboardTodayClient({
   recentExpenses,
   recentActivity,
   lowFeedInventory,
-  recentFeedEvents
+  recentFeedEvents,
+  financeSummary
 }: Props) {
   return (
     <div className="w-full space-y-4 px-4 pb-6">
@@ -90,6 +93,25 @@ export default function DashboardTodayClient({
             </div>
           </Link>
         ))}
+      </section>
+
+
+      <section className="barn-card space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold">Finance Snapshot</h2>
+          <Link href="/income" className="see-all-link">Income</Link>
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 text-sm">
+          <article className="barn-row">Spent ${financeSummary.total_spent.toFixed(2)}</article>
+          <article className="barn-row">Income ${financeSummary.total_income.toFixed(2)}</article>
+          <article className="barn-row">Net ${financeSummary.net_balance.toFixed(2)}</article>
+        </div>
+        {financeSummary.recent_sale ? (
+          <article className="barn-row text-sm">
+            <p className="font-medium">Recent sale: {financeSummary.recent_sale.buyer_name}</p>
+            <p className="text-xs text-[var(--barn-muted)]">{shortDate(financeSummary.recent_sale.sale_date)} • Net ${financeSummary.recent_sale.final_payout.toFixed(2)}</p>
+          </article>
+        ) : null}
       </section>
 
       <section className="barn-card space-y-3">
