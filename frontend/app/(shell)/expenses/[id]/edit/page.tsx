@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { apiClientJson, Expense, ExpenseAllocation, ExpenseReceipt, Project } from "@/lib/api";
+import { uploadExpenseReceipt } from "@/lib/uploads";
 
 type AllocationRow = { id: number; project_id: string; amount: string; percent: string };
 type SavedSummary = { amount: number; allocations: Array<{ projectName: string; amount: number }>; receiptCount: number };
@@ -21,7 +22,6 @@ export default function EditExpensePage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [receiptFiles, setReceiptFiles] = useState<File[]>([]);
   const [receiptCaption, setReceiptCaption] = useState("");
-  const [receiptUploadSupported, setReceiptUploadSupported] = useState(true);
   const [savedSummary, setSavedSummary] = useState<SavedSummary | null>(null);
 
   const load = async () => {
@@ -87,14 +87,7 @@ export default function EditExpensePage() {
   const uploadReceipt = async () => {
     if (receiptFiles.length === 0) return;
     for (const file of receiptFiles) {
-      const form = new FormData();
-      form.set("file", file);
-      form.set("caption", receiptCaption);
-      try {
-        await apiClientJson<ExpenseReceipt>(`/expenses/${params.id}/receipts`, { method: "POST", body: form });
-      } catch {
-        setReceiptUploadSupported(false);
-      }
+      await uploadExpenseReceipt(Number(params.id), file, receiptCaption);
     }
     setReceiptFiles([]);
     setReceiptCaption("");
@@ -127,9 +120,8 @@ export default function EditExpensePage() {
 
     <section className="space-y-2 rounded border border-white/10 p-3">
       <h2 className="font-semibold">Receipt photos</h2>
-      {!receiptUploadSupported ? <p className="rounded bg-amber-900/40 p-2 text-xs text-amber-200">Receipt upload not configured.</p> : null}
       <div className="flex flex-wrap items-center gap-2">
-        <input type="file" multiple accept=".png,.jpg,.jpeg,.webp" className="rounded bg-neutral-800 p-2 text-sm" onChange={(event) => setReceiptFiles(Array.from(event.target.files ?? []))} />
+        <input type="file" multiple accept="image/*,.pdf,application/pdf" className="rounded bg-neutral-800 p-2 text-sm" onChange={(event) => setReceiptFiles(Array.from(event.target.files ?? []))} />
         <input value={receiptCaption} onChange={(event) => setReceiptCaption(event.target.value)} placeholder="Caption" className="rounded bg-neutral-800 p-2 text-sm" />
         <button type="button" onClick={uploadReceipt} className="rounded bg-red-700 px-3 py-2 text-sm">Upload</button>
       </div>

@@ -3,6 +3,8 @@ import { apiJsonServer } from "@/lib/apiServer";
 
 import DashboardTodayClient from "./DashboardTodayClient";
 
+type KidItem = { id: number; name: string; role: string; avatarUrl: string | null };
+
 type ActivityItem = {
   id: string;
   title: string;
@@ -115,10 +117,18 @@ export default async function DashboardPage() {
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 5);
 
+  const kids: KidItem[] = profiles.map((profile) => ({
+    id: profile.id,
+    name: profile.name,
+    role: profile.role,
+    avatarUrl: profile.avatar_url
+  }));
+
   return (
     <DashboardTodayClient
       todayLabel={todayLabel}
       profileName={session.active_profile?.name ?? "Barn Family"}
+      kids={kids}
       quickStats={{ projects: activeProjects.length, upcomingShows: upcomingShows.length, expenses: recentExpenses.length }}
       activeProjects={activeAnimals}
       upcomingShows={upcomingShows.slice(0, 3).map((show) => ({

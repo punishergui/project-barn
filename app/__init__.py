@@ -93,15 +93,27 @@ def create_app() -> Flask:
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret")
 
     db_path = os.getenv("BARN_DB_PATH", "/data/barn.db")
-    upload_dir = os.getenv("BARN_UPLOAD_DIR", "/data/uploads")
+    upload_dir = os.getenv("UPLOAD_DIR") or os.getenv("BARN_UPLOAD_DIR", "/data/uploads")
 
     app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    app.config["UPLOAD_DIR"] = upload_dir
     app.config["BARN_UPLOAD_DIR"] = upload_dir
-    app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
+    app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_UPLOAD_BYTES", str(15 * 1024 * 1024)))
 
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
-    os.makedirs(upload_dir, exist_ok=True)
+    upload_error = None
+    try:
+        os.makedirs(upload_dir, exist_ok=True)
+        test_file = os.path.join(upload_dir, ".barn-write-test")
+        with open(test_file, "w", encoding="utf-8") as handle:
+            handle.write("ok")
+        os.remove(test_file)
+    except OSError as exc:
+        upload_error = f"Upload directory is not writable: {upload_dir} ({exc})"
+
+    app.config["UPLOAD_READY"] = upload_error is None
+    app.config["UPLOAD_ERROR"] = upload_error
 
     db.init_app(app)
 
@@ -272,7 +284,7 @@ def seed_if_empty() -> None:
     db.session.commit()
 
 
-ALLOWED_UPLOAD_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "webp", "mp4", "mov"}
+ALLOWED_UPLOAD_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "webp", "mp4", "mov", "pdf"}
 
 
 def save_upload(file_storage, upload_dir: str) -> str:

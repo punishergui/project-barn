@@ -10,7 +10,9 @@ services:
       TZ: ${TZ:-America/Chicago}
       SECRET_KEY: ${SECRET_KEY}
       BARN_DB_PATH: ${BARN_DB_PATH:-/data/barn.db}
-      BARN_UPLOAD_DIR: ${BARN_UPLOAD_DIR:-/data/uploads}
+      UPLOAD_DIR: ${UPLOAD_DIR:-/data/uploads}
+      BARN_UPLOAD_DIR: ${BARN_UPLOAD_DIR:-${UPLOAD_DIR:-/data/uploads}}
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-15728640}
     volumes:
       - ./data:/data
     healthcheck:
