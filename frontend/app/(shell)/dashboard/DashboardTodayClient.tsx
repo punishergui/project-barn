@@ -1,91 +1,128 @@
 import Link from "next/link";
 
-type KidItem = { id: number; name: string; role: string; avatarUrl: string | null };
-type ProjectCard = { id: number; name: string; species: string; ownerName: string; spentTotal: number; nextShowLabel: string };
-type ShowSummary = { id: number; name: string; startDate: string; location: string; entryCount: number };
-type ExpenseSummary = { id: number; amount: number; category: string; date: string; projectName: string; allocationCount: number };
-type ActivitySummary = { id: string; title: string; date: string; type: string; href: string };
+type QuickAction = { href: string; label: string; emoji: string };
 
-type DashboardTodayClientProps = {
-  todayLabel: string;
-  profileName: string;
-  kids: KidItem[];
-  quickStats: { projects: number; upcomingShows: number; expenses: number };
-  activeProjects: ProjectCard[];
-  upcomingShows: ShowSummary[];
-  recentExpenses: ExpenseSummary[];
-  recentActivity: ActivitySummary[];
-  quickActions: Array<{ href: string; label: string }>;
+type DashboardProject = {
+  id: number;
+  name: string;
+  species: string;
+  owner: string;
+  status: string;
+  photo_url: string | null;
+  spent_total: number;
+  open_tasks: number;
+  latest_weight_lbs: number | null;
+  next_show: { id: number; name: string; date: string | null } | null;
 };
 
-function formatDate(value: string) {
+type DashboardShow = { id: number; name: string; date: string | null; location: string | null };
+type DashboardExpense = { id: number; amount: number; date: string | null; category: string; vendor: string | null; has_receipt: boolean; project_name: string };
+type DashboardActivity = { id: string; kind: string; title: string; subtitle: string; date: string; href: string };
+
+type Props = {
+  todayLabel: string;
+  profileName: string;
+  familyName: string | null;
+  quickActions: QuickAction[];
+  activeProjects: DashboardProject[];
+  upcomingShows: DashboardShow[];
+  recentExpenses: DashboardExpense[];
+  recentActivity: DashboardActivity[];
+};
+
+function shortDate(value: string | null) {
+  if (!value) return "No date";
   return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-export default function DashboardTodayClient({ todayLabel, profileName, kids, quickStats, activeProjects, recentActivity }: DashboardTodayClientProps) {
+export default function DashboardTodayClient({
+  todayLabel,
+  profileName,
+  familyName,
+  quickActions,
+  activeProjects,
+  upcomingShows,
+  recentExpenses,
+  recentActivity
+}: Props) {
   return (
     <div className="w-full space-y-4 px-4 pb-6">
-      <section className="barn-card bg-gradient-to-br from-[var(--barn-red)]/20 to-[var(--barn-surface)]">
-        <p className="text-sm text-[var(--barn-muted)]">{todayLabel}</p>
-        <h1 className="mt-1 text-3xl font-semibold">Today</h1>
-        <p className="text-sm text-[var(--barn-muted)]">{profileName}&apos;s dashboard</p>
+      <section className="rounded-2xl border border-[var(--barn-border)] bg-gradient-to-br from-[var(--barn-red)]/25 to-[var(--barn-surface)] p-5">
+        <p className="text-xs uppercase tracking-wide text-[var(--barn-muted)]">{todayLabel}</p>
+        <h1 className="mt-2 text-3xl font-semibold">Hi, {profileName}</h1>
+        <p className="mt-1 text-sm text-[var(--barn-muted)]">{familyName ?? "Welcome back to Project Barn"}</p>
       </section>
 
-      <section className="barn-card">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-base font-medium">My Kids</h2>
-          <Link href="/profile-picker" className="see-all-link">Switch</Link>
+      <section className="barn-card space-y-3">
+        <h2 className="text-base font-semibold">Quick actions</h2>
+        <div className="grid grid-cols-2 gap-2">
+          {quickActions.map((item) => (
+            <Link key={item.href} href={item.href} className="flex min-h-14 items-center gap-2 rounded-xl border border-[var(--barn-border)] bg-[var(--barn-bg)] px-3 py-2 text-sm font-medium">
+              <span aria-hidden="true">{item.emoji}</span>
+              <span>{item.label}</span>
+            </Link>
+          ))}
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {kids.map((kid) => (
-            <article key={kid.id} className="min-w-[140px] rounded-xl border border-[var(--barn-border)] bg-[var(--barn-bg)] p-3">
-              <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--barn-red)] text-sm font-semibold text-white">
-                {kid.avatarUrl ? "👤" : kid.name.slice(0, 1).toUpperCase()}
+      </section>
+
+      <section className="barn-card space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold">Active Projects</h2>
+          <Link href="/projects" className="see-all-link">See all</Link>
+        </div>
+        {activeProjects.length === 0 ? <p className="barn-row text-sm text-[var(--barn-muted)]">No active projects yet.</p> : null}
+        {activeProjects.map((project) => (
+          <Link key={project.id} href={`/projects/${project.id}`} className="block rounded-xl border border-[var(--barn-border)] bg-[var(--barn-bg)] p-3">
+            <div className="flex items-start gap-3">
+              {project.photo_url ? <img src={project.photo_url} alt={project.name} className="h-16 w-16 rounded-lg object-cover" /> : <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-[var(--barn-surface)] text-xs text-[var(--barn-muted)]">No photo</div>}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-base font-semibold">{project.name}</p>
+                <p className="text-xs capitalize text-[var(--barn-muted)]">{project.species} • {project.owner}</p>
+                <p className="mt-1 text-xs text-[var(--barn-muted)]">Spent ${project.spent_total.toFixed(2)} • Open tasks {project.open_tasks}</p>
+                <p className="text-xs text-[var(--barn-muted)]">Weight {project.latest_weight_lbs ? `${project.latest_weight_lbs} lbs` : "No weigh-ins yet"}</p>
               </div>
-              <p className="text-sm font-semibold">{kid.name}</p>
-              <p className="text-xs capitalize text-[var(--barn-muted)]">{kid.role}</p>
-            </article>
-          ))}
-        </div>
+            </div>
+          </Link>
+        ))}
       </section>
 
-      <section className="barn-card">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-base font-medium">Active Animals</h2>
-          <Link href="/projects" className="see-all-link">See all</Link>
+      <section className="barn-card space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold">Upcoming Shows</h2>
+          <Link href="/shows" className="see-all-link">See all</Link>
         </div>
-        <div className="space-y-2">
-          {activeProjects.length === 0 ? <p className="text-sm text-[var(--barn-muted)]">No active projects yet.</p> : null}
-          {activeProjects.map((project) => (
-            <Link key={project.id} href={`/projects/${project.id}`} className="block rounded-xl border border-[var(--barn-border)] bg-[var(--barn-bg)] p-4">
-              <p className="text-lg font-semibold">{project.name}</p>
-              <p className="text-xs text-[var(--barn-muted)]">{project.species} • {project.ownerName}</p>
-              <p className="mt-1 text-xs text-[var(--barn-muted)]">Spent ${project.spentTotal.toFixed(2)} • {project.nextShowLabel}</p>
-            </Link>
-          ))}
-        </div>
+        {upcomingShows.length === 0 ? <p className="barn-row text-sm text-[var(--barn-muted)]">No upcoming shows scheduled.</p> : null}
+        {upcomingShows.map((show) => (
+          <Link key={show.id} href={`/shows/${show.id}`} className="barn-row block">
+            <p className="font-medium">{show.name}</p>
+            <p className="text-xs text-[var(--barn-muted)]">{shortDate(show.date)} • {show.location ?? "Location TBD"}</p>
+          </Link>
+        ))}
       </section>
 
-      <section className="barn-card">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-base font-medium">Recent Activity</h2>
-          <Link href="/projects" className="see-all-link">See all</Link>
+      <section className="barn-card space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold">Recent Expenses</h2>
+          <Link href="/expenses" className="see-all-link">See all</Link>
         </div>
-        <div className="space-y-2">
-          {recentActivity.length === 0 ? <p className="text-sm text-[var(--barn-muted)]">No activity yet.</p> : null}
-          {recentActivity.map((entry) => (
-            <Link key={entry.id} href={entry.href} className="barn-row block">
-              <p className="font-medium">{entry.title}</p>
-              <p className="text-xs text-[var(--barn-muted)]">{entry.type} • {formatDate(entry.date)}</p>
-            </Link>
-          ))}
-        </div>
+        {recentExpenses.length === 0 ? <p className="barn-row text-sm text-[var(--barn-muted)]">No expenses logged yet.</p> : null}
+        {recentExpenses.map((expense) => (
+          <Link key={expense.id} href={`/expenses/${expense.id}`} className="barn-row block">
+            <p className="font-medium">${expense.amount.toFixed(2)} • {expense.project_name}</p>
+            <p className="text-xs text-[var(--barn-muted)]">{shortDate(expense.date)} • {expense.vendor || expense.category} • {expense.has_receipt ? "Receipt uploaded" : "No receipt"}</p>
+          </Link>
+        ))}
       </section>
 
-      <section className="grid grid-cols-3 gap-2">
-        <article className="barn-chip">{quickStats.projects}<span>Projects</span></article>
-        <article className="barn-chip">{quickStats.upcomingShows}<span>Shows</span></article>
-        <article className="barn-chip">{quickStats.expenses}<span>Expenses</span></article>
+      <section className="barn-card space-y-3">
+        <h2 className="text-base font-semibold">Recent Activity</h2>
+        {recentActivity.length === 0 ? <p className="barn-row text-sm text-[var(--barn-muted)]">No recent activity yet.</p> : null}
+        {recentActivity.map((item) => (
+          <Link key={item.id} href={item.href} className="barn-row block">
+            <p className="font-medium">{item.title}</p>
+            <p className="text-xs text-[var(--barn-muted)]">{item.subtitle} • {shortDate(item.date)}</p>
+          </Link>
+        ))}
       </section>
     </div>
   );
