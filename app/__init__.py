@@ -44,6 +44,7 @@ def initialize_database_once(app: Flask, db_path: str) -> None:
                 run_migrations()
                 reconcile_show_day_schema()
                 reconcile_feed_schema()
+                reconcile_data_durability_schema()
                 if AppSetting.query.count() == 0:
                     db.session.add(AppSetting(family_name="", allow_kid_task_toggle=False))
                     db.session.commit()
@@ -109,12 +110,41 @@ def reconcile_feed_schema() -> None:
     db.session.execute(text("UPDATE feed_inventory_item SET created_at = COALESCE(created_at, updated_at, CURRENT_TIMESTAMP)"))
     db.session.commit()
 
+
+
+def reconcile_data_durability_schema() -> None:
+    inspector = inspect(db.engine)
+    existing_tables = set(inspector.get_table_names())
+
+    if "project" in existing_tables:
+        _add_column_if_missing("project", "deleted_at", "deleted_at DATETIME")
+    if "expense" in existing_tables:
+        _add_column_if_missing("expense", "deleted_at", "deleted_at DATETIME")
+    if "income_record" in existing_tables:
+        _add_column_if_missing("income_record", "created_at", "created_at DATETIME")
+        _add_column_if_missing("income_record", "updated_at", "updated_at DATETIME")
+        _add_column_if_missing("income_record", "deleted_at", "deleted_at DATETIME")
+    if "show" in existing_tables:
+        _add_column_if_missing("show", "deleted_at", "deleted_at DATETIME")
+    if "media" in existing_tables:
+        _add_column_if_missing("media", "profile_id", "profile_id INTEGER REFERENCES profile(id)")
+        _add_column_if_missing("media", "original_filename", "original_filename TEXT")
+        _add_column_if_missing("media", "size", "size INTEGER")
+        _add_column_if_missing("media", "uploaded_at", "uploaded_at DATETIME")
+        _add_column_if_missing("media", "orphaned_at", "orphaned_at DATETIME")
+        _add_column_if_missing("media", "deleted_at", "deleted_at DATETIME")
+
+    db.session.execute(text("UPDATE income_record SET created_at = COALESCE(created_at, date || 'T00:00:00') WHERE created_at IS NULL"))
+    db.session.execute(text("UPDATE income_record SET updated_at = COALESCE(updated_at, created_at) WHERE updated_at IS NULL"))
+    db.session.execute(text("UPDATE media SET uploaded_at = COALESCE(uploaded_at, created_at, CURRENT_TIMESTAMP) WHERE uploaded_at IS NULL"))
+    db.session.commit()
+
 def create_app() -> Flask:
     app = Flask(__name__)
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret")
 
-    db_path = os.getenv("BARN_DB_PATH", "/data/barn.db")
-    upload_dir = os.getenv("UPLOAD_DIR") or os.getenv("BARN_UPLOAD_DIR", "/data/uploads")
+    db_path = os.getenv("BARN_DB_PATH", "/data/db.sqlite")
+    upload_dir = os.getenv("UPLOAD_DIR") or os.getenv("BARN_UPLOAD_DIR", "/data/media")
 
     app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -126,7 +156,7 @@ def create_app() -> Flask:
     upload_error = None
     try:
         os.makedirs(upload_dir, exist_ok=True)
-        for directory in ("profiles", "projects", "receipts", "media"):
+        for directory in ("profiles", "projects", "receipts", "ribbons", "gallery", "videos", "media"):
             os.makedirs(os.path.join(upload_dir, directory), exist_ok=True)
         test_file = os.path.join(upload_dir, ".barn-write-test")
         with open(test_file, "w", encoding="utf-8") as handle:

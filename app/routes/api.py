@@ -6,10 +6,12 @@ import io
 import json
 import mimetypes
 import os
+import tempfile
+import zipfile
 
 from werkzeug.utils import secure_filename
 
-from flask import Blueprint, Response, current_app, jsonify, request, send_from_directory, session
+from flask import Blueprint, Response, current_app, jsonify, request, send_file, send_from_directory, session
 from sqlalchemy import func, text
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -62,6 +64,25 @@ PROJECT_TYPE_DB_TO_API = {
 }
 
 LIVESTOCK_TYPES = {"cow", "goat", "pig", "sheep", "chicken", "rabbit", "horse", "dairy"}
+
+
+MAX_UPLOAD_BYTES_BY_KIND = {
+    "profile": 5 * 1024 * 1024,
+    "project": 10 * 1024 * 1024,
+    "receipt": 12 * 1024 * 1024,
+    "gallery": 25 * 1024 * 1024,
+    "videos": 80 * 1024 * 1024,
+    "ribbons": 20 * 1024 * 1024,
+}
+
+UPLOAD_SUBDIR_BY_KIND = {
+    "profile": "profiles",
+    "project": "projects",
+    "receipt": "receipts",
+    "show": "ribbons",
+    "gallery": "gallery",
+    "video": "videos",
+}
 
 
 def _parse_date_value(value: object) -> date | None:
@@ -284,7 +305,20 @@ def _guess_mime(filename: str) -> str:
     return guessed or "application/octet-stream"
 
 
-def _validate_upload(file, allowed_prefixes: tuple[str, ...], allowed_exact: set[str] | None = None) -> tuple[str | None, tuple[Response, int] | None]:
+def _file_size_bytes(file) -> int:
+    if getattr(file, "content_length", None):
+        return int(file.content_length)
+    stream = getattr(file, "stream", None)
+    if stream is None:
+        return 0
+    cursor = stream.tell()
+    stream.seek(0, os.SEEK_END)
+    size = int(stream.tell())
+    stream.seek(cursor, os.SEEK_SET)
+    return size
+
+
+def _validate_upload(file, allowed_prefixes: tuple[str, ...], allowed_exact: set[str] | None = None, *, max_bytes: int | None = None) -> tuple[str | None, tuple[Response, int] | None]:
     if not file or not file.filename:
         return None, (jsonify({"error": "file is required"}), 400)
 
@@ -296,6 +330,11 @@ def _validate_upload(file, allowed_prefixes: tuple[str, ...], allowed_exact: set
     if not any(mime_type.startswith(prefix) for prefix in allowed_prefixes):
         if not allowed_exact or mime_type not in allowed_exact:
             return None, (jsonify({"error": f"Unsupported file type: {mime_type}"}), 400)
+
+    if max_bytes is not None:
+        size_bytes = _file_size_bytes(file)
+        if size_bytes > max_bytes:
+            return None, (jsonify({"error": f"File exceeds size limit of {max_bytes} bytes"}), 413)
 
     return safe_name, None
 
@@ -447,6 +486,9 @@ def _project_reminder_payload(item: ProjectReminder) -> dict[str, object]:
         "created_by_profile_id": item.created_by_profile_id,
         "updated_by_profile_id": item.updated_by_profile_id,
         "created_at": _iso(item.created_at),
+        "uploaded_at": _iso(item.uploaded_at or item.created_at),
+        "deleted_at": _iso(item.deleted_at),
+        "orphaned_at": _iso(item.orphaned_at),
         "updated_at": _iso(item.updated_at),
     }
 
@@ -934,7 +976,7 @@ def api_projects():
     status = request.args.get("status")
     owner_profile_id = request.args.get("owner")
 
-    query = Project.query
+    query = Project.query.filter(Project.deleted_at.is_(None))
     if species:
         query = query.filter(Project.type == species)
     if project_type:
@@ -1068,10 +1110,11 @@ def api_project_delete(project_id: int):
         return error
 
     project = Project.query.get_or_404(project_id)
-    Expense.query.filter_by(project_id=project.id).delete()
-    db.session.delete(project)
+    project.deleted_at = datetime.utcnow()
+    project.status = 'archived'
+    Media.query.filter_by(project_id=project.id, deleted_at=None).update({"orphaned_at": datetime.utcnow()})
     db.session.commit()
-    return jsonify({"success": True})
+    return jsonify({"success": True, "soft_deleted": True})
 
 
 def _inventory_payload(item: FamilyInventoryItem) -> dict[str, object]:
@@ -1277,7 +1320,7 @@ def api_project_materials_update(project_id: int, material_id: int):
 
 @api_bp.get("/expenses")
 def api_expenses():
-    query = Expense.query
+    query = Expense.query.filter(Expense.deleted_at.is_(None))
 
     project_id = request.args.get("project_id")
     category = request.args.get("category")
@@ -1379,9 +1422,10 @@ def api_expense_delete(expense_id: int):
         return error
 
     expense = Expense.query.get_or_404(expense_id)
-    db.session.delete(expense)
+    expense.deleted_at = datetime.utcnow()
+    expense.updated_at = datetime.utcnow()
     db.session.commit()
-    return jsonify({"success": True})
+    return jsonify({"success": True, "soft_deleted": True})
 
 
 @api_bp.post("/expenses/<int:expense_id>/receipts")
@@ -1392,10 +1436,12 @@ def api_expense_receipts_create(expense_id: int):
 
     expense = Expense.query.get_or_404(expense_id)
     file = request.files.get("file")
-    _, validation_error = _validate_upload(file, ("image/",), {"application/pdf"})
+    safe_name, validation_error = _validate_upload(file, ("image/",), {"application/pdf"}, max_bytes=MAX_UPLOAD_BYTES_BY_KIND["receipt"])
     if validation_error:
         return validation_error
 
+    size_bytes = _file_size_bytes(file)
+    size_bytes = _file_size_bytes(file)
     filename, save_error = _save_file(file, "receipts")
     if save_error:
         return save_error
@@ -1489,7 +1535,7 @@ def api_expense_allocations_list(expense_id: int):
 
 @api_bp.get('/income')
 def api_income_list():
-    query = IncomeRecord.query
+    query = IncomeRecord.query.filter(IncomeRecord.deleted_at.is_(None))
     project_id = request.args.get('project_id')
     if project_id:
         query = query.filter(IncomeRecord.project_id == int(project_id))
@@ -1594,9 +1640,10 @@ def api_income_delete(income_id: int):
     if error:
         return error
     row = IncomeRecord.query.get_or_404(income_id)
-    db.session.delete(row)
+    row.deleted_at = datetime.utcnow()
+    row.updated_at = datetime.utcnow()
     db.session.commit()
-    return jsonify({'success': True})
+    return jsonify({'success': True, 'soft_deleted': True})
 
 
 @api_bp.get('/auction-sales')
@@ -1974,7 +2021,7 @@ def api_summary():
         .all()
     }
 
-    shows = Show.query.order_by(Show.start_date.asc(), Show.id.asc()).all()
+    shows = Show.query.filter(Show.deleted_at.is_(None)).order_by(Show.start_date.asc(), Show.id.asc()).all()
     today = date.today()
     upcoming_shows = [show for show in shows if show.start_date and show.start_date >= today][:5]
 
@@ -2339,6 +2386,9 @@ def _media_payload(item: Media) -> dict[str, object]:
         "kind": item.kind,
         "media_type": media_type,
         "mime_type": item.mime_type,
+        "original_filename": item.original_filename,
+        "size": item.size,
+        "profile_id": item.profile_id,
         "file_name": item.file_name,
         "file_url": item.url,
         "url": item.url,
@@ -2348,6 +2398,9 @@ def _media_payload(item: Media) -> dict[str, object]:
         "placing_value": placing.placing if placing else None,
         "ribbon_type": placing.ribbon_type if placing else None,
         "created_at": _iso(item.created_at),
+        "uploaded_at": _iso(item.uploaded_at or item.created_at),
+        "deleted_at": _iso(item.deleted_at),
+        "orphaned_at": _iso(item.orphaned_at),
     }
 
 
@@ -2421,7 +2474,7 @@ def _feed_inventory_payload(item: FeedInventorySimple) -> dict[str, object]:
 
 @api_bp.get('/shows')
 def api_shows():
-    shows = Show.query.order_by(Show.start_date.asc(), Show.id.asc()).all()
+    shows = Show.query.filter(Show.deleted_at.is_(None)).order_by(Show.start_date.asc(), Show.id.asc()).all()
     return jsonify([_show_payload(show) for show in shows])
 
 
@@ -2444,7 +2497,8 @@ def api_create_show():
 
 @api_bp.get('/shows/<int:show_id>')
 def api_show_detail(show_id: int):
-    return jsonify(_show_payload(Show.query.get_or_404(show_id)))
+    show = Show.query.filter(Show.deleted_at.is_(None), Show.id == show_id).first_or_404()
+    return jsonify(_show_payload(show))
 
 
 @api_bp.patch('/shows/<int:show_id>')
@@ -2471,15 +2525,10 @@ def api_show_delete(show_id: int):
     if error:
         return error
     show = Show.query.get_or_404(show_id)
-    entries = ShowEntry.query.filter_by(show_id=show.id).all()
-    for entry in entries:
-        Placing.query.filter_by(entry_id=entry.id).delete()
-    ShowEntry.query.filter_by(show_id=show.id).delete()
-    ShowDay.query.filter_by(show_id=show.id).delete()
-    Media.query.filter_by(show_id=show.id).delete()
-    db.session.delete(show)
+    show.deleted_at = datetime.utcnow()
+    Media.query.filter_by(show_id=show.id, deleted_at=None).update({"orphaned_at": datetime.utcnow()})
     db.session.commit()
-    return jsonify({'success': True})
+    return jsonify({'success': True, 'soft_deleted': True})
 
 
 @api_bp.post('/shows/<int:show_id>/days')
@@ -2653,22 +2702,35 @@ def api_upload_profile_avatar():
         return jsonify({"error": "No active profile"}), 401
 
     file = request.files.get("file")
-    _, validation_error = _validate_upload(file, ("image/",))
+    safe_name, validation_error = _validate_upload(file, ("image/",), max_bytes=MAX_UPLOAD_BYTES_BY_KIND["profile"])
     if validation_error:
         return validation_error
 
+    size_bytes = _file_size_bytes(file)
     filename, save_error = _save_file(file, "profiles")
     if save_error:
         return save_error
 
     profile.avatar_path = filename
+    media = Media(
+        profile_id=profile.id,
+        kind="profile",
+        media_type="photo",
+        mime_type=file.mimetype or _guess_mime(safe_name or filename),
+        original_filename=file.filename,
+        file_name=safe_name or filename,
+        size=size_bytes,
+        url=f"/uploads/{filename}",
+        uploaded_at=datetime.utcnow(),
+    )
+    db.session.add(media)
     db.session.commit()
-    return jsonify({"url": f"/uploads/{filename}", "profile_id": profile.id})
+    return jsonify({"url": f"/uploads/{filename}", "profile_id": profile.id, "media": _media_payload(media)})
 
 
 @api_bp.post("/uploads/project-hero")
 def api_upload_project_hero():
-    _, error = _require_parent_unlocked()
+    profile, error = _require_parent_unlocked()
     if error:
         return error
 
@@ -2678,18 +2740,21 @@ def api_upload_project_hero():
 
     project = Project.query.get_or_404(project_id)
     file = request.files.get("file")
-    _, validation_error = _validate_upload(file, ("image/",))
+    safe_name, validation_error = _validate_upload(file, ("image/",), max_bytes=MAX_UPLOAD_BYTES_BY_KIND["project"])
     if validation_error:
         return validation_error
 
+    size_bytes = _file_size_bytes(file)
     filename, save_error = _save_file(file, "projects")
     if save_error:
         return save_error
 
     project.photo_path = filename
     project.updated_at = datetime.utcnow()
+    media = Media(project_id=project.id, profile_id=profile.id, kind="project-hero", media_type="photo", mime_type=file.mimetype or _guess_mime(safe_name or filename), original_filename=file.filename, file_name=safe_name or filename, size=size_bytes, url=f"/uploads/{filename}", uploaded_at=datetime.utcnow())
+    db.session.add(media)
     db.session.commit()
-    return jsonify({"url": f"/uploads/{filename}", "project_id": project.id})
+    return jsonify({"url": f"/uploads/{filename}", "project_id": project.id, "media": _media_payload(media)})
 
 
 @api_bp.post("/uploads/receipt")
@@ -2704,7 +2769,7 @@ def api_upload_receipt():
 
     expense = Expense.query.get_or_404(expense_id)
     file = request.files.get("file")
-    _, validation_error = _validate_upload(file, ("image/",), {"application/pdf"})
+    safe_name, validation_error = _validate_upload(file, ("image/",), {"application/pdf"}, max_bytes=MAX_UPLOAD_BYTES_BY_KIND["receipt"])
     if validation_error:
         return validation_error
 
@@ -2720,8 +2785,10 @@ def api_upload_receipt():
     )
     expense.receipt_url = receipt.url
     db.session.add(receipt)
+    media = Media(project_id=expense.project_id, profile_id=expense.logged_by_id, kind="receipt", media_type="photo" if (file.mimetype or '').startswith('image/') else "document", mime_type=file.mimetype or _guess_mime(safe_name or filename), original_filename=file.filename, file_name=safe_name or filename, size=size_bytes, url=receipt.url, caption=receipt.caption, uploaded_at=datetime.utcnow())
+    db.session.add(media)
     db.session.commit()
-    return jsonify({"url": receipt.url, "receipt": _receipt_payload(receipt)})
+    return jsonify({"url": receipt.url, "receipt": _receipt_payload(receipt), "media": _media_payload(media)})
 
 
 @api_bp.post("/uploads/project-media")
@@ -2736,11 +2803,13 @@ def api_upload_project_media():
 
     Project.query.get_or_404(project_id)
     file = request.files.get("file")
-    safe_name, validation_error = _validate_upload(file, ("image/", "video/"))
+    safe_name, validation_error = _validate_upload(file, ("image/", "video/"), max_bytes=MAX_UPLOAD_BYTES_BY_KIND["gallery"])
     if validation_error:
         return validation_error
 
-    filename, save_error = _save_file(file, "media")
+    size_bytes = _file_size_bytes(file)
+    upload_subdir = "videos" if (file.mimetype or '').startswith('video/') else "gallery"
+    filename, save_error = _save_file(file, upload_subdir)
     if save_error:
         return save_error
 
@@ -2751,9 +2820,12 @@ def api_upload_project_media():
         show_id=request.form.get("show_id", type=int),
         placing_id=request.form.get("placing_id", type=int),
         helper_profile_id=request.form.get("helper_profile_id", type=int),
+        profile_id=profile.id,
         kind=request.form.get("kind") or "project",
         media_type=media_type,
         mime_type=file.mimetype or _guess_mime(safe_name or filename),
+        original_filename=file.filename,
+        size=size_bytes,
         file_name=safe_name or filename,
         url=f"/uploads/{filename}",
         caption=(request.form.get("caption") or None),
@@ -2780,11 +2852,13 @@ def api_media_upload():
         return error
 
     file = request.files.get('file')
-    safe_name, validation_error = _validate_upload(file, ('image/', 'video/'), {'video/quicktime'})
+    safe_name, validation_error = _validate_upload(file, ('image/', 'video/'), {'video/quicktime'}, max_bytes=MAX_UPLOAD_BYTES_BY_KIND['gallery'])
     if validation_error:
         return validation_error
 
-    filename, save_error = _save_file(file, 'media')
+    size_bytes = _file_size_bytes(file)
+    upload_subdir = 'videos' if (file.mimetype or '').startswith('video/') else ('ribbons' if request.form.get('kind') == 'show' else 'gallery')
+    filename, save_error = _save_file(file, upload_subdir)
     if save_error:
         return save_error
 
@@ -2798,9 +2872,12 @@ def api_media_upload():
         show_id=int(request.form['show_id']) if request.form.get('show_id') else None,
         show_day_id=int(request.form['show_day_id']) if request.form.get('show_day_id') else None,
         helper_profile_id=int(request.form['helper_profile_id']) if request.form.get('helper_profile_id') else None,
+        profile_id=profile.id,
         kind=request.form.get('kind') or 'project',
         media_type=media_type,
         mime_type=file.mimetype or _guess_mime(safe_name or filename),
+        original_filename=file.filename,
+        size=size_bytes,
         file_name=safe_name or filename,
         url=f"/uploads/{filename}",
         caption=request.form.get('caption'),
@@ -2822,7 +2899,7 @@ def api_media_upload():
 
 @api_bp.get('/media')
 def api_media_list():
-    query = Media.query
+    query = Media.query.filter(Media.deleted_at.is_(None))
     for key in ['project_id', 'show_id', 'show_day_id', 'placing_id', 'timeline_entry_id']:
         value = request.args.get(key)
         if value:
@@ -2831,15 +2908,23 @@ def api_media_list():
     return jsonify([_media_payload(m) for m in media])
 
 
+
+
+@api_bp.get('/media/<int:media_id>')
+def api_media_detail(media_id: int):
+    media = Media.query.filter(Media.deleted_at.is_(None), Media.id == media_id).first_or_404()
+    return jsonify(_media_payload(media))
+
 @api_bp.delete('/media/<int:media_id>')
 def api_media_delete(media_id: int):
     _, error = _require_parent_unlocked()
     if error:
         return error
     media = Media.query.get_or_404(media_id)
-    db.session.delete(media)
+    media.deleted_at = datetime.utcnow()
+    media.orphaned_at = media.orphaned_at or datetime.utcnow()
     db.session.commit()
-    return jsonify({'success': True})
+    return jsonify({'success': True, 'soft_deleted': True})
 @api_bp.get('/shows/<int:show_id>/days')
 def api_show_days(show_id: int):
     Show.query.get_or_404(show_id)
@@ -2966,7 +3051,7 @@ def api_placings_create_v2(show_id: int | None = None):
 @api_bp.get('/projects/<int:project_id>/media')
 def api_project_media(project_id: int):
     Project.query.get_or_404(project_id)
-    rows = Media.query.filter_by(project_id=project_id).order_by(Media.created_at.desc(), Media.id.desc()).all()
+    rows = Media.query.filter_by(project_id=project_id, deleted_at=None).order_by(Media.created_at.desc(), Media.id.desc()).all()
     return jsonify([_media_payload(item) for item in rows])
 
 
@@ -2977,10 +3062,12 @@ def api_project_media_create(project_id: int):
         return error
     Project.query.get_or_404(project_id)
     file = request.files.get('file')
-    safe_name, validation_error = _validate_upload(file, ('image/', 'video/'), {'video/quicktime'})
+    safe_name, validation_error = _validate_upload(file, ('image/', 'video/'), {'video/quicktime'}, max_bytes=MAX_UPLOAD_BYTES_BY_KIND['gallery'])
     if validation_error:
         return validation_error
-    filename, save_error = _save_file(file, 'media')
+    size_bytes = _file_size_bytes(file)
+    upload_subdir = 'videos' if (file.mimetype or '').startswith('video/') else 'gallery'
+    filename, save_error = _save_file(file, upload_subdir)
     if save_error:
         return save_error
     tags = _parse_tags(request.form.get('tags'))
@@ -2989,9 +3076,12 @@ def api_project_media_create(project_id: int):
         show_id=request.form.get('show_id', type=int),
         placing_id=request.form.get('placing_id', type=int),
         helper_profile_id=request.form.get('helper_profile_id', type=int),
+        profile_id=profile.id,
         kind=request.form.get('kind') or 'project',
         media_type=request.form.get('media_type') or _media_type_from_mime(file.mimetype, safe_name or filename),
         mime_type=file.mimetype or _guess_mime(safe_name or filename),
+        original_filename=file.filename,
+        size=size_bytes,
         file_name=safe_name or filename,
         url=f"/uploads/{filename}",
         caption=request.form.get('caption'),
@@ -3006,7 +3096,7 @@ def api_project_media_create(project_id: int):
 @api_bp.get('/placings/<int:placing_id>/media')
 def api_placing_media(placing_id: int):
     Placing.query.get_or_404(placing_id)
-    rows = Media.query.filter_by(placing_id=placing_id).order_by(Media.created_at.desc(), Media.id.desc()).all()
+    rows = Media.query.filter_by(placing_id=placing_id, deleted_at=None).order_by(Media.created_at.desc(), Media.id.desc()).all()
     return jsonify([_media_payload(item) for item in rows])
 
 
@@ -3017,10 +3107,12 @@ def api_placing_media_create(placing_id: int):
         return error
     placing = Placing.query.get_or_404(placing_id)
     file = request.files.get('file')
-    safe_name, validation_error = _validate_upload(file, ('image/', 'video/'), {'video/quicktime'})
+    safe_name, validation_error = _validate_upload(file, ('image/', 'video/'), {'video/quicktime'}, max_bytes=MAX_UPLOAD_BYTES_BY_KIND['ribbons'])
     if validation_error:
         return validation_error
-    filename, save_error = _save_file(file, 'media')
+    size_bytes = _file_size_bytes(file)
+    upload_subdir = 'videos' if (file.mimetype or '').startswith('video/') else 'ribbons'
+    filename, save_error = _save_file(file, upload_subdir)
     if save_error:
         return save_error
     tags = _parse_tags(request.form.get('tags'))
@@ -3030,9 +3122,12 @@ def api_placing_media_create(placing_id: int):
         show_id=placing.show_id,
         show_day_id=placing.show_day_id,
         helper_profile_id=request.form.get('helper_profile_id', type=int),
+        profile_id=profile.id,
         kind='placing',
         media_type=request.form.get('media_type') or 'ribbon',
         mime_type=file.mimetype or _guess_mime(safe_name or filename),
+        original_filename=file.filename,
+        size=size_bytes,
         file_name=safe_name or filename,
         url=f"/uploads/{filename}",
         caption=request.form.get('caption'),
@@ -4172,7 +4267,7 @@ def api_export_expenses_csv():
     _, error = _require_parent_unlocked()
     if error:
         return error
-    query = Expense.query
+    query = Expense.query.filter(Expense.deleted_at.is_(None))
     start = request.args.get('start')
     end = request.args.get('end')
     project_id = request.args.get('project_id')
@@ -4197,6 +4292,58 @@ def api_export_expenses_csv():
         rows.append([e.id, row_project_id, e.date.isoformat(), e.category, e.vendor or '', amount, e.notes or ''])
     return _csv_response('expenses.csv', ['id', 'project_id', 'date', 'category', 'vendor', 'amount', 'notes'], rows)
 
+
+
+
+def _directory_size_bytes(path: str) -> int:
+    total = 0
+    for root, _, files in os.walk(path):
+        for name in files:
+            file_path = os.path.join(root, name)
+            try:
+                total += os.path.getsize(file_path)
+            except OSError:
+                continue
+    return total
+
+
+@api_bp.get('/admin/data/summary')
+def api_admin_data_summary():
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    media_dir = current_app.config.get('UPLOAD_DIR')
+    db_uri = current_app.config.get('SQLALCHEMY_DATABASE_URI', '')
+    db_path = db_uri.replace('sqlite:///', '', 1)
+    db_size = os.path.getsize(db_path) if os.path.exists(db_path) else 0
+    media_size = _directory_size_bytes(media_dir) if media_dir and os.path.isdir(media_dir) else 0
+    orphan_count = Media.query.filter(Media.orphaned_at.is_not(None), Media.deleted_at.is_(None)).count()
+    return jsonify({
+        'paths': {'database': db_path, 'media': media_dir},
+        'database_size_bytes': db_size,
+        'media_size_bytes': media_size,
+        'media_count': Media.query.filter(Media.deleted_at.is_(None)).count(),
+        'orphan_media_count': orphan_count,
+    })
+
+
+@api_bp.post('/admin/data/orphan-media-scan')
+def api_admin_orphan_media_scan():
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    now = datetime.utcnow()
+    orphaned = 0
+    rows = Media.query.filter(Media.deleted_at.is_(None), Media.orphaned_at.is_(None)).all()
+    for media in rows:
+        if media.project_id and Project.query.filter(Project.id == media.project_id, Project.deleted_at.is_(None)).first():
+            continue
+        if media.show_id and Show.query.filter(Show.id == media.show_id, Show.deleted_at.is_(None)).first():
+            continue
+        media.orphaned_at = now
+        orphaned += 1
+    db.session.commit()
+    return jsonify({'success': True, 'new_orphans': orphaned})
 
 @api_bp.get('/export/family-summary.csv')
 def api_export_family_summary_csv():
@@ -4283,6 +4430,46 @@ def api_export_feed_inventory_csv():
             item.notes or '',
         ])
     return _csv_response('feed-inventory.csv', ['id', 'project_id', 'date', 'type', 'amount_or_qty', 'unit', 'cost', 'source_or_location', 'notes'], rows)
+
+
+@api_bp.get('/export/all')
+def api_export_all_bundle():
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+
+    payload = {
+        "generated_at": datetime.utcnow().isoformat(),
+        "projects": [_project_payload(item) for item in Project.query.filter(Project.deleted_at.is_(None)).order_by(Project.id.asc()).all()],
+        "profiles": [_profile_payload(item, include_summary=False) for item in Profile.query.filter_by(archived=False).order_by(Profile.id.asc()).all()],
+        "expenses": [_expense_payload(item) for item in Expense.query.filter(Expense.deleted_at.is_(None)).order_by(Expense.id.asc()).all()],
+        "income": [_income_payload(item) for item in IncomeRecord.query.filter(IncomeRecord.deleted_at.is_(None)).order_by(IncomeRecord.id.asc()).all()],
+        "shows": [_show_payload(item) for item in Show.query.filter(Show.deleted_at.is_(None)).order_by(Show.id.asc()).all()],
+        "show_days": [_show_day_payload(item) for item in ShowDay.query.order_by(ShowDay.id.asc()).all()],
+        "ribbons": [_placing_payload(item) for item in Placing.query.order_by(Placing.id.asc()).all()],
+        "timeline_entries": [_timeline_payload(item) for item in TimelineEntry.query.order_by(TimelineEntry.id.asc()).all()],
+        "inventory": [_inventory_payload(item) for item in FamilyInventoryItem.query.filter_by(archived=False).order_by(FamilyInventoryItem.id.asc()).all()],
+        "reminders": [_project_reminder_payload(item) for item in ProjectReminder.query.order_by(ProjectReminder.id.asc()).all()],
+        "media": [_media_payload(item) for item in Media.query.order_by(Media.id.asc()).all()],
+    }
+
+    temp = tempfile.NamedTemporaryFile(prefix='barn-export-', suffix='.zip', delete=False)
+    temp.close()
+    with zipfile.ZipFile(temp.name, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr('bundle.json', json.dumps(payload, indent=2))
+        for key, rows in payload.items():
+            if not isinstance(rows, list):
+                continue
+            output = io.StringIO()
+            if rows:
+                headers = list(rows[0].keys())
+                writer = csv.DictWriter(output, fieldnames=headers)
+                writer.writeheader()
+                for row in rows:
+                    writer.writerow(row)
+            archive.writestr(f'{key}.csv', output.getvalue())
+
+    return send_file(temp.name, as_attachment=True, download_name=f"project-barn-export-{date.today().isoformat()}.zip", mimetype='application/zip')
 
 
 @api_bp.get('/exports/all')

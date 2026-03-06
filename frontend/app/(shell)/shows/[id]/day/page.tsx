@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 
 import { apiClientJson, Profile, Project, SessionResponse, Show } from "@/lib/api";
 
@@ -16,6 +16,8 @@ type LocalState = { statuses: Record<string, boolean>; notes: string; checklist:
 
 export default function ShowDayPage() {
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
+  const requestedDayParam = searchParams.get("dayId");
   const [show, setShow] = useState<Show | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -36,14 +38,16 @@ export default function ShowDayPage() {
     setProjects(projectData);
     setProfiles(profileData);
     setActiveProfileId(sessionData.active_profile?.id ?? null);
-    setSelectedDayId(showData.days[0]?.id ?? null);
+    const requestedDayId = Number(requestedDayParam);
+    const hasRequestedDay = Number.isFinite(requestedDayId) && showData.days.some((day) => day.id === requestedDayId);
+    setSelectedDayId(hasRequestedDay ? requestedDayId : (showData.days[0]?.id ?? null));
   };
 
   useEffect(() => {
     load().catch(() => undefined);
     const saved = window.localStorage.getItem(storageKey);
     if (saved) setLocalByEntry(JSON.parse(saved));
-  }, [params.id, storageKey]);
+  }, [params.id, requestedDayParam, storageKey]);
 
   useEffect(() => {
     window.localStorage.setItem(storageKey, JSON.stringify(localByEntry));
