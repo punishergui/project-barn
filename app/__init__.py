@@ -1,6 +1,7 @@
 import os
 import uuid
 import fcntl
+import threading
 from datetime import date, datetime, timedelta
 
 import bcrypt
@@ -11,9 +12,16 @@ from sqlalchemy import inspect, text
 from app.models import AppSetting, AuctionSale, EquipmentItem, Expense, ExpenseAllocation, ExpenseReceipt, FeedEntry, FeedInventory, FeedInventorySimple, FeedLog, Goal, HealthEntry, HealthRecord, IncomeRecord, InventoryItem, Media, Notification, PackingListItem, PackingListTemplate, Photo, Placing, Profile, Project, ProjectActivity, ProjectMaterial, ProjectNarrative, ProjectTask, Show, ShowCompliance, ShowDay, ShowDayCheck, ShowDayTask, ShowEntry, SkillsChecklist, Task, TaskItem, TimelineEntry, WeightEntry, db
 
 
+_db_init_state = {
+    "done": False,
+    "lock": threading.Lock(),
+}
+
+
 def initialize_database_once(app: Flask, db_path: str) -> None:
-    if app.extensions.get("barn_db_initialized"):
-        return
+    with _db_init_state["lock"]:
+        if _db_init_state["done"]:
+            return
 
     db_name = os.path.basename(db_path) or "barn.db"
     lock_file_path = f"/tmp/{db_name}.init.lock"
@@ -23,11 +31,13 @@ def initialize_database_once(app: Flask, db_path: str) -> None:
         fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
         try:
             if os.path.exists(sentinel_file_path):
+                app.extensions["barn_db_initialized"] = True
+                _db_init_state["done"] = True
                 return
 
             with app.app_context():
                 try:
-                    _create_missing_tables()
+                    db.create_all()
                 except OperationalError as exc:
                     if "already exists" not in str(exc).lower():
                         raise
@@ -42,17 +52,9 @@ def initialize_database_once(app: Flask, db_path: str) -> None:
             with open(sentinel_file_path, "w", encoding="utf-8") as sentinel_file:
                 sentinel_file.write(str(os.getpid()))
             app.extensions["barn_db_initialized"] = True
+            _db_init_state["done"] = True
         finally:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
-
-
-def _create_missing_tables() -> None:
-    inspector = inspect(db.engine)
-    existing_tables = set(inspector.get_table_names())
-    for table in db.metadata.sorted_tables:
-        if table.name in existing_tables:
-            continue
-        table.create(bind=db.engine, checkfirst=True)
 
 
 def _existing_columns(table_name: str) -> set[str]:
