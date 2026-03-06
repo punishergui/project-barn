@@ -1,5 +1,149 @@
 "use client";
-import { FormEvent, useEffect, useState } from "react";
+
+import Link from "next/link";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { apiClientJson, FeedEntry, FeedInventoryItem } from "@/lib/api";
-export default function ProjectFeedPage() { const { id } = useParams<{ id: string }>(); const [rows, setRows] = useState<FeedEntry[]>([]); const [inventory, setInventory] = useState<FeedInventoryItem[]>([]); const load = async () => { const [a, b] = await Promise.all([apiClientJson<FeedEntry[]>(`/projects/${id}/feed`), apiClientJson<FeedInventoryItem[]>("/feed-inventory")]); setRows(a); setInventory(b); }; useEffect(() => { load().catch(() => undefined); }, [id]); const submit = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); const form = new FormData(event.currentTarget); await apiClientJson(`/projects/${id}/feed`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recorded_at: form.get("recorded_at"), feed_type: form.get("feed_type"), amount: Number(form.get("amount")), unit: form.get("unit"), cost: form.get("cost") || null, notes: form.get("notes") || null }) }); event.currentTarget.reset(); await load(); }; const addInventory = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); const form = new FormData(event.currentTarget); await apiClientJson("/feed-inventory", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: form.get("name"), unit: form.get("unit"), qty_on_hand: Number(form.get("qty_on_hand") || 0) }) }); event.currentTarget.reset(); await load(); }; const updateQty = async (item: FeedInventoryItem, qty: number) => { await apiClientJson(`/feed-inventory/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ qty_on_hand: qty }) }); await load(); }; return <div className="space-y-3"><h1 className="text-2xl font-semibold">Feed</h1><form onSubmit={submit} className="grid gap-2 rounded border border-white/10 bg-neutral-900 p-3"><input name="recorded_at" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="rounded bg-neutral-800 p-2" /><input name="feed_type" required placeholder="Feed type" className="rounded bg-neutral-800 p-2" /><div className="grid grid-cols-2 gap-2"><input name="amount" type="number" step="0.1" required placeholder="Amount" className="rounded bg-neutral-800 p-2" /><input name="unit" defaultValue="lb" className="rounded bg-neutral-800 p-2" /></div><input name="cost" type="number" step="0.01" placeholder="Cost" className="rounded bg-neutral-800 p-2" /><textarea name="notes" className="rounded bg-neutral-800 p-2" placeholder="Notes" /><button className="rounded bg-blue-700 px-3 py-2 text-sm">Add feed entry</button></form><section className="rounded border border-white/10 bg-neutral-900 p-3"><h2 className="mb-2 text-sm font-semibold">Inventory</h2><form onSubmit={addInventory} className="mb-3 grid gap-2"><input name="name" required placeholder="Name" className="rounded bg-neutral-800 p-2" /><div className="grid grid-cols-2 gap-2"><input name="unit" required placeholder="Unit" className="rounded bg-neutral-800 p-2" /><input name="qty_on_hand" type="number" step="0.1" placeholder="Qty" className="rounded bg-neutral-800 p-2" /></div><button className="rounded bg-neutral-700 px-3 py-2 text-sm">Add inventory item</button></form>{inventory.map((item) => <div key={item.id} className="mb-2 rounded border border-white/10 p-2 text-sm">{item.name} ({item.unit})<input type="number" step="0.1" defaultValue={item.qty_on_hand} onBlur={(e) => updateQty(item, Number(e.target.value))} className="ml-2 w-24 rounded bg-neutral-800 p-1" /></div>)}</section>{rows.map((r) => <div key={r.id} className="rounded border border-white/10 bg-neutral-900 p-3 text-sm">{r.recorded_at.slice(0, 10)} • {r.feed_type} • {r.amount} {r.unit}</div>)}</div>; }
+
+import { apiClientJson, CareEntry, FeedEntry, FeedInventoryItem } from "@/lib/api";
+
+const quickCareCategories = ["feed", "water", "grooming", "exercise", "health check"] as const;
+
+function isoToday() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString();
+}
+
+export default function ProjectFeedPage() {
+  const { id } = useParams<{ id: string }>();
+  const [rows, setRows] = useState<FeedEntry[]>([]);
+  const [inventory, setInventory] = useState<FeedInventoryItem[]>([]);
+  const [careRows, setCareRows] = useState<CareEntry[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    const [feedRows, inventoryRows, careData] = await Promise.all([
+      apiClientJson<FeedEntry[]>(`/projects/${id}/feed`),
+      apiClientJson<FeedInventoryItem[]>("/feed"),
+      apiClientJson<CareEntry[]>(`/projects/${id}/care`).catch(() => [])
+    ]);
+    setRows(feedRows);
+    setInventory(inventoryRows);
+    setCareRows(careData);
+  };
+
+  useEffect(() => {
+    load().catch((err) => setError((err as Error).message));
+  }, [id]);
+
+  const recentFeedSuggestions = useMemo(() => {
+    const values = rows.map((row) => row.feed_type).filter(Boolean);
+    return [...new Set(values)].slice(0, 5);
+  }, [rows]);
+
+  const submitFeed = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+
+    await apiClientJson(`/projects/${id}/feed`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        recorded_at: form.get("recorded_at"),
+        feed_inventory_item_id: form.get("feed_inventory_item_id") ? Number(form.get("feed_inventory_item_id")) : null,
+        feed_type: String(form.get("feed_type") || "").trim() || null,
+        amount: Number(form.get("amount")),
+        unit: form.get("unit"),
+        cost: form.get("cost") ? Number(form.get("cost")) : null,
+        notes: String(form.get("notes") || "").trim() || null,
+        decrement_inventory: form.get("decrement_inventory") === "on"
+      })
+    });
+
+    event.currentTarget.reset();
+    setError(null);
+    await load();
+  };
+
+  const addCare = async (category: string) => {
+    await apiClientJson(`/projects/${id}/care`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        category,
+        recorded_at: isoToday(),
+        title: category === "health check" ? "Health Check" : `Care: ${category}`
+      })
+    });
+    await load();
+  };
+
+  return (
+    <div className="space-y-4 px-4 pb-6">
+      <section className="barn-card space-y-2">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold">Project Feed & Care</h1>
+          <Link href="/feed" className="see-all-link">Inventory</Link>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {quickCareCategories.map((category) => (
+            <button key={category} type="button" onClick={() => addCare(category).catch((err) => setError((err as Error).message))} className="rounded-lg border border-[var(--barn-border)] px-3 py-2 text-xs">
+              {category === "health check" ? "Health Check" : `Mark ${category}`}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="barn-card space-y-2">
+        <h2 className="text-base font-semibold">Log Feed</h2>
+        <form onSubmit={(event) => submitFeed(event).catch((err) => setError((err as Error).message))} className="grid gap-2">
+          <input name="recorded_at" type="date" defaultValue={isoToday()} required className="rounded-lg bg-[var(--barn-bg)] p-3" />
+          <select name="feed_inventory_item_id" className="rounded-lg bg-[var(--barn-bg)] p-3">
+            <option value="">Select inventory item (optional)</option>
+            {inventory.map((item) => <option key={item.id} value={item.id}>{item.name} ({item.qty_on_hand} {item.unit})</option>)}
+          </select>
+          <input name="feed_type" list="feed-suggestions" placeholder="Feed type (or leave blank when selecting inventory)" className="rounded-lg bg-[var(--barn-bg)] p-3" />
+          <datalist id="feed-suggestions">
+            {recentFeedSuggestions.map((value) => <option key={value} value={value} />)}
+          </datalist>
+          <div className="grid grid-cols-2 gap-2">
+            <input name="amount" type="number" step="0.1" required placeholder="Amount" className="rounded-lg bg-[var(--barn-bg)] p-3" />
+            <input name="unit" defaultValue="lb" required className="rounded-lg bg-[var(--barn-bg)] p-3" />
+          </div>
+          <input name="cost" type="number" step="0.01" placeholder="Optional cost" className="rounded-lg bg-[var(--barn-bg)] p-3" />
+          <textarea name="notes" placeholder="Notes" className="rounded-lg bg-[var(--barn-bg)] p-3" />
+          <label className="flex min-h-11 items-center gap-2 text-sm">
+            <input name="decrement_inventory" type="checkbox" defaultChecked />
+            Decrement inventory quantity
+          </label>
+          <button className="rounded-lg bg-[var(--barn-red)] px-3 py-3 text-sm font-semibold text-white">Log Feeding</button>
+        </form>
+        {error ? <p className="text-sm text-red-300">{error}</p> : null}
+      </section>
+
+      <section className="barn-card space-y-2">
+        <h2 className="text-base font-semibold">Recent Feed Entries</h2>
+        {rows.length === 0 ? <p className="text-sm text-[var(--barn-muted)]">No feed entries yet.</p> : rows.slice(0, 12).map((row) => (
+          <article key={row.id} className="rounded-lg border border-[var(--barn-border)] bg-[var(--barn-bg)] p-3 text-sm">
+            <p className="font-medium">{row.feed_type} • {row.amount} {row.unit}</p>
+            <p className="text-xs text-[var(--barn-muted)]">{formatDate(row.recorded_at)}{row.cost !== null ? ` • $${row.cost.toFixed(2)}` : ""}</p>
+            {row.notes ? <p className="text-xs text-[var(--barn-muted)]">{row.notes}</p> : null}
+          </article>
+        ))}
+      </section>
+
+      <section className="barn-card space-y-2">
+        <h2 className="text-base font-semibold">Recent Care Entries</h2>
+        {careRows.length === 0 ? <p className="text-sm text-[var(--barn-muted)]">No care entries yet.</p> : careRows.slice(0, 8).map((row) => (
+          <article key={row.id} className="rounded-lg border border-[var(--barn-border)] bg-[var(--barn-bg)] p-3 text-sm">
+            <p className="font-medium">{row.label}</p>
+            <p className="text-xs text-[var(--barn-muted)]">{formatDate(row.recorded_at)}</p>
+            {row.notes ? <p className="text-xs text-[var(--barn-muted)]">{row.notes}</p> : null}
+          </article>
+        ))}
+      </section>
+    </div>
+  );
+}

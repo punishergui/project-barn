@@ -223,6 +223,7 @@ class FeedEntry(db.Model):
     amount = db.Column(db.Float, nullable=False)
     unit = db.Column(db.Text, nullable=False)
     cost_cents = db.Column(db.Integer, nullable=True)
+    feed_inventory_item_id = db.Column(db.Integer, db.ForeignKey("feed_inventory_item.id"), nullable=True)
     notes = db.Column(db.Text, nullable=True)
 
 
@@ -231,8 +232,14 @@ class FeedInventorySimple(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.Text, nullable=False)
+    brand = db.Column(db.Text, nullable=True)
+    category = db.Column(db.Text, nullable=True)
     unit = db.Column(db.Text, nullable=False)
     qty_on_hand = db.Column(db.Float, nullable=False, default=0)
+    low_stock_threshold = db.Column(db.Float, nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
 

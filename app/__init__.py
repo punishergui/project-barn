@@ -43,6 +43,7 @@ def initialize_database_once(app: Flask, db_path: str) -> None:
                         raise
                 run_migrations()
                 reconcile_show_day_schema()
+                reconcile_feed_schema()
                 if AppSetting.query.count() == 0:
                     db.session.add(AppSetting(family_name="", allow_kid_task_toggle=False))
                     db.session.commit()
@@ -87,6 +88,26 @@ def reconcile_show_day_schema() -> None:
 
     db.session.commit()
 
+
+
+
+def reconcile_feed_schema() -> None:
+    inspector = inspect(db.engine)
+    existing_tables = set(inspector.get_table_names())
+
+    if "feed_inventory_item" in existing_tables:
+        _add_column_if_missing("feed_inventory_item", "brand", "brand TEXT")
+        _add_column_if_missing("feed_inventory_item", "category", "category TEXT")
+        _add_column_if_missing("feed_inventory_item", "low_stock_threshold", "low_stock_threshold REAL")
+        _add_column_if_missing("feed_inventory_item", "notes", "notes TEXT")
+        _add_column_if_missing("feed_inventory_item", "is_active", "is_active BOOLEAN NOT NULL DEFAULT 1")
+        _add_column_if_missing("feed_inventory_item", "created_at", "created_at DATETIME")
+
+    if "feed_entries" in existing_tables:
+        _add_column_if_missing("feed_entries", "feed_inventory_item_id", "feed_inventory_item_id INTEGER REFERENCES feed_inventory_item(id)")
+
+    db.session.execute(text("UPDATE feed_inventory_item SET created_at = COALESCE(created_at, updated_at, CURRENT_TIMESTAMP)"))
+    db.session.commit()
 
 def create_app() -> Flask:
     app = Flask(__name__)
@@ -238,8 +259,8 @@ def run_migrations() -> None:
             conn.execute(text("CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL REFERENCES project(id), title TEXT NOT NULL, due_date DATE, is_daily BOOLEAN NOT NULL DEFAULT 0, is_completed BOOLEAN NOT NULL DEFAULT 0, completed_at DATETIME, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)"))
             conn.execute(text("CREATE TABLE IF NOT EXISTS weight_entries (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL REFERENCES project(id), recorded_at DATE NOT NULL, weight_lbs REAL NOT NULL, notes TEXT)"))
             conn.execute(text("CREATE TABLE IF NOT EXISTS health_entries (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL REFERENCES project(id), recorded_at DATE NOT NULL, category TEXT NOT NULL, description TEXT NOT NULL, cost_cents INTEGER, vendor TEXT, attachment_receipt_url TEXT)"))
-            conn.execute(text("CREATE TABLE IF NOT EXISTS feed_entries (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL REFERENCES project(id), recorded_at DATE NOT NULL, feed_type TEXT NOT NULL, amount REAL NOT NULL, unit TEXT NOT NULL, cost_cents INTEGER, notes TEXT)"))
-            conn.execute(text("CREATE TABLE IF NOT EXISTS feed_inventory_item (id INTEGER PRIMARY KEY, name TEXT NOT NULL, unit TEXT NOT NULL, qty_on_hand REAL NOT NULL DEFAULT 0, updated_at DATETIME NOT NULL)"))
+            conn.execute(text("CREATE TABLE IF NOT EXISTS feed_entries (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL REFERENCES project(id), recorded_at DATE NOT NULL, feed_type TEXT NOT NULL, amount REAL NOT NULL, unit TEXT NOT NULL, cost_cents INTEGER, feed_inventory_item_id INTEGER REFERENCES feed_inventory_item(id), notes TEXT)"))
+            conn.execute(text("CREATE TABLE IF NOT EXISTS feed_inventory_item (id INTEGER PRIMARY KEY, name TEXT NOT NULL, brand TEXT, category TEXT, unit TEXT NOT NULL, qty_on_hand REAL NOT NULL DEFAULT 0, low_stock_threshold REAL, notes TEXT, is_active BOOLEAN NOT NULL DEFAULT 1, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)"))
         except Exception:
             pass
         conn.commit()

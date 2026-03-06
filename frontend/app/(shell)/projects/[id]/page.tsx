@@ -4,11 +4,11 @@ import Link from "next/link";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 
-import { apiClientJson, AuthStatus, Expense, MediaItem, Placing, Profile, Project, ProjectTask, Show, TimelineEntry, WeightEntry } from "@/lib/api";
+import { apiClientJson, AuthStatus, CareEntry, Expense, FeedEntry, MediaItem, Placing, Profile, Project, ProjectTask, Show, TimelineEntry, WeightEntry } from "@/lib/api";
 import { uploadProjectHero, uploadProjectMedia } from "@/lib/uploads";
 import { ShowsMediaCard } from "@/components/shows-media-card";
 
-const sections = ["overview", "timeline", "expenses", "shows", "media", "tasks"] as const;
+const sections = ["overview", "feed", "timeline", "expenses", "shows", "media", "tasks"] as const;
 const timelineTypes = ["Feeding", "Training", "Health", "Vet", "Wash", "Clip", "Show", "Expense", "Other"];
 
 function formatDate(value?: string | null) {
@@ -31,6 +31,8 @@ export default function ProjectDetailPage() {
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
   const [weights, setWeights] = useState<WeightEntry[]>([]);
   const [placings, setPlacings] = useState<Placing[]>([]);
+  const [feedEntries, setFeedEntries] = useState<FeedEntry[]>([]);
+  const [careEntries, setCareEntries] = useState<CareEntry[]>([]);
   const [auth, setAuth] = useState<AuthStatus | null>(null);
   const [mediaCaption, setMediaCaption] = useState("");
   const [showAddTimeline, setShowAddTimeline] = useState(false);
@@ -38,7 +40,7 @@ export default function ProjectDetailPage() {
 
   const load = async () => {
     const id = Number(params.id);
-    const [projectData, profileData, expenseData, showData, timelineData, taskData, mediaData, placingData, authData, weightData] = await Promise.all([
+    const [projectData, profileData, expenseData, showData, timelineData, taskData, mediaData, placingData, authData, weightData, feedData, careData] = await Promise.all([
       apiClientJson<Project>(`/projects/${id}`),
       apiClientJson<Profile[]>("/profiles"),
       apiClientJson<Expense[]>(`/expenses?project_id=${id}`),
@@ -48,7 +50,9 @@ export default function ProjectDetailPage() {
       apiClientJson<MediaItem[]>(`/media?project_id=${id}`).catch(() => []),
       apiClientJson<Placing[]>(`/projects/${id}/placings`).catch(() => []),
       apiClientJson<AuthStatus>("/auth/status").catch(() => null),
-      apiClientJson<WeightEntry[]>(`/projects/${id}/weights`).catch(() => [])
+      apiClientJson<WeightEntry[]>(`/projects/${id}/weights`).catch(() => []),
+      apiClientJson<FeedEntry[]>(`/projects/${id}/feed`).catch(() => []),
+      apiClientJson<CareEntry[]>(`/projects/${id}/care`).catch(() => [])
     ]);
 
     setProject(projectData);
@@ -61,6 +65,8 @@ export default function ProjectDetailPage() {
     setPlacings(placingData);
     setAuth(authData);
     setWeights(weightData);
+    setFeedEntries(feedData);
+    setCareEntries(careData);
   };
 
   useEffect(() => {
@@ -77,6 +83,8 @@ export default function ProjectDetailPage() {
   const ownerName = profiles.find((profile) => profile.id === project?.owner_profile_id)?.name ?? "Unknown owner";
   const totalExpenses = useMemo(() => expenses.reduce((sum, row) => sum + row.amount, 0), [expenses]);
   const latestWeight = weights[0]?.weight_lbs ?? null;
+  const latestFeedDate = feedEntries[0]?.recorded_at ?? null;
+  const feedTotal = feedEntries.reduce((sum, row) => sum + (row.cost ?? 0), 0);
   const projectPhoto = project?.photo_url ?? media[0]?.url ?? null;
 
   const addTimeline = async (event: FormEvent<HTMLFormElement>) => {
@@ -152,6 +160,8 @@ export default function ProjectDetailPage() {
           <article className="rounded-lg border border-[var(--barn-border)] bg-[var(--barn-bg)] p-2">Total expenses<br /><span className="text-sm font-semibold">${totalExpenses.toFixed(2)}</span></article>
           <article className="rounded-lg border border-[var(--barn-border)] bg-[var(--barn-bg)] p-2">Timeline entries<br /><span className="text-sm font-semibold">{timeline.length}</span></article>
           <article className="rounded-lg border border-[var(--barn-border)] bg-[var(--barn-bg)] p-2">Shows<br /><span className="text-sm font-semibold">{shows.length}</span></article>
+          <article className="rounded-lg border border-[var(--barn-border)] bg-[var(--barn-bg)] p-2">Feed cost<br /><span className="text-sm font-semibold">${feedTotal.toFixed(2)}</span></article>
+          <article className="rounded-lg border border-[var(--barn-border)] bg-[var(--barn-bg)] p-2">Latest feeding<br /><span className="text-sm font-semibold">{latestFeedDate ? formatDate(latestFeedDate) : "Not logged"}</span></article>
           <article className="rounded-lg border border-[var(--barn-border)] bg-[var(--barn-bg)] p-2">Current weight<br /><span className="text-sm font-semibold">{latestWeight ? `${latestWeight} lbs` : "Not set"}</span></article>
         </div>
 
@@ -191,6 +201,28 @@ export default function ProjectDetailPage() {
               {placings.length === 0 ? <p className="text-xs text-[var(--barn-muted)]">No placings recorded yet.</p> : placings.slice(0, 3).map((row) => <p key={row.id} className="text-xs text-[var(--barn-muted)]">{row.placing} • {row.class_name || "Class"}</p>)}
             </article>
           </div>
+        </section>
+      ) : null}
+
+
+      {activeSection === "feed" ? (
+        <section className="barn-card space-y-3 text-sm">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold">Feed & Care</h2>
+            <Link href={`/projects/${project.id}/feed`} className="rounded bg-[var(--barn-red)] px-3 py-2 text-xs">Log Feed</Link>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href={`/projects/${project.id}/feed`} className="rounded-lg border border-[var(--barn-border)] bg-[var(--barn-bg)] px-3 py-2 text-xs">Log Feed</Link>
+            <Link href={`/projects/${project.id}/feed`} className="rounded-lg border border-[var(--barn-border)] bg-[var(--barn-bg)] px-3 py-2 text-xs">Add Care Entry</Link>
+          </div>
+          <article className="barn-row">
+            <p className="font-medium">Recent feed entries</p>
+            {feedEntries.length === 0 ? <p className="text-xs text-[var(--barn-muted)]">No feed entries yet.</p> : feedEntries.slice(0, 4).map((row) => <p key={row.id} className="text-xs text-[var(--barn-muted)]">{formatDate(row.recorded_at)} • {row.feed_type} • {row.amount} {row.unit}</p>)}
+          </article>
+          <article className="barn-row">
+            <p className="font-medium">Recent care entries</p>
+            {careEntries.length === 0 ? <p className="text-xs text-[var(--barn-muted)]">No care entries yet.</p> : careEntries.slice(0, 4).map((row) => <p key={row.id} className="text-xs text-[var(--barn-muted)]">{formatDate(row.recorded_at)} • {row.label}</p>)}
+          </article>
         </section>
       ) : null}
 

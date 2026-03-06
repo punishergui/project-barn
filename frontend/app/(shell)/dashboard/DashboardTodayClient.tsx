@@ -18,6 +18,8 @@ type DashboardProject = {
 type DashboardShow = { id: number; name: string; date: string | null; location: string | null };
 type DashboardExpense = { id: number; amount: number; date: string | null; category: string; vendor: string | null; has_receipt: boolean; project_name: string };
 type DashboardActivity = { id: string; kind: string; title: string; subtitle: string; date: string; href: string };
+type LowFeedInventory = { id: number; name: string; qty_on_hand: number; unit: string; low_stock_threshold: number | null };
+type RecentFeedEvent = { id: number; project_id: number; project_name: string; recorded_at: string | null; feed_type: string; amount: number; unit: string };
 
 type Props = {
   todayLabel: string;
@@ -28,6 +30,8 @@ type Props = {
   upcomingShows: DashboardShow[];
   recentExpenses: DashboardExpense[];
   recentActivity: DashboardActivity[];
+  lowFeedInventory: LowFeedInventory[];
+  recentFeedEvents: RecentFeedEvent[];
 };
 
 function shortDate(value: string | null) {
@@ -43,7 +47,9 @@ export default function DashboardTodayClient({
   activeProjects,
   upcomingShows,
   recentExpenses,
-  recentActivity
+  recentActivity,
+  lowFeedInventory,
+  recentFeedEvents
 }: Props) {
   return (
     <div className="w-full space-y-4 px-4 pb-6">
@@ -110,6 +116,32 @@ export default function DashboardTodayClient({
           <Link key={expense.id} href={`/expenses/${expense.id}`} className="barn-row block">
             <p className="font-medium">${expense.amount.toFixed(2)} • {expense.project_name}</p>
             <p className="text-xs text-[var(--barn-muted)]">{shortDate(expense.date)} • {expense.vendor || expense.category} • {expense.has_receipt ? "Receipt uploaded" : "No receipt"}</p>
+          </Link>
+        ))}
+      </section>
+
+      <section className="barn-card space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold">Feed Alerts</h2>
+          <Link href="/feed" className="see-all-link">Manage</Link>
+        </div>
+        {lowFeedInventory.length === 0 ? <p className="barn-row text-sm text-[var(--barn-muted)]">No low-stock feed alerts.</p> : lowFeedInventory.map((item) => (
+          <Link key={item.id} href="/feed" className="barn-row block">
+            <p className="font-medium">{item.name}</p>
+            <p className="text-xs text-[var(--barn-muted)]">{item.qty_on_hand} {item.unit} left{item.low_stock_threshold !== null ? ` • threshold ${item.low_stock_threshold} ${item.unit}` : ""}</p>
+          </Link>
+        ))}
+      </section>
+
+      <section className="barn-card space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold">Recent Feeding</h2>
+          <Link href="/feed" className="see-all-link">Feed</Link>
+        </div>
+        {recentFeedEvents.length === 0 ? <p className="barn-row text-sm text-[var(--barn-muted)]">No recent feed events.</p> : recentFeedEvents.map((event) => (
+          <Link key={event.id} href={`/projects/${event.project_id}/feed`} className="barn-row block">
+            <p className="font-medium">{event.project_name} • {event.feed_type}</p>
+            <p className="text-xs text-[var(--barn-muted)]">{event.amount} {event.unit} • {shortDate(event.recorded_at)}</p>
           </Link>
         ))}
       </section>

@@ -14,7 +14,7 @@ const primaryLinks = [
   { href: "/dashboard", label: "Dashboard", icon: "🏠" },
   { href: "/projects", label: "Projects", icon: "🐄" },
   { href: "/shows", label: "Shows", icon: "🏆" },
-  { href: "/expenses", label: "Expenses", icon: "💵" },
+  { href: "/feed", label: "Feed", icon: "🌾" },
   { href: "/more", label: "More", icon: "☰" }
 ];
 
