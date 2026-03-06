@@ -177,7 +177,7 @@ export default function ShowDetailPage() {
         </div>
         {show.days.length === 0 ? <p className="barn-row text-sm text-[var(--barn-muted)]">No show days yet.</p> : null}
         {show.days.map((day) => (
-          <Link key={day.id} href={`/shows/${show.id}/day?dayId=${day.id}`} className="barn-row block text-sm">
+          <Link key={day.id} href={`/shows/${show.id}/day/${day.id}`} className="barn-row block text-sm">
             <p className="font-medium">{day.label || `Day ${day.day_number}`}</p>
             <p className="text-xs text-[var(--barn-muted)]">{formatDate(day.show_date || day.date)}</p>
           </Link>
