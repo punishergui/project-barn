@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,25 +13,28 @@ type ProxyContext = {
 
 function buildForwardHeaders(request: NextRequest, hasBody: boolean) {
   const headers = new Headers();
-  const cookie = request.headers.get("cookie");
-  const contentType = request.headers.get("content-type");
 
+  const cookie = request.headers.get("cookie");
   if (cookie) {
     headers.set("cookie", cookie);
   }
-  if (hasBody && contentType) {
-    headers.set("content-type", contentType);
+
+  if (hasBody) {
+    const contentType = request.headers.get("content-type");
+    if (contentType) {
+      headers.set("content-type", contentType);
+    }
   }
 
   return headers;
 }
 
-async function proxy(request: NextRequest, { params }: ProxyContext): Promise<NextResponse> {
+async function proxy(request: NextRequest, { params }: ProxyContext): Promise<Response> {
   const path = (params.path ?? []).join("/");
   const targetUrl = `${API_BASE}${path ? `/${path}` : ""}${request.nextUrl.search}`;
   const hasBody = request.method !== "GET" && request.method !== "HEAD";
 
-  const requestBody = hasBody ? await request.text() : undefined;
+  const requestBody = hasBody ? Buffer.from(await request.arrayBuffer()) : undefined;
 
   const backendResponse = await fetch(targetUrl, {
     method: request.method,
@@ -47,20 +50,16 @@ async function proxy(request: NextRequest, { params }: ProxyContext): Promise<Ne
     responseHeaders.set("content-type", contentType);
   }
 
-  const setCookieValues = (backendResponse.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie?.();
-  if (setCookieValues?.length) {
-    for (const value of setCookieValues) {
-      responseHeaders.append("set-cookie", value);
-    }
+  const setCookie = backendResponse.headers.get("set-cookie");
+  if (setCookie) {
+    responseHeaders.set("set-cookie", setCookie);
   }
 
   if (backendResponse.status === 204 || backendResponse.status === 304) {
-    return new NextResponse(null, { status: backendResponse.status, headers: responseHeaders });
+    return new Response(null, { status: backendResponse.status, headers: responseHeaders });
   }
 
-  const responseText = await backendResponse.text();
-
-  return new NextResponse(responseText, {
+  return new Response(await backendResponse.text(), {
     status: backendResponse.status,
     headers: responseHeaders
   });
