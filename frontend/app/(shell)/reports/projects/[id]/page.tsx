@@ -2,28 +2,44 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+
 import { apiClientJson, ProjectRecordBook } from "@/lib/api";
 
-export default function ProjectRecordBookPage() {
+export default function ProjectReportPage() {
   const params = useParams<{ id: string }>();
-  const [data, setData] = useState<ProjectRecordBook | null>(null);
-  useEffect(() => { apiClientJson<ProjectRecordBook>(`/reports/project-record-book/${params.id}`).then(setData).catch(() => undefined); }, [params.id]);
+  const [report, setReport] = useState<ProjectRecordBook | null>(null);
 
-  const exportTimeline = () => {
-    if (!data) return;
-    const lines = ["date,type,title,description", ...data.timeline.entries.map((e) => `${e.date},${JSON.stringify(e.type)},${JSON.stringify(e.title)},${JSON.stringify(e.description || "")}`)];
-    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = `project-${params.id}-timeline.csv`; a.click(); URL.revokeObjectURL(url);
-  };
+  useEffect(() => {
+    apiClientJson<ProjectRecordBook>(`/reports/projects/${params.id}`).then(setReport).catch(() => setReport(null));
+  }, [params.id]);
 
-  if (!data) return <p>Loading...</p>;
+  if (!report) return <p className="px-4">Loading project report...</p>;
 
-  return <div className="space-y-3 pb-4 print:bg-white print:text-black">
-    <div className="flex gap-2"><h1 className="text-2xl font-semibold">Project Record Book</h1><button onClick={() => window.print()} className="rounded bg-neutral-700 px-3 py-2 text-sm">Print</button><button onClick={exportTimeline} className="rounded bg-red-700 px-3 py-2 text-sm">Export Timeline CSV</button></div>
-    <section className="rounded bg-neutral-900 p-3 text-sm"><p className="font-semibold">{data.project.name}</p><p>Owner: {data.owner?.name ?? "Unknown"}</p><p>Species: {data.project.species}</p></section>
-    <section className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4"><div className="rounded bg-neutral-900 p-3">Expenses ${data.expenses.total.toFixed(2)}</div><div className="rounded bg-neutral-900 p-3">Feed ${data.feed.total.toFixed(2)}</div><div className="rounded bg-neutral-900 p-3">Health ${data.health.total.toFixed(2)}</div><div className="rounded bg-neutral-900 p-3">Media {data.media.count}</div></section>
-    <section className="rounded bg-neutral-900 p-3 text-sm">Tasks completed: {data.tasks.completed}/{data.tasks.total}</section>
-    <section className="rounded bg-neutral-900 p-3 text-sm">Shows attended: {data.shows.count} • Placings: {data.placings.count} • Ribbons: {data.ribbons.count}</section>
-  </div>;
+  return (
+    <div className="w-full space-y-3 px-4 pb-8 print:bg-white print:text-black">
+      <section className="barn-card space-y-1 print:border-none print:bg-white">
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-xl font-semibold">Project Record Book</h1>
+          <button className="rounded bg-neutral-700 px-2 py-1 text-xs print:hidden" onClick={() => window.print()}>Print</button>
+          <a className="rounded bg-neutral-700 px-2 py-1 text-xs print:hidden" href={`/api/reports/projects/${params.id}.csv`}>CSV</a>
+        </div>
+        <p className="text-sm">{report.project.name} • Owner: {report.owner?.name ?? "Unknown"}</p>
+        <p className="text-sm text-[var(--barn-muted)]">{report.project.species} • Status: {report.project.status}</p>
+      </section>
+
+      <section className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
+        <article className="barn-chip">${report.expenses.total.toFixed(2)}<span>Expenses</span></article>
+        <article className="barn-chip">${report.feed.total.toFixed(2)}<span>Feed total</span></article>
+        <article className="barn-chip">${report.health.total.toFixed(2)}<span>Health total</span></article>
+        <article className="barn-chip">{report.shows.count}<span>Shows</span></article>
+        <article className="barn-chip">{report.placings.count}<span>Placings</span></article>
+        <article className="barn-chip">{report.media.count}<span>Media count</span></article>
+      </section>
+
+      <section className="barn-card">
+        <h2 className="text-base font-semibold">Timeline highlights</h2>
+        {report.timeline.entries.map((entry) => <p key={entry.id} className="barn-row text-sm">{entry.date} • {entry.title}</p>)}
+      </section>
+    </div>
+  );
 }

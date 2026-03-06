@@ -5,11 +5,17 @@ import { useEffect, useMemo, useState } from "react";
 
 import { apiClientJson, FamilyFinancialSummary } from "@/lib/api";
 
+type FamilySummaryExtra = {
+  checklists?: { total: number; completed: number; completion_percent: number };
+  project_type_distribution?: Record<string, number>;
+};
+
 export default function ReportsPage() {
   const [range, setRange] = useState("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [summary, setSummary] = useState<FamilyFinancialSummary | null>(null);
+  const [familySummary, setFamilySummary] = useState<FamilySummaryExtra | null>(null);
 
   const load = async () => {
     const params = new URLSearchParams();
@@ -19,8 +25,12 @@ export default function ReportsPage() {
       if (endDate) params.set("end_date", endDate);
     }
     const query = params.toString();
-    const data = await apiClientJson<FamilyFinancialSummary>(`/reports/financial-summary${query ? `?${query}` : ""}`);
-    setSummary(data);
+    const [financialData, familyData] = await Promise.all([
+      apiClientJson<FamilyFinancialSummary>(`/reports/financial-summary${query ? `?${query}` : ""}`),
+      apiClientJson<FamilySummaryExtra>("/reports/family-summary")
+    ]);
+    setSummary(financialData);
+    setFamilySummary(familyData);
   };
 
   useEffect(() => {
@@ -35,7 +45,7 @@ export default function ReportsPage() {
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-semibold">Reports</h1>
           <button onClick={() => window.print()} className="rounded bg-neutral-700 px-3 py-2 text-sm">Print</button>
-          <a className="rounded bg-[var(--barn-red)] px-3 py-2 text-sm" href="/api/reports/financial-summary.csv">Export CSV</a>
+          <a className="rounded bg-[var(--barn-red)] px-3 py-2 text-sm" href="/api/reports/family-summary.csv">Family CSV</a>
         </div>
         <div className="grid gap-2 sm:grid-cols-3">
           <select value={range} onChange={(event) => setRange(event.target.value)} className="rounded border border-[var(--barn-border)] bg-black/20 p-2 text-sm">
@@ -58,13 +68,24 @@ export default function ReportsPage() {
           </section>
 
           <section className="barn-card space-y-2">
+            <h2 className="text-base font-medium">Family summary polish</h2>
+            <p className="text-sm text-[var(--barn-muted)]">Checklist completion: {familySummary?.checklists?.completed ?? 0} / {familySummary?.checklists?.total ?? 0} ({familySummary?.checklists?.completion_percent ?? 0}%)</p>
+            <div className="flex flex-wrap gap-2 text-xs">
+              {Object.entries(familySummary?.project_type_distribution ?? {}).map(([projectType, count]) => <span key={projectType} className="rounded bg-neutral-800 px-2 py-1">{projectType}: {count}</span>)}
+            </div>
+          </section>
+
+          <section className="barn-card space-y-2">
             <h2 className="text-base font-medium">By project</h2>
             {sortedProjects.map((project) => (
               <article key={project.project_id} className="barn-row text-sm">
                 <p className="font-medium">{project.project_name}</p>
                 <p className="text-xs text-[var(--barn-muted)]">Owner: {project.owner_name ?? "Unknown"}</p>
                 <p className="text-xs text-[var(--barn-muted)]">Expenses ${project.total_expenses.toFixed(2)} • Materials ${(project.total_materials ?? 0).toFixed(2)} • Income ${project.total_income.toFixed(2)} • Net ${project.net_profit_loss.toFixed(2)}</p>
-                <Link className="see-all-link" href={`/reports/projects/${project.project_id}`}>Project record book</Link>
+                <div className="flex gap-2">
+                  <Link className="see-all-link" href={`/reports/projects/${project.project_id}`}>Project record</Link>
+                  <a className="see-all-link" href={`/api/reports/projects/${project.project_id}.csv`}>CSV</a>
+                </div>
               </article>
             ))}
           </section>
@@ -75,17 +96,6 @@ export default function ReportsPage() {
               <article key={member.profile_id} className="barn-row text-sm">
                 <p className="font-medium">{member.member_name}</p>
                 <p className="text-xs text-[var(--barn-muted)]">Expenses ${member.total_project_expenses.toFixed(2)} • Income ${member.total_project_income.toFixed(2)} • Net ${member.net_total.toFixed(2)}</p>
-              </article>
-            ))}
-          </section>
-
-          <section className="barn-card space-y-2">
-            <h2 className="text-base font-medium">Recent sales / auction outcomes</h2>
-            {summary.recent_sales.length === 0 ? <p className="barn-row text-sm text-[var(--barn-muted)]">No sales found in selected range.</p> : null}
-            {summary.recent_sales.map((sale) => (
-              <article key={sale.id} className="barn-row text-sm">
-                <p className="font-medium">{sale.buyer_name}</p>
-                <p className="text-xs text-[var(--barn-muted)]">{new Date(sale.sale_date).toLocaleDateString()} • Gross ${sale.sale_amount.toFixed(2)} • Net ${sale.final_payout.toFixed(2)}</p>
               </article>
             ))}
           </section>

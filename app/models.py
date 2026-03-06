@@ -250,6 +250,15 @@ class FeedInventorySimple(db.Model):
 class AppSetting(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     family_name = db.Column(db.String(120), nullable=True)
+    county = db.Column(db.String(80), nullable=True)
+    state = db.Column(db.String(40), nullable=True)
+    club_name = db.Column(db.String(120), nullable=True)
+    default_project_year = db.Column(db.Integer, nullable=True)
+    default_species = db.Column(db.String(80), nullable=True)
+    default_checklist_template = db.Column(db.String(120), nullable=True)
+    default_show_tasks = db.Column(db.Text, nullable=True)
+    brand_logo_url = db.Column(db.String(255), nullable=True)
+    brand_show_name = db.Column(db.Boolean, default=True, nullable=False)
     allow_kid_task_toggle = db.Column(db.Boolean, default=False, nullable=False)
 
 
