@@ -66,7 +66,8 @@ export default function AdminDashboardPage() {
         <Link href="/projects" className="quick-action-card justify-start px-3">Manage Projects</Link>
         <Link href="/notifications" className="quick-action-card justify-start px-3">Manage Reminders</Link>
         <Link href="/reports" className="quick-action-card justify-start px-3">Open Reports</Link>
-        <a href="#export-all" className="quick-action-card col-span-2 justify-start px-3">Export All Data</a>
+        <Link href="/admin/data" className="quick-action-card justify-start px-3">Data Tools</Link>
+        <a href="#export-all" className="quick-action-card justify-start px-3">Export All Data</a>
       </section>
 
       <section className="barn-card space-y-2">

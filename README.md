@@ -77,8 +77,8 @@ Run these exact commands on `barn.white-house.cc` from the repository root:
 Environment variables:
 
 - `SECRET_KEY`
-- `BARN_DB_PATH` (default: `/data/barn.db`)
-- `BARN_UPLOAD_DIR` (default: `/data/uploads`)
+- `BARN_DB_PATH` (default: `/data/db.sqlite`)
+- `BARN_UPLOAD_DIR` (default: `/data/media`)
 - `BACKEND_ORIGIN` (default: `http://backend:5000`)
 - `INTERNAL_API_BASE_URL` (frontend server-to-server proxy base, default: `http://barn-backend:5000/api`)
 
@@ -108,7 +108,7 @@ Idempotency behavior:
 - `/projects/[id]/tasks`, `/projects/[id]/weights`, `/projects/[id]/health`, `/projects/[id]/feed`
 - `/expenses`, `/expenses/new`, `/expenses/[id]/edit`, `/expenses/categories`
 - `/feed`, `/inventory`, `/income`, `/auctions`, `/reports`, `/family`, `/more`
-- `/shows`, `/shows/new`, `/shows/[id]`, `/shows/[id]/edit`, `/shows/[id]/day`, `/shows/[id]/day/[dayId]`
+- `/shows`, `/shows/new`, `/shows/[id]`, `/shows/[id]/edit`, `/shows/[id]/day` (use `?dayId=<id>` for preselected day)
 - `/settings`, `/settings/profiles`, `/settings/profiles/[id]`, `/profile-picker`
 
 Parent admin actions are protected by backend PIN unlock endpoints under `/api/auth/*`.
@@ -120,3 +120,23 @@ Parent admin actions are protected by backend PIN unlock endpoints under `/api/a
 2. `docker compose up --build`
 3. Open `http://localhost` or your configured Traefik host.
 4. Frontend calls only same-origin `/api/*` via `frontend/app/api/[...path]/route.ts`.
+
+
+## Data durability + backup paths
+
+Project Barn stores persistent data outside the Git checkout so it survives rebuilds:
+
+- Database file: `/data/db.sqlite`
+- Media root: `/data/media/`
+  - `/data/media/profiles/`
+  - `/data/media/projects/`
+  - `/data/media/receipts/`
+  - `/data/media/ribbons/`
+  - `/data/media/gallery/`
+  - `/data/media/videos/`
+
+Recommended backup set:
+
+- `tar -czf barn-backup-$(date +%F).tar.gz /data/db.sqlite /data/media`
+
+Restore by placing both paths back in the same locations before starting containers.

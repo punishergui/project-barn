@@ -61,6 +61,7 @@ class Project(db.Model):
     status = db.Column(db.String(20), nullable=False, default="active")
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
 
     __table_args__ = (
         CheckConstraint(
@@ -93,6 +94,7 @@ class Show(db.Model):
     end_date = db.Column(db.Date, nullable=True)
     notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
 
 
 class ShowEntry(db.Model):
@@ -288,6 +290,7 @@ class Expense(db.Model):
     receipt_url = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
     receipts = db.relationship("ExpenseReceipt", backref="expense", cascade="all, delete-orphan", lazy="selectin")
     allocations = db.relationship("ExpenseAllocation", backref="expense", cascade="all, delete-orphan", lazy="selectin")
 
@@ -343,14 +346,20 @@ class Media(db.Model):
     show_id = db.Column(db.Integer, db.ForeignKey("show.id"), nullable=True)
     show_day_id = db.Column(db.Integer, db.ForeignKey("show_day.id"), nullable=True)
     helper_profile_id = db.Column(db.Integer, db.ForeignKey("profile.id"), nullable=True)
+    profile_id = db.Column(db.Integer, db.ForeignKey("profile.id"), nullable=True)
     kind = db.Column(db.String(40), nullable=False, default="project")
     media_type = db.Column(db.String(20), nullable=False, default="photo")
     mime_type = db.Column(db.String(120), nullable=True)
+    original_filename = db.Column(db.String(255), nullable=True)
+    size = db.Column(db.Integer, nullable=True)
     file_name = db.Column(db.String(255), nullable=False)
     url = db.Column(db.String(255), nullable=False)
     caption = db.Column(db.Text, nullable=True)
     tags_json = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    orphaned_at = db.Column(db.DateTime, nullable=True)
+    deleted_at = db.Column(db.DateTime, nullable=True)
 
 
 class Goal(db.Model):
@@ -454,6 +463,9 @@ class HealthRecord(db.Model):
     withdrawal_end_date = db.Column(db.Date, nullable=True)
     cost = db.Column(db.Float, nullable=True)
     notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
 
     __table_args__ = (
         CheckConstraint(
@@ -521,6 +533,9 @@ class IncomeRecord(db.Model):
     amount = db.Column(db.Float, nullable=False)
     source = db.Column(db.String(120), nullable=True)
     notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
 
     __table_args__ = (
         CheckConstraint(
