@@ -11,4 +11,4 @@ COPY app.py ./app.py
 ENV FLASK_APP=app
 EXPOSE 5000
 
-CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:5000", "app:create_app()"]
+CMD ["gunicorn", "-w", "1", "-b", "0.0.0.0:5000", "app:create_app()"]

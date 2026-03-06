@@ -3,8 +3,12 @@ from __future__ import annotations
 from datetime import date, datetime, time, timedelta
 import csv
 import io
+import mimetypes
+import os
 
-from flask import Blueprint, Response, current_app, jsonify, request, session
+from werkzeug.utils import secure_filename
+
+from flask import Blueprint, Response, current_app, jsonify, request, send_from_directory, session
 from sqlalchemy import func, text
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -34,6 +38,49 @@ def _avatar_url(path: str | None) -> str | None:
     if path.startswith("http://") or path.startswith("https://"):
         return path
     return f"/uploads/{path}"
+
+
+def _upload_error_response() -> tuple[Response, int] | None:
+    if current_app.config.get("UPLOAD_READY"):
+        return None
+    return jsonify({"error": current_app.config.get("UPLOAD_ERROR") or "Upload directory is not configured"}), 503
+
+
+def _guess_mime(filename: str) -> str:
+    guessed, _ = mimetypes.guess_type(filename)
+    return guessed or "application/octet-stream"
+
+
+def _validate_upload(file, allowed_prefixes: tuple[str, ...], allowed_exact: set[str] | None = None) -> tuple[str | None, tuple[Response, int] | None]:
+    if not file or not file.filename:
+        return None, (jsonify({"error": "file is required"}), 400)
+
+    safe_name = secure_filename(file.filename)
+    if not safe_name:
+        return None, (jsonify({"error": "Invalid file name"}), 400)
+
+    mime_type = file.mimetype or _guess_mime(safe_name)
+    if not any(mime_type.startswith(prefix) for prefix in allowed_prefixes):
+        if not allowed_exact or mime_type not in allowed_exact:
+            return None, (jsonify({"error": f"Unsupported file type: {mime_type}"}), 400)
+
+    return safe_name, None
+
+
+def _save_file(file) -> tuple[str | None, tuple[Response, int] | None]:
+    upload_error = _upload_error_response()
+    if upload_error:
+        return None, upload_error
+
+    upload_dir = current_app.config["UPLOAD_DIR"]
+    try:
+        os.makedirs(upload_dir, exist_ok=True)
+        filename = save_upload(file, upload_dir)
+    except ValueError as exc:
+        return None, (jsonify({"error": str(exc)}), 400)
+    except OSError as exc:
+        return None, (jsonify({"error": f"Could not store upload: {exc}"}), 500)
+    return filename, None
 
 
 def _active_profile() -> Profile | None:
@@ -92,6 +139,7 @@ def _project_payload(project: Project) -> dict[str, object]:
         "notes": project.notes,
         "created_at": _iso(project.created_at),
         "updated_at": _iso(project.updated_at or project.created_at),
+        "photo_url": _avatar_url(project.photo_path),
     }
 
 
@@ -199,6 +247,20 @@ def api_profiles():
         {"id": p.id, "name": p.name, "role": p.role, "avatar_url": _avatar_url(p.avatar_path)}
         for p in profiles
     ])
+
+
+@api_bp.get("/uploads/status")
+def api_upload_status():
+    if current_app.config.get("UPLOAD_READY"):
+        return jsonify({"ready": True, "upload_dir": current_app.config.get("UPLOAD_DIR")})
+    return jsonify({"ready": False, "error": current_app.config.get("UPLOAD_ERROR")}), 503
+
+
+@api_bp.get("/uploads/<path:filename>")
+def api_uploaded_file(filename: str):
+    if not current_app.config.get("UPLOAD_READY"):
+        return jsonify({"error": current_app.config.get("UPLOAD_ERROR") or "Upload directory is not configured"}), 503
+    return send_from_directory(current_app.config["UPLOAD_DIR"], filename)
 
 
 @api_bp.post("/session/switch-profile")
@@ -485,26 +547,13 @@ def api_expense_receipts_create(expense_id: int):
 
     expense = Expense.query.get_or_404(expense_id)
     file = request.files.get("file")
-    if not file:
-        return jsonify({"error": "file is required"}), 400
+    _, validation_error = _validate_upload(file, ("image/",), {"application/pdf"})
+    if validation_error:
+        return validation_error
 
-    original_name = file.filename or ""
-    if "." not in original_name:
-        return jsonify({"error": "Invalid file type"}), 400
-    extension = original_name.rsplit(".", 1)[1].lower()
-    if extension not in {"png", "jpg", "jpeg", "webp"}:
-        return jsonify({"error": "Invalid file type"}), 400
-
-    file.stream.seek(0, 2)
-    file_size = file.stream.tell()
-    file.stream.seek(0)
-    if file_size > 10 * 1024 * 1024:
-        return jsonify({"error": "File exceeds 10MB max size"}), 400
-
-    try:
-        filename = save_upload(file, current_app.config["BARN_UPLOAD_DIR"])
-    except ValueError as exc:
-        return jsonify({"error": str(exc)}), 400
+    filename, save_error = _save_file(file)
+    if save_error:
+        return save_error
 
     receipt = ExpenseReceipt(
         expense_id=expense.id,
@@ -512,6 +561,7 @@ def api_expense_receipts_create(expense_id: int):
         url=f"/uploads/{filename}",
         caption=(request.form.get("caption") or None),
     )
+    expense.receipt_url = receipt.url
     db.session.add(receipt)
     db.session.commit()
     return jsonify(_receipt_payload(receipt)), 201
@@ -1012,6 +1062,116 @@ def api_project_timeline_delete(timeline_id: int):
     return jsonify({'success': True})
 
 
+@api_bp.post("/uploads/profile-avatar")
+def api_upload_profile_avatar():
+    profile, error = _require_parent_unlocked()
+    if error:
+        return error
+
+    file = request.files.get("file")
+    _, validation_error = _validate_upload(file, ("image/",))
+    if validation_error:
+        return validation_error
+
+    filename, save_error = _save_file(file)
+    if save_error:
+        return save_error
+
+    profile.avatar_path = filename
+    db.session.commit()
+    return jsonify({"url": f"/uploads/{filename}", "profile_id": profile.id})
+
+
+@api_bp.post("/uploads/project-hero")
+def api_upload_project_hero():
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+
+    project_id = request.form.get("project_id", type=int)
+    if not project_id:
+        return jsonify({"error": "project_id is required"}), 400
+
+    project = Project.query.get_or_404(project_id)
+    file = request.files.get("file")
+    _, validation_error = _validate_upload(file, ("image/",))
+    if validation_error:
+        return validation_error
+
+    filename, save_error = _save_file(file)
+    if save_error:
+        return save_error
+
+    project.photo_path = filename
+    project.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({"url": f"/uploads/{filename}", "project_id": project.id})
+
+
+@api_bp.post("/uploads/receipt")
+def api_upload_receipt():
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+
+    expense_id = request.form.get("expense_id", type=int)
+    if not expense_id:
+        return jsonify({"error": "expense_id is required"}), 400
+
+    expense = Expense.query.get_or_404(expense_id)
+    file = request.files.get("file")
+    _, validation_error = _validate_upload(file, ("image/",), {"application/pdf"})
+    if validation_error:
+        return validation_error
+
+    filename, save_error = _save_file(file)
+    if save_error:
+        return save_error
+
+    receipt = ExpenseReceipt(
+        expense_id=expense.id,
+        file_name=filename,
+        url=f"/uploads/{filename}",
+        caption=(request.form.get("caption") or None),
+    )
+    expense.receipt_url = receipt.url
+    db.session.add(receipt)
+    db.session.commit()
+    return jsonify({"url": receipt.url, "receipt": _receipt_payload(receipt)})
+
+
+@api_bp.post("/uploads/project-media")
+def api_upload_project_media():
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+
+    project_id = request.form.get("project_id", type=int)
+    if not project_id:
+        return jsonify({"error": "project_id is required"}), 400
+
+    Project.query.get_or_404(project_id)
+    file = request.files.get("file")
+    safe_name, validation_error = _validate_upload(file, ("image/",))
+    if validation_error:
+        return validation_error
+
+    filename, save_error = _save_file(file)
+    if save_error:
+        return save_error
+
+    media = Media(
+        project_id=project_id,
+        kind="project",
+        file_name=safe_name or filename,
+        url=f"/uploads/{filename}",
+        caption=(request.form.get("caption") or None),
+    )
+    db.session.add(media)
+    db.session.commit()
+    return jsonify({"url": media.url, "media": _media_payload(media)})
+
+
 @api_bp.post('/media/upload')
 def api_media_upload():
     _, error = _require_parent_unlocked()
@@ -1019,7 +1179,7 @@ def api_media_upload():
         return error
     file = request.files.get('file')
     try:
-        filename = save_upload(file, current_app.config['BARN_UPLOAD_DIR'])
+        filename = save_upload(file, current_app.config['UPLOAD_DIR'])
     except Exception as exc:
         return jsonify({'error': str(exc)}), 400
     media = Media(project_id=int(request.form['project_id']) if request.form.get('project_id') else None, timeline_entry_id=int(request.form['timeline_entry_id']) if request.form.get('timeline_entry_id') else None, placing_id=int(request.form['placing_id']) if request.form.get('placing_id') else None, show_id=int(request.form['show_id']) if request.form.get('show_id') else None, show_day_id=int(request.form['show_day_id']) if request.form.get('show_day_id') else None, kind=request.form.get('kind') or 'project', file_name=filename, url=f"/uploads/{filename}", caption=request.form.get('caption'))
@@ -1177,7 +1337,7 @@ def api_project_media_create(project_id: int):
     Project.query.get_or_404(project_id)
     file = request.files.get('file')
     try:
-        filename = save_upload(file, current_app.config['BARN_UPLOAD_DIR'])
+        filename = save_upload(file, current_app.config['UPLOAD_DIR'])
     except Exception as exc:
         return jsonify({'error': str(exc)}), 400
     media = Media(project_id=project_id, kind=request.form.get('kind') or 'project', file_name=filename, url=f"/uploads/{filename}", caption=request.form.get('caption'))
@@ -1201,7 +1361,7 @@ def api_placing_media_create(placing_id: int):
     placing = Placing.query.get_or_404(placing_id)
     file = request.files.get('file')
     try:
-        filename = save_upload(file, current_app.config['BARN_UPLOAD_DIR'])
+        filename = save_upload(file, current_app.config['UPLOAD_DIR'])
     except Exception as exc:
         return jsonify({'error': str(exc)}), 400
     media = Media(project_id=placing.project_id, placing_id=placing_id, show_id=placing.show_id, show_day_id=placing.show_day_id, kind='placing', file_name=filename, url=f"/uploads/{filename}", caption=request.form.get('caption'))

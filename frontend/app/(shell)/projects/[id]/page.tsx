@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 
 import { apiClientJson, AuthStatus, Expense, MediaItem, Placing, Profile, Project, Show, TaskItem, TimelineEntry } from "@/lib/api";
+import { uploadProjectHero, uploadProjectMedia } from "@/lib/uploads";
 import { ShowsMediaCard } from "@/components/shows-media-card";
 
 const sections = ["overview", "timeline", "expenses", "shows", "media", "tasks"] as const;
@@ -28,6 +29,7 @@ export default function ProjectDetailPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [showAddTimeline, setShowAddTimeline] = useState(false);
   const [quickType, setQuickType] = useState("Other");
+  const [mediaCaption, setMediaCaption] = useState("");
 
   const load = async () => {
     const id = Number(params.id);
@@ -82,7 +84,7 @@ export default function ProjectDetailPage() {
     () => expenses.reduce((sum, expense) => sum + expense.allocations.reduce((inner, row) => inner + row.amount, 0), 0),
     [expenses]
   );
-  const projectPhoto = media[0]?.url ?? null;
+  const projectPhoto = project.photo_url ?? media[0]?.url ?? null;
 
   const addTimeline = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -108,6 +110,23 @@ export default function ProjectDetailPage() {
     await load();
   };
 
+  const handleHeroUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    await uploadProjectHero(Number(params.id), file);
+    event.target.value = "";
+    await load();
+  };
+
+  const handleMediaUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    await uploadProjectMedia(Number(params.id), file, mediaCaption);
+    event.target.value = "";
+    setMediaCaption("");
+    await load();
+  };
+
   const remove = async () => {
     await apiClientJson(`/projects/${params.id}`, { method: "DELETE" });
     router.push("/projects");
@@ -125,6 +144,10 @@ export default function ProjectDetailPage() {
             <p className="mt-1 text-xs text-[var(--barn-muted)]">Tag: {project.tag ?? "—"} • Status: {project.status}</p>
           </div>
           {projectPhoto ? <img src={projectPhoto} alt={`${project.name} photo`} className="h-24 w-24 rounded-lg object-cover" /> : null}
+          <label className="rounded bg-[var(--barn-bg)] px-3 py-2 text-xs">
+            Upload hero
+            <input type="file" accept="image/*" className="hidden" onChange={(event) => handleHeroUpload(event).catch(() => undefined)} />
+          </label>
         </div>
         <div className="mt-3 grid grid-cols-3 gap-2">
           <article className="barn-chip">{timeline.length}<span>Timeline</span></article>
@@ -211,6 +234,7 @@ export default function ProjectDetailPage() {
         <section className="barn-card space-y-3 text-sm">
           <h2 className="text-base font-medium">Media</h2>
           {!mediaAvailable ? <p className="barn-row text-[var(--barn-muted)]">Media endpoint is unavailable in this environment.</p> : null}
+          {mediaAvailable ? <div className="flex flex-wrap items-center gap-2"><input value={mediaCaption} onChange={(event) => setMediaCaption(event.target.value)} placeholder="Caption" className="rounded bg-[var(--barn-bg)] px-3 py-2" /><label className="rounded bg-[var(--barn-red)] px-3 py-2 text-xs">Upload media<input type="file" accept="image/*" className="hidden" onChange={(event) => handleMediaUpload(event).catch(() => undefined)} /></label></div> : null}
           {mediaAvailable && media.length === 0 ? <p className="barn-row text-[var(--barn-muted)]">No media uploaded for this project yet.</p> : null}
           {mediaAvailable && media.length > 0 ? <div className="grid grid-cols-2 gap-2 md:grid-cols-3">{media.map((item) => <ShowsMediaCard key={item.id} item={item} />)}</div> : null}
         </section>
