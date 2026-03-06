@@ -118,3 +118,46 @@ export type ActivityItem = {
   profile_name: string | null;
   route: string;
 };
+
+export type ProfileLifetimeSummary = {
+  profile_id: number;
+  profile_name: string;
+  birthdate: string | null;
+  age: number | null;
+  years_active: number;
+  active_projects: number;
+  completed_projects: number;
+  lifetime_projects: number;
+  lifetime_ribbons: number;
+  lifetime_placings: number;
+  lifetime_expenses_cents: number;
+  lifetime_expenses: number;
+  lifetime_income_cents: number;
+  lifetime_income: number;
+  project_years: number[];
+};
+
+export type HelperSummary = {
+  helpers: Array<{ helper_profile_id: number | null; helper_name: string; total_actions: number; actions: Record<string, number>; project_count: number; project_ids: number[]; project_names: string[] }>;
+  recent_activity: Array<{ helper_profile_id: number | null; helper_name: string; action_type: string; project_id: number | null; project_name: string | null; timestamp: string; detail: string | null }>;
+};
+
+export type AwardsSummary = {
+  totals: { placings: number; ribbons: number; champions: number; reserve_champions: number };
+  by_project: Array<{ project_id: number; project_name: string; owner_profile_id: number; owner_name: string; placings: number; ribbons: number; champions: number; reserve_champions: number }>;
+  by_profile: Array<{ profile_id: number; profile_name: string; placings: number; ribbons: number; champions: number; reserve_champions: number }>;
+};
+
+export type AdminSummary = {
+  viewer: { id: number; name: string; role: string };
+  project_scope: "all" | "active" | "archived" | string;
+  family_overview: { total_active_profiles: number; total_active_projects: number; total_archived_projects: number; total_expenses_cents: number; total_expenses: number; total_income_cents: number; total_income: number; total_ribbons: number; total_placings: number; current_project_year: number };
+  member_overview: Array<ProfileLifetimeSummary & { active_filtered_projects: number; archived_filtered_projects: number }>;
+  project_overview: { active: number; archived: number; total: number };
+  expense_overview: { total_expenses: number; total_income: number; net: number };
+  awards_overview: AwardsSummary;
+  helper_overview: HelperSummary;
+  projects_by_member: Array<{ profile_id: number; profile_name: string; active_projects: Project[]; archived_projects: Project[]; expenses_total: number; income_total: number; lifetime_ribbons: number }>;
+};
+
+export type ExportsAllResponse = { exports: Array<{ id: string; label: string; href: string }> };

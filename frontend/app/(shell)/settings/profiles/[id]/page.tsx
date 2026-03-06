@@ -3,16 +3,21 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
-import { apiClientJson, Profile } from "@/lib/api";
+import { ProfileLifetimeSummary, apiClientJson, Profile } from "@/lib/api";
 import { uploadProfileAvatar } from "@/lib/uploads";
 
 export default function SettingsProfileDetailPage() {
   const params = useParams<{ id: string }>();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [lifetime, setLifetime] = useState<ProfileLifetimeSummary | null>(null);
 
   const load = async () => {
-    const data = await apiClientJson<Profile>(`/profiles/${params.id}`);
-    setProfile(data);
+    const [profileData, lifetimeData] = await Promise.all([
+      apiClientJson<Profile>(`/profiles/${params.id}`),
+      apiClientJson<ProfileLifetimeSummary>(`/profiles/${params.id}/lifetime-summary`).catch(() => null)
+    ]);
+    setProfile(profileData);
+    setLifetime(lifetimeData);
   };
 
   useEffect(() => {
@@ -55,6 +60,11 @@ export default function SettingsProfileDetailPage() {
         <p>Active projects: {profile.summary?.active_projects ?? 0}</p>
         <p>Shows: {profile.summary?.shows ?? 0}</p>
         <p>Expenses: {profile.summary?.expenses ?? 0}</p>
+        <p>Age: {lifetime?.age ?? "—"}</p>
+        <p>Years active: {lifetime?.years_active ?? profile.years_in_4h ?? 1}</p>
+        <p>Lifetime ribbons: {lifetime?.lifetime_ribbons ?? 0}</p>
+        <p>Lifetime expenses: ${lifetime?.lifetime_expenses.toFixed(2) ?? "0.00"}</p>
+        <p>Lifetime income: ${lifetime?.lifetime_income.toFixed(2) ?? "0.00"}</p>
       </section>
 
       <form className="barn-card grid gap-2" onSubmit={(event) => save(event).catch(() => undefined)}>

@@ -179,6 +179,53 @@ def _project_financial_summary(project: Project, start: date | None = None, end:
     }
 
 
+def _profile_years_active(profile: Profile, owned_projects: list[Project]) -> int:
+    if profile.years_in_4h:
+        return int(profile.years_in_4h)
+    years = {project.project_year for project in owned_projects if project.project_year}
+    if years:
+        return max(len(years), 1)
+    return max(date.today().year - profile.created_at.year + 1, 1)
+
+
+def _profile_lifetime_summary_payload(profile: Profile, owned_projects: list[Project]) -> dict[str, object]:
+    today = date.today()
+    age = ((today - profile.birthdate).days // 365) if profile.birthdate else None
+    project_ids = [project.id for project in owned_projects]
+
+    active_projects = [project for project in owned_projects if project.status == "active"]
+    archived_projects = [project for project in owned_projects if project.status != "active"]
+
+    project_expense_total_cents = 0
+    for expense in Expense.query.all():
+        for row in _allocation_rows_for_expense(expense):
+            if row["project_id"] in project_ids:
+                project_expense_total_cents += row["amount_cents"]
+
+    direct_income_total_cents = sum(int(round(float(row.amount) * 100)) for row in IncomeRecord.query.filter(IncomeRecord.project_id.in_(project_ids)).all()) if project_ids else 0
+    auction_income_total_cents = sum(int(round(float(row.net_proceeds or 0) * 100)) for row in AuctionSale.query.filter(AuctionSale.project_id.in_(project_ids)).all()) if project_ids else 0
+    placings = Placing.query.filter(Placing.project_id.in_(project_ids)).all() if project_ids else []
+    ribbons = [placing for placing in placings if placing.ribbon_type]
+
+    return {
+        "profile_id": profile.id,
+        "profile_name": profile.name,
+        "birthdate": _iso(profile.birthdate),
+        "age": age,
+        "years_active": _profile_years_active(profile, owned_projects),
+        "active_projects": len(active_projects),
+        "completed_projects": len(archived_projects),
+        "lifetime_projects": len(owned_projects),
+        "lifetime_ribbons": len(ribbons),
+        "lifetime_placings": len(placings),
+        "lifetime_expenses_cents": project_expense_total_cents,
+        "lifetime_expenses": project_expense_total_cents / 100.0,
+        "lifetime_income_cents": direct_income_total_cents + auction_income_total_cents,
+        "lifetime_income": (direct_income_total_cents + auction_income_total_cents) / 100.0,
+        "project_years": sorted({project.project_year for project in owned_projects if project.project_year}),
+    }
+
+
 CARE_CATEGORY_LABELS = {
     "feed": "Fed",
     "water": "Watered",
@@ -3629,6 +3676,266 @@ def api_family_summary_csv():
     return _csv_response('family-summary.csv', ['key', 'value'], rows)
 
 
+@api_bp.get('/profiles/<int:profile_id>/lifetime-summary')
+def api_profile_lifetime_summary(profile_id: int):
+    profile = Profile.query.get_or_404(profile_id)
+    projects = Project.query.filter_by(owner_id=profile.id).all()
+    return jsonify(_profile_lifetime_summary_payload(profile, projects))
+
+
+@api_bp.get('/reports/helper-summary')
+def api_reports_helper_summary():
+    profile_map = {profile.id: profile for profile in Profile.query.all()}
+    project_map = {project.id: project for project in Project.query.all()}
+    helper_rows: dict[int, dict[str, object]] = {}
+    recent_activity: list[dict[str, object]] = []
+
+    def ensure_helper(helper_id: int | None, fallback_name: str = "Unknown") -> dict[str, object]:
+        key = helper_id or -1
+        existing = helper_rows.get(key)
+        if existing:
+            return existing
+        profile = profile_map.get(helper_id) if helper_id else None
+        helper_rows[key] = {
+            "helper_profile_id": helper_id,
+            "helper_name": profile.name if profile else fallback_name,
+            "total_actions": 0,
+            "actions": {},
+            "project_ids": set(),
+            "project_names": set(),
+        }
+        return helper_rows[key]
+
+    def record_action(*, helper_id: int | None, action_type: str, project_id: int | None, timestamp: str | None, detail: str | None = None) -> None:
+        helper = ensure_helper(helper_id)
+        helper["total_actions"] = int(helper["total_actions"]) + 1
+        action_counts = helper["actions"]
+        action_counts[action_type] = int(action_counts.get(action_type, 0)) + 1
+        if project_id:
+            helper["project_ids"].add(project_id)
+            project_name = project_map.get(project_id).name if project_map.get(project_id) else f"Project {project_id}"
+            helper["project_names"].add(project_name)
+        if timestamp:
+            recent_activity.append({
+                "helper_profile_id": helper_id,
+                "helper_name": helper["helper_name"],
+                "action_type": action_type,
+                "project_id": project_id,
+                "project_name": project_map.get(project_id).name if project_id and project_map.get(project_id) else None,
+                "timestamp": timestamp,
+                "detail": detail,
+            })
+
+    for expense in Expense.query.order_by(Expense.date.desc(), Expense.id.desc()).all():
+        detail = f"{expense.category} ${float(expense.amount):.2f}"
+        record_action(helper_id=expense.logged_by_id, action_type="expense_logged", project_id=expense.project_id, timestamp=_iso(expense.date), detail=detail)
+
+    for item in ProjectMaterial.query.order_by(ProjectMaterial.id.desc()).all():
+        record_action(helper_id=item.logged_by_id, action_type="material_logged", project_id=item.project_id, timestamp=_iso(item.date_purchased), detail=item.item_name)
+
+    for media in Media.query.order_by(Media.created_at.desc(), Media.id.desc()).all():
+        record_action(helper_id=media.helper_profile_id, action_type="media_uploaded", project_id=media.project_id, timestamp=_iso(media.created_at), detail=media.caption)
+
+    for task in Task.query.order_by(Task.logged_at.desc(), Task.id.desc()).all():
+        timestamp = _iso(task.logged_at) or _iso(date.today())
+        record_action(helper_id=task.logged_by_id, action_type=f"task_{task.task_type}", project_id=task.project_id, timestamp=timestamp, detail=task.notes)
+
+    rows = []
+    for helper in helper_rows.values():
+        rows.append({
+            "helper_profile_id": helper["helper_profile_id"],
+            "helper_name": helper["helper_name"],
+            "total_actions": helper["total_actions"],
+            "actions": helper["actions"],
+            "project_count": len(helper["project_ids"]),
+            "project_ids": sorted(helper["project_ids"]),
+            "project_names": sorted(helper["project_names"]),
+        })
+
+    rows.sort(key=lambda item: item["total_actions"], reverse=True)
+    recent_activity.sort(key=lambda item: item.get("timestamp") or "", reverse=True)
+    return jsonify({"helpers": rows, "recent_activity": recent_activity[:30]})
+
+
+@api_bp.get('/reports/awards-summary')
+def api_reports_awards_summary():
+    projects = {project.id: project for project in Project.query.all()}
+    profiles = {profile.id: profile for profile in Profile.query.all()}
+    placings = Placing.query.order_by(Placing.created_at.desc(), Placing.id.desc()).all()
+
+    by_project: dict[int, dict[str, object]] = {}
+    by_profile: dict[int, dict[str, object]] = {}
+    champion_keywords = {"champion", "reserve champion", "grand champion", "reserve grand champion"}
+
+    champion_count = 0
+    reserve_champion_count = 0
+    ribbons_count = 0
+    for placing in placings:
+        if placing.ribbon_type:
+            ribbons_count += 1
+        placing_lower = (placing.placing or "").strip().lower()
+        if "reserve" in placing_lower and "champion" in placing_lower:
+            reserve_champion_count += 1
+        elif any(keyword in placing_lower for keyword in champion_keywords):
+            champion_count += 1
+
+        project = projects.get(placing.project_id) if placing.project_id else None
+        owner_id = project.owner_id if project else None
+
+        if project:
+            project_bucket = by_project.setdefault(project.id, {
+                "project_id": project.id,
+                "project_name": project.name,
+                "owner_profile_id": project.owner_id,
+                "owner_name": profiles.get(project.owner_id).name if profiles.get(project.owner_id) else "Unknown",
+                "placings": 0,
+                "ribbons": 0,
+                "champions": 0,
+                "reserve_champions": 0,
+            })
+            project_bucket["placings"] += 1
+            if placing.ribbon_type:
+                project_bucket["ribbons"] += 1
+            if "reserve" in placing_lower and "champion" in placing_lower:
+                project_bucket["reserve_champions"] += 1
+            elif any(keyword in placing_lower for keyword in champion_keywords):
+                project_bucket["champions"] += 1
+
+        if owner_id:
+            profile_bucket = by_profile.setdefault(owner_id, {
+                "profile_id": owner_id,
+                "profile_name": profiles.get(owner_id).name if profiles.get(owner_id) else "Unknown",
+                "placings": 0,
+                "ribbons": 0,
+                "champions": 0,
+                "reserve_champions": 0,
+            })
+            profile_bucket["placings"] += 1
+            if placing.ribbon_type:
+                profile_bucket["ribbons"] += 1
+            if "reserve" in placing_lower and "champion" in placing_lower:
+                profile_bucket["reserve_champions"] += 1
+            elif any(keyword in placing_lower for keyword in champion_keywords):
+                profile_bucket["champions"] += 1
+
+    return jsonify({
+        "totals": {
+            "placings": len(placings),
+            "ribbons": ribbons_count,
+            "champions": champion_count,
+            "reserve_champions": reserve_champion_count,
+        },
+        "by_project": sorted(by_project.values(), key=lambda row: row["placings"], reverse=True),
+        "by_profile": sorted(by_profile.values(), key=lambda row: row["placings"], reverse=True),
+    })
+
+
+@api_bp.get('/admin/summary')
+def api_admin_summary():
+    profile, error = _require_parent_unlocked()
+    if error:
+        return error
+
+    status_filter = (request.args.get("project_scope") or "all").strip().lower()
+    all_projects = Project.query.order_by(Project.updated_at.desc(), Project.id.desc()).all()
+
+    if status_filter == "active":
+        projects = [project for project in all_projects if project.status == "active"]
+    elif status_filter == "archived":
+        projects = [project for project in all_projects if project.status != "active"]
+    else:
+        projects = all_projects
+
+    settings = AppSetting.query.order_by(AppSetting.id.asc()).first()
+    profiles = Profile.query.order_by(Profile.name.asc()).all()
+    project_ids = {project.id for project in projects}
+
+    total_expenses_cents = 0
+    for expense in Expense.query.all():
+        for row in _allocation_rows_for_expense(expense):
+            if row["project_id"] in project_ids:
+                total_expenses_cents += row["amount_cents"]
+
+    direct_income_cents = sum(int(round(float(item.amount) * 100)) for item in IncomeRecord.query.filter(IncomeRecord.project_id.in_(project_ids)).all()) if project_ids else 0
+    auction_income_cents = sum(int(round(float(item.net_proceeds or 0) * 100)) for item in AuctionSale.query.filter(AuctionSale.project_id.in_(project_ids)).all()) if project_ids else 0
+
+    filtered_placings = Placing.query.filter(Placing.project_id.in_(project_ids)).all() if project_ids else []
+    helper_summary = api_reports_helper_summary().get_json()
+    awards_summary = api_reports_awards_summary().get_json()
+
+    projects_by_member: list[dict[str, object]] = []
+    member_overview: list[dict[str, object]] = []
+    for member in profiles:
+        owned_projects = [project for project in all_projects if project.owner_id == member.id]
+        filtered_owned_projects = [project for project in projects if project.owner_id == member.id]
+        project_ids_for_member = {project.id for project in owned_projects}
+        summary = _profile_lifetime_summary_payload(member, owned_projects)
+        member_overview.append({
+            **summary,
+            "active_filtered_projects": len([project for project in filtered_owned_projects if project.status == "active"]),
+            "archived_filtered_projects": len([project for project in filtered_owned_projects if project.status != "active"]),
+        })
+        projects_by_member.append({
+            "profile_id": member.id,
+            "profile_name": member.name,
+            "active_projects": [
+                _project_payload(project)
+                for project in filtered_owned_projects
+                if project.status == "active"
+            ],
+            "archived_projects": [
+                _project_payload(project)
+                for project in filtered_owned_projects
+                if project.status != "active"
+            ],
+            "expenses_total": summary["lifetime_expenses"] if project_ids_for_member else 0,
+            "income_total": summary["lifetime_income"] if project_ids_for_member else 0,
+            "lifetime_ribbons": summary["lifetime_ribbons"],
+        })
+
+    expenses_by_member: dict[int, float] = {member.id: 0.0 for member in profiles}
+    for expense in Expense.query.all():
+        for row in _allocation_rows_for_expense(expense):
+            project = next((project for project in all_projects if project.id == row["project_id"]), None)
+            if project:
+                expenses_by_member[project.owner_id] = expenses_by_member.get(project.owner_id, 0.0) + (row["amount_cents"] / 100.0)
+
+    for item in projects_by_member:
+        owner_id = int(item["profile_id"])
+        item["expenses_total"] = round(expenses_by_member.get(owner_id, 0.0), 2)
+
+    return jsonify({
+        "viewer": {"id": profile.id, "name": profile.name, "role": profile.role},
+        "project_scope": status_filter,
+        "family_overview": {
+            "total_active_profiles": len([member for member in profiles if not member.archived]),
+            "total_active_projects": len([project for project in all_projects if project.status == "active"]),
+            "total_archived_projects": len([project for project in all_projects if project.status != "active"]),
+            "total_expenses_cents": total_expenses_cents,
+            "total_expenses": total_expenses_cents / 100.0,
+            "total_income_cents": direct_income_cents + auction_income_cents,
+            "total_income": (direct_income_cents + auction_income_cents) / 100.0,
+            "total_ribbons": len([placing for placing in filtered_placings if placing.ribbon_type]),
+            "total_placings": len(filtered_placings),
+            "current_project_year": settings.default_project_year if settings and settings.default_project_year else date.today().year,
+        },
+        "member_overview": member_overview,
+        "project_overview": {
+            "active": len([project for project in projects if project.status == "active"]),
+            "archived": len([project for project in projects if project.status != "active"]),
+            "total": len(projects),
+        },
+        "expense_overview": {
+            "total_expenses": total_expenses_cents / 100.0,
+            "total_income": (direct_income_cents + auction_income_cents) / 100.0,
+            "net": ((direct_income_cents + auction_income_cents) - total_expenses_cents) / 100.0,
+        },
+        "awards_overview": awards_summary,
+        "helper_overview": helper_summary,
+        "projects_by_member": projects_by_member,
+    })
+
+
 @api_bp.get('/reports/summary')
 def api_reports_summary():
     start_raw = request.args.get('start_date')
@@ -3755,6 +4062,111 @@ def api_export_expenses_csv():
             row_project_id = e.project_id
         rows.append([e.id, row_project_id, e.date.isoformat(), e.category, e.vendor or '', amount, e.notes or ''])
     return _csv_response('expenses.csv', ['id', 'project_id', 'date', 'category', 'vendor', 'amount', 'notes'], rows)
+
+
+@api_bp.get('/export/family-summary.csv')
+def api_export_family_summary_csv():
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    return api_family_summary_csv()
+
+
+@api_bp.get('/export/income.csv')
+def api_export_income_csv():
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    return api_income_csv()
+
+
+@api_bp.get('/export/shows.csv')
+def api_export_shows_csv():
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    rows = []
+    for placing in Placing.query.order_by(Placing.id.asc()).all():
+        rows.append([
+            placing.id,
+            placing.project_id or '',
+            placing.show_id or '',
+            placing.class_name or '',
+            placing.placing,
+            placing.ribbon_type or '',
+            placing.points if placing.points is not None else '',
+            _iso(placing.placed_at or placing.created_at) or '',
+        ])
+    return _csv_response('shows-placings.csv', ['placing_id', 'project_id', 'show_id', 'class_name', 'placing', 'ribbon_type', 'points', 'placed_at'], rows)
+
+
+@api_bp.get('/export/checklists.csv')
+def api_export_checklists_csv():
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    rows = []
+    for item in SkillsChecklist.query.order_by(SkillsChecklist.project_id.asc(), SkillsChecklist.id.asc()).all():
+        rows.append([
+            item.id,
+            item.project_id,
+            item.title,
+            item.category or '',
+            '1' if item.completed else '0',
+            _iso(item.completed_at) or '',
+        ])
+    return _csv_response('checklists.csv', ['id', 'project_id', 'title', 'category', 'completed', 'completed_at'], rows)
+
+
+@api_bp.get('/export/feed-inventory.csv')
+def api_export_feed_inventory_csv():
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    rows = []
+    for feed in FeedEntry.query.order_by(FeedEntry.recorded_at.asc(), FeedEntry.id.asc()).all():
+        rows.append([
+            feed.id,
+            feed.project_id,
+            _iso(feed.recorded_at) or '',
+            feed.feed_type,
+            feed.amount,
+            feed.unit,
+            float(feed.cost_cents or 0) / 100.0,
+            feed.vendor or '',
+            feed.notes or '',
+        ])
+    for item in FamilyInventoryItem.query.order_by(FamilyInventoryItem.id.asc()).all():
+        rows.append([
+            f'inv-{item.id}',
+            item.assigned_project_id or '',
+            _iso(item.updated_at) or '',
+            f'inventory:{item.category}',
+            item.quantity,
+            item.unit or '',
+            '',
+            item.location or '',
+            item.notes or '',
+        ])
+    return _csv_response('feed-inventory.csv', ['id', 'project_id', 'date', 'type', 'amount_or_qty', 'unit', 'cost', 'source_or_location', 'notes'], rows)
+
+
+@api_bp.get('/exports/all')
+def api_exports_all():
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+    exports = [
+        {'id': 'family-summary', 'label': 'Family summary CSV', 'href': '/api/export/family-summary.csv'},
+        {'id': 'projects', 'label': 'Projects CSV', 'href': '/api/export/projects.csv'},
+        {'id': 'expenses', 'label': 'Expenses CSV', 'href': '/api/export/expenses.csv'},
+        {'id': 'income', 'label': 'Income CSV', 'href': '/api/export/income.csv'},
+        {'id': 'shows', 'label': 'Shows / placings CSV', 'href': '/api/export/shows.csv'},
+        {'id': 'checklists', 'label': 'Checklists CSV', 'href': '/api/export/checklists.csv'},
+        {'id': 'feed-inventory', 'label': 'Feed + inventory CSV', 'href': '/api/export/feed-inventory.csv'},
+        {'id': 'tasks', 'label': 'Tasks CSV', 'href': '/api/export/tasks.csv'},
+    ]
+    return jsonify({'exports': exports})
 
 
 @api_bp.get('/export/tasks.csv')

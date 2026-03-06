@@ -67,6 +67,7 @@ export default function MorePage() {
         <Link href="/inventory" className="quick-action-card justify-start px-4 text-sm">🧰 Inventory</Link>
         <Link href="/auctions" className="quick-action-card justify-start px-4 text-sm">🏷️ Auctions</Link>
         <Link href="/settings" className="quick-action-card justify-start px-4 text-sm">⚙️ Settings</Link>
+        <Link href="/admin" className="quick-action-card justify-start px-4 text-sm">🛡️ Parent Admin</Link>
         <Link href="/profile-picker" className="quick-action-card justify-start px-4 text-sm">🔄 Switch Profile</Link>
       </section>
       <section className="barn-card text-sm">
