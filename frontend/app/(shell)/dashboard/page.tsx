@@ -137,6 +137,12 @@ export default async function DashboardPage() {
         allocationCount: expense.allocation_count || 1
       }))}
       recentActivity={recentActivity}
+      quickActions={[
+        { href: "/projects/new", label: "Add Project" },
+        { href: "/expenses/new", label: "Add Expense" },
+        { href: "/shows", label: "View Shows" },
+        { href: "/profile-picker", label: "Switch Profile" }
+      ]}
     />
   );
 }

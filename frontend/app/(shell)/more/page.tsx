@@ -43,25 +43,29 @@ export default function MorePage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-5 px-4 pb-4">
+    <div className="w-full space-y-4 px-4 pb-4">
       <h1 className="text-2xl font-semibold">More</h1>
-      <section className="grid gap-2 sm:grid-cols-2">
-        <Link href="/family" className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-sm">
+      <section className="barn-card grid gap-2 sm:grid-cols-2">
+        <Link href="/family" className="quick-action-card justify-start px-4 text-sm">
           👨‍👩‍👧‍👦 Family
         </Link>
-        <Link href="/reports" className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-sm">
+        <Link href="/reports" className="quick-action-card justify-start px-4 text-sm">
           📊 Reports
         </Link>
-        <Link href="/profile-picker" className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-sm sm:col-span-2">
+        <Link href="/settings" className="quick-action-card justify-start px-4 text-sm"
+        >
+          ⚙️ Settings
+        </Link>
+        <Link href="/profile-picker" className="quick-action-card justify-start px-4 text-sm">
           🔄 Switch Profile
         </Link>
       </section>
-      <section className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-sm">
+      <section className="barn-card text-sm">
         <p>Role: {auth?.role ?? "..."}</p>
         <p>Unlocked: {auth?.is_unlocked ? "Yes" : "No"}</p>
         {auth?.unlock_expires_at ? <p>Expires: {new Date(auth.unlock_expires_at).toLocaleTimeString()}</p> : null}
       </section>
-      <form onSubmit={unlock} className="space-y-2 rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4">
+      <form onSubmit={unlock} className="barn-card space-y-2">
         <h2 className="font-semibold">Unlock parent actions</h2>
         <input name="pin" type="password" className="w-full rounded-lg border border-[var(--barn-border)] bg-black/20 p-2" placeholder="PIN" />
         <div className="flex gap-2">
@@ -71,7 +75,7 @@ export default function MorePage() {
           </button>
         </div>
       </form>
-      <form onSubmit={setPin} className="space-y-2 rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4">
+      <form onSubmit={setPin} className="barn-card space-y-2">
         <h2 className="font-semibold">Set or rotate PIN</h2>
         <input name="pin" type="password" className="w-full rounded-lg border border-[var(--barn-border)] bg-black/20 p-2" placeholder="New PIN" />
         <button className="rounded-lg bg-[var(--barn-red)] px-3 py-2 text-sm">Save PIN</button>
