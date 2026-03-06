@@ -5,6 +5,7 @@ import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 
 import { AuthStatus, MediaItem, Placing, Profile, Project, Show, apiClientJson } from "@/lib/api";
+import { toUserErrorMessage } from "@/lib/errorMessage";
 import { detectMediaType, ribbonBadgeClass } from "@/lib/media";
 import { MediaViewer } from "@/components/media-viewer";
 
@@ -20,6 +21,7 @@ export default function ProjectGalleryPage() {
   const [shows, setShows] = useState<Show[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [auth, setAuth] = useState<AuthStatus | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "photo" | "video" | "ribbon">("all");
   const [visibleCount, setVisibleCount] = useState(pageSize);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
@@ -27,6 +29,8 @@ export default function ProjectGalleryPage() {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+
+  const canManage = auth?.role === "parent" && auth.is_unlocked;
 
   const load = async () => {
     const [projectData, mediaData, placingData, showData, profileData, authData] = await Promise.all([
@@ -46,7 +50,7 @@ export default function ProjectGalleryPage() {
   };
 
   useEffect(() => {
-    load().catch(() => undefined);
+    load().then(() => setError(null)).catch((loadError) => setError(toUserErrorMessage(loadError, "Unable to load the project gallery.")));
   }, [projectId]);
 
   useEffect(() => {
@@ -95,9 +99,22 @@ export default function ProjectGalleryPage() {
       setUploadFile(null);
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
+      setError(null);
       await load();
+    } catch (uploadError) {
+      setError(toUserErrorMessage(uploadError, "Unable to upload media for this project."));
     } finally {
       setUploading(false);
+    }
+  };
+
+  const deleteMedia = async (mediaId: number) => {
+    if (!window.confirm("Delete this media item?")) return;
+    try {
+      await apiClientJson(`/media/${mediaId}`, { method: "DELETE" });
+      await load();
+    } catch (deleteError) {
+      setError(toUserErrorMessage(deleteError, "Unable to delete this media item."));
     }
   };
 
@@ -113,19 +130,20 @@ export default function ProjectGalleryPage() {
 
         <div className="flex flex-wrap gap-2">
           {["all", "photo", "video", "ribbon"].map((key) => (
-            <button key={key} type="button" onClick={() => setFilter(key as typeof filter)} className={`rounded-full px-3 py-1 text-xs ${filter === key ? "bg-[var(--barn-red)] text-white" : "bg-[var(--barn-bg)]"}`}>
+            <button key={key} type="button" onClick={() => { setFilter(key as typeof filter); setVisibleCount(pageSize); }} className={`rounded-full px-3 py-1 text-xs ${filter === key ? "bg-[var(--barn-red)] text-white" : "bg-[var(--barn-bg)]"}`}>
               {key === "all" ? "All" : key === "photo" ? "Photos" : key === "video" ? "Videos" : "Ribbons"}
             </button>
           ))}
         </div>
+        {error ? <p className="rounded bg-red-500/10 p-2 text-sm text-red-200">{error}</p> : null}
       </header>
 
       <section className="barn-card space-y-2 text-sm">
         <h2 className="text-base font-semibold">Upload media</h2>
         <form className="grid gap-2" onSubmit={(event) => submitUpload(event).catch(() => undefined)}>
-          <label className="rounded bg-[var(--barn-bg)] px-3 py-3 text-sm">
+          <label className={`rounded px-3 py-3 text-sm ${canManage ? "bg-[var(--barn-bg)]" : "bg-neutral-700/60"}`}>
             Select file
-            <input type="file" accept="image/*,video/mp4,video/quicktime,video/mov" className="hidden" onChange={startUpload} />
+            <input disabled={!canManage} type="file" accept="image/*,video/mp4,video/quicktime,video/mov" className="hidden" onChange={startUpload} />
           </label>
           {previewUrl ? (
             <div className="rounded border border-[var(--barn-border)] bg-[var(--barn-bg)] p-2">
@@ -146,7 +164,7 @@ export default function ProjectGalleryPage() {
             {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
           </select>
           <input name="tags" placeholder="Tags (comma separated)" className="rounded bg-[var(--barn-bg)] p-3" />
-          <button disabled={!uploadFile || uploading} className="rounded bg-[var(--barn-red)] px-3 py-3 text-sm font-semibold text-white disabled:opacity-60">{uploading ? "Uploading..." : "Save media"}</button>
+          <button disabled={!uploadFile || uploading || !canManage} className="rounded bg-[var(--barn-red)] px-3 py-3 text-sm font-semibold text-white disabled:opacity-60">{uploading ? "Uploading..." : "Save media"}</button>
         </form>
       </section>
 
@@ -154,16 +172,19 @@ export default function ProjectGalleryPage() {
         {shown.map((item, index) => {
           const mediaType = detectMediaType(item);
           return (
-            <button key={item.id} type="button" onClick={() => setActiveIndex(index)} className="relative overflow-hidden rounded bg-[var(--barn-bg)]">
-              {mediaType === "video" ? (
-                <video src={item.file_url || item.url} className="h-24 w-full object-cover" muted playsInline preload="metadata" />
-              ) : (
-                <img src={item.file_url || item.url} alt={item.caption || item.file_name} loading="lazy" className="h-24 w-full object-cover" />
-              )}
-              {item.ribbon_type ? <span className={`absolute left-1 top-1 rounded px-1.5 py-0.5 text-[10px] ${ribbonBadgeClass(item.ribbon_type)}`}>{item.ribbon_type}</span> : null}
-              {item.show_name ? <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px]">{item.show_name}</span> : null}
-              {item.placing_value ? <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px]">{item.placing_value}</span> : null}
-            </button>
+            <div key={item.id} className="space-y-1 rounded bg-[var(--barn-bg)] p-1">
+              <button type="button" onClick={() => setActiveIndex(index)} className="relative block w-full overflow-hidden rounded">
+                {mediaType === "video" ? (
+                  <video src={item.file_url || item.url} className="h-24 w-full object-cover" muted playsInline preload="metadata" />
+                ) : (
+                  <img src={item.file_url || item.url} alt={item.caption || item.file_name} loading="lazy" className="h-24 w-full object-cover" />
+                )}
+                {item.ribbon_type ? <span className={`absolute left-1 top-1 rounded px-1.5 py-0.5 text-[10px] ${ribbonBadgeClass(item.ribbon_type)}`}>{item.ribbon_type}</span> : null}
+                {item.show_name ? <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px]">{item.show_name}</span> : null}
+                {item.placing_value ? <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px]">{item.placing_value}</span> : null}
+              </button>
+              {canManage ? <button type="button" onClick={() => deleteMedia(item.id).catch(() => undefined)} className="w-full rounded bg-neutral-700 px-2 py-1 text-[10px]">Delete</button> : null}
+            </div>
           );
         })}
       </section>
