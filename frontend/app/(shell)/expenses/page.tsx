@@ -84,6 +84,12 @@ export default function ExpensesPage() {
         <input value={category} onChange={(event) => setCategory(event.target.value)} placeholder="Category" className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-2" />
       </section>
 
+      <div className="flex justify-end">
+        <Link href="/expenses/categories" className="see-all-link text-sm">
+          View category summary
+        </Link>
+      </div>
+
       <div className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-sm">
         <p className="font-medium">This month total: ${thisMonth.toFixed(2)}</p>
         {projectTotals.map((item) => (

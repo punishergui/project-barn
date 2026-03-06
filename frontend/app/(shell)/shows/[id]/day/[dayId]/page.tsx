@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 
-import { apiClientJson, Placing, Profile, Project, Show, ShowDayTask } from "@/lib/api";
+import { apiClientJson, MediaItem, Placing, Profile, Project, Show, ShowDayTask } from "@/lib/api";
 
 const livestockChecklistTemplates = [
   { key: "wash", label: "Wash animal" },
@@ -38,14 +38,16 @@ export default function ShowDayModePage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [tasks, setTasks] = useState<ShowDayTask[]>([]);
   const [dayPlacings, setDayPlacings] = useState<Placing[]>([]);
+  const [dayMedia, setDayMedia] = useState<MediaItem[]>([]);
 
   const load = async () => {
-    const [showData, projectData, profileData, taskData, placingData] = await Promise.all([
+    const [showData, projectData, profileData, taskData, placingData, mediaData] = await Promise.all([
       apiClientJson<Show>(`/shows/${params.id}`),
       apiClientJson<Project[]>("/projects"),
       apiClientJson<Profile[]>("/profiles"),
       apiClientJson<ShowDayTask[]>(`/show-days/${params.dayId}/tasks`).catch(() => []),
-      apiClientJson<Placing[]>(`/shows/${params.id}/placings`).then((rows) => rows.filter((row) => row.show_day_id === Number(params.dayId))).catch(() => [])
+      apiClientJson<Placing[]>(`/shows/${params.id}/placings`).then((rows) => rows.filter((row) => row.show_day_id === Number(params.dayId))).catch(() => []),
+      apiClientJson<MediaItem[]>(`/media?show_day_id=${params.dayId}`).catch(() => [])
     ]);
 
     setShow(showData);
@@ -53,6 +55,7 @@ export default function ShowDayModePage() {
     setProfiles(profileData);
     setTasks(taskData);
     setDayPlacings(placingData);
+    setDayMedia(mediaData);
   };
 
   useEffect(() => {
@@ -100,6 +103,21 @@ export default function ShowDayModePage() {
       })
     });
     event.currentTarget.reset();
+    await load();
+  };
+
+
+  const uploadDayMedia = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const form = new FormData();
+    form.set("file", file);
+    form.set("show_id", String(params.id));
+    form.set("show_day_id", String(params.dayId));
+    form.set("project_id", String(show.entries[0]?.project_id || ""));
+    form.set("kind", "show_day");
+    await apiClientJson("/media/upload", { method: "POST", body: form });
+    event.target.value = "";
     await load();
   };
 
@@ -155,6 +173,21 @@ export default function ShowDayModePage() {
           </section>
         );
       })}
+
+
+      <section className="barn-card space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold">Day media</h2>
+          <label className="rounded bg-[var(--barn-red)] px-3 py-2 text-xs text-white">
+            Upload
+            <input type="file" accept="image/*,video/mp4,video/quicktime,video/mov" className="hidden" onChange={(event) => uploadDayMedia(event).catch(() => undefined)} />
+          </label>
+        </div>
+        {dayMedia.length === 0 ? <p className="barn-row text-xs text-[var(--barn-muted)]">No day media yet.</p> : null}
+        <div className="grid grid-cols-3 gap-2">
+          {dayMedia.map((item) => <img key={item.id} src={item.file_url || item.url} alt={item.caption || item.file_name} className="h-20 w-full rounded object-cover" loading="lazy" />)}
+        </div>
+      </section>
 
       <section className="barn-card space-y-2">
         <h2 className="text-base font-semibold">Add placing / ribbon</h2>
