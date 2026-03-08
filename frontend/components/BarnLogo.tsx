@@ -6,7 +6,7 @@ type BarnLogoProps = {
 export default function BarnLogo({ size = 24, className }: BarnLogoProps) {
   return (
     <svg
-      viewBox="0 0 72 56"
+      viewBox="0 0 80 64"
       role="img"
       aria-label="Project Barn logo"
       width={size}
@@ -15,22 +15,22 @@ export default function BarnLogo({ size = 24, className }: BarnLogoProps) {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
+      <path d="M40 4L6 26H74L40 4Z" fill="currentColor" />
+      <path d="M12 26H68V58C68 59.105 67.105 60 66 60H14C12.895 60 12 59.105 12 58V26Z" fill="currentColor" />
+      <path d="M24 30H16V58H24V30Z" fill="white" fillOpacity="0.16" />
+      <path d="M64 30H56V58H64V30Z" fill="white" fillOpacity="0.16" />
+      <path d="M28 32H20V42H28V32Z" fill="white" fillOpacity="0.94" />
+      <path d="M60 32H52V42H60V32Z" fill="white" fillOpacity="0.94" />
       <path
-        d="M8 23L20 12H30L36 6L42 12H52L64 23V48C64 51.314 61.314 54 58 54H14C10.686 54 8 51.314 8 48V23Z"
-        fill="currentColor"
-      />
-      <path d="M28 23H18V33H28V23Z" fill="white" fillOpacity="0.95" />
-      <path d="M54 23H44V33H54V23Z" fill="white" fillOpacity="0.95" />
-      <path
-        d="M29 54V33C29 31.343 30.343 30 32 30H40C41.657 30 43 31.343 43 33V54"
+        d="M32 58V36C32 34.895 32.895 34 34 34H46C47.105 34 48 34.895 48 36V58"
         stroke="white"
         strokeWidth="3"
         strokeLinecap="round"
       />
-      <path d="M36 30V54" stroke="white" strokeWidth="3" strokeLinecap="round" />
-      <path d="M30 40L36 44L42 40" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M22 18H50" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-      <path d="M16 48H56" stroke="white" strokeWidth="2.5" strokeLinecap="round" opacity="0.85" />
+      <path d="M40 34V58" stroke="white" strokeWidth="3" strokeLinecap="round" />
+      <path d="M34 44L40 48L46 44" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M16 26L40 11L64 26" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.95" />
+      <path d="M14 58H66" stroke="white" strokeWidth="2.5" strokeLinecap="round" opacity="0.85" />
     </svg>
   );
 }
