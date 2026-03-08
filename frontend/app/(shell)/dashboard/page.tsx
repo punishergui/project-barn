@@ -63,6 +63,7 @@ export default async function DashboardPage() {
       activeProjects={dashboard.active_projects}
       upcomingShows={dashboard.upcoming_shows}
       recentExpenses={dashboard.recent_expenses}
+      financeSummary={dashboard.finance_summary}
     />
   );
 }

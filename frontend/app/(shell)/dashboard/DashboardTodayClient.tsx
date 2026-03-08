@@ -1,9 +1,5 @@
-import { Beef, ChevronRight, FolderOpen, Receipt, Trophy } from "lucide-react";
+import { Beef, ChevronRight, FolderOpen, Trophy } from "lucide-react";
 import Link from "next/link";
-
-import { SectionHeader } from "@/components/section-header";
-import { StatCard } from "@/components/stat-card";
-import { Separator } from "@/components/ui/separator";
 
 type DashboardProject = {
   id: number;
@@ -14,6 +10,9 @@ type DashboardProject = {
   is_livestock: boolean;
   owner: string;
   photo_url: string | null;
+  open_tasks: number;
+  latest_weight_lbs: number | null;
+  next_show: { id: number; name: string; date: string | null } | null;
 };
 type DashboardShow = { id: number; name: string; date: string | null; location: string | null };
 type DashboardExpense = { id: number; amount: number; category: string; project_name: string };
@@ -24,6 +23,7 @@ type Props = {
   activeProjects: DashboardProject[];
   upcomingShows: DashboardShow[];
   recentExpenses: DashboardExpense[];
+  financeSummary: { total_spent: number; total_income: number; net_balance: number };
 };
 
 function greetingForHour(hour: number) {
@@ -39,113 +39,106 @@ function projectEmoji(project: DashboardProject) {
   return "📋";
 }
 
-export default function DashboardTodayClient({ todayLabel, profileName, activeProjects, upcomingShows, recentExpenses }: Props) {
+export default function DashboardTodayClient({ todayLabel, profileName, activeProjects, upcomingShows, recentExpenses, financeSummary }: Props) {
   const firstName = profileName.split(" ")[0] ?? "Friend";
   const greeting = greetingForHour(new Date().getHours());
+  const netIsPositive = financeSummary.net_balance >= 0;
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-0.5">
+      <div>
         <h1 className="font-serif text-2xl text-foreground">
           {greeting}, {firstName}
         </h1>
         <p className="text-sm text-muted-foreground">{todayLabel}</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
-        <StatCard label="Projects" value={activeProjects.length} icon={FolderOpen} />
-        <StatCard label="Animals" value={activeProjects.filter((p) => p.is_livestock).length} icon={Beef} />
-        <StatCard label="Shows" value={upcomingShows.length} icon={Trophy} />
+      <div className="flex gap-3 overflow-x-auto pb-1 no-scrollbar">
+        <div className="flex flex-shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5">
+          <FolderOpen size={14} className="text-primary" />
+          <span className="text-sm font-semibold text-foreground">{activeProjects.length}</span>
+          <span className="text-xs text-muted-foreground">Projects</span>
+        </div>
+        <div className="flex flex-shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5">
+          <Beef size={14} className="text-primary" />
+          <span className="text-sm font-semibold text-foreground">{activeProjects.filter((project) => project.is_livestock).length}</span>
+          <span className="text-xs text-muted-foreground">Animals</span>
+        </div>
+        <div className="flex flex-shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5">
+          <Trophy size={14} className="text-primary" />
+          <span className="text-sm font-semibold text-foreground">{upcomingShows.length}</span>
+          <span className="text-xs text-muted-foreground">Shows</span>
+        </div>
       </div>
 
-      <div className="flex flex-col gap-3">
-        <SectionHeader title="Your Animals" href="/projects" count={activeProjects.length} />
-        <div className="-mx-4 overflow-x-auto px-4">
-          <div className="flex gap-3 pb-2">
-            {activeProjects.map((project) => (
-              <Link key={project.id} href={`/projects/${project.id}`} className="block w-40 flex-shrink-0">
-                <div className="overflow-hidden rounded-xl border border-border bg-card">
-                  <div className="relative h-28 w-full bg-secondary">
-                    {project.photo_url ? (
-                      <img src={project.photo_url} alt={project.name} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-4xl">{projectEmoji(project)}</div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                    <div className="absolute bottom-2 left-2.5 right-2.5">
-                      <p className="font-serif text-sm text-white">{project.name}</p>
-                      <p className="text-[11px] text-white/75">{project.owner}</p>
-                    </div>
-                  </div>
-                  <div className="px-2.5 py-2">
-                    <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground">{project.species}</span>
-                  </div>
+      <div>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Your Animals</p>
+        <div className="flex flex-col gap-3">
+          {activeProjects.map((project) => (
+            <Link key={project.id} href={`/projects/${project.id}`} className="flex items-center gap-0 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+              <div className="h-20 w-20 flex-shrink-0">
+                {project.photo_url ? (
+                  <img src={project.photo_url} alt={project.name} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-secondary text-2xl">{projectEmoji(project)}</div>
+                )}
+              </div>
+              <div className="flex flex-1 flex-col gap-1 px-3 py-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-foreground">{project.name}</p>
+                  <ChevronRight size={14} className="text-muted-foreground" />
                 </div>
-              </Link>
-            ))}
-            <Link href="/projects/new" className="flex h-40 w-40 flex-shrink-0 items-center justify-center rounded-xl border border-dashed border-border bg-card/50 text-muted-foreground transition-colors hover:border-primary hover:text-primary">
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-2xl">+</span>
-                <span className="text-xs">Add Project</span>
+                <p className="text-xs capitalize text-muted-foreground">
+                  {project.owner} • {project.species}
+                </p>
+                <div className="mt-0.5 flex items-center gap-2">
+                  {project.next_show ? <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">🏆 {project.next_show.name}</span> : null}
+                  {project.open_tasks > 0 ? <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">{project.open_tasks} tasks</span> : null}
+                  {project.latest_weight_lbs ? <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">{project.latest_weight_lbs} lbs</span> : null}
+                </div>
               </div>
             </Link>
-          </div>
+          ))}
         </div>
       </div>
 
-      <Separator />
+      <div className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3">
+        <div>
+          <p className="text-xs text-muted-foreground">Total Spent</p>
+          <p className="text-base font-semibold text-foreground">${financeSummary.total_spent.toFixed(2)}</p>
+        </div>
+        <div className="h-8 w-px bg-border" />
+        <div>
+          <p className="text-xs text-muted-foreground">Income</p>
+          <p className="text-base font-semibold text-foreground">${financeSummary.total_income.toFixed(2)}</p>
+        </div>
+        <div className="h-8 w-px bg-border" />
+        <div>
+          <p className="text-xs text-muted-foreground">Net</p>
+          <p className={netIsPositive ? "text-base font-semibold text-green-600" : "text-base font-semibold text-red-500"}>${Math.abs(financeSummary.net_balance).toFixed(2)}</p>
+        </div>
+      </div>
 
       {upcomingShows.length > 0 ? (
-        <div className="flex flex-col gap-3">
-          <SectionHeader title="Upcoming Shows" href="/shows" count={upcomingShows.length} />
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Upcoming Shows</p>
           <div className="flex flex-col gap-2">
-            {upcomingShows.slice(0, 2).map((show) => (
-              <Link key={show.id} href={`/shows/${show.id}`} className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 transition-shadow hover:shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-900/20">
-                    <Trophy className="h-4 w-4 text-amber-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{show.name}</p>
-                    <p className="text-xs text-muted-foreground">{show.location}</p>
-                  </div>
+            {upcomingShows.map((show) => (
+              <Link key={show.id} href={`/shows/${show.id}`} className="flex items-center justify-between rounded-xl border border-border bg-card px-3 py-2.5">
+                <div>
+                  <p className="text-sm font-medium text-foreground">{show.name}</p>
+                  <p className="text-xs text-muted-foreground">{show.date ? formatDate(show.date) : "TBD"}</p>
                 </div>
-                <div className="text-right">
-                  <p className="font-mono text-xs text-foreground">{show.date ? new Date(show.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "TBD"}</p>
-                  <ChevronRight className="ml-auto mt-0.5 h-4 w-4 text-muted-foreground" />
-                </div>
+                <Trophy size={14} className="text-primary" />
               </Link>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      <Separator />
-
-      {recentExpenses.length > 0 ? (
-        <div className="flex flex-col gap-3">
-          <SectionHeader title="Recent Expenses" href="/expenses" />
-          <div className="rounded-xl border border-border bg-card">
-            {recentExpenses.map((expense, i) => (
-              <div key={expense.id}>
-                <div className="flex items-center justify-between px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary">
-                      <Receipt className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium text-foreground">{expense.project_name}</span>
-                      <span className="text-xs capitalize text-muted-foreground">{expense.category}</span>
-                    </div>
-                  </div>
-                  <span className="font-mono text-sm font-medium text-foreground">${expense.amount.toFixed(2)}</span>
-                </div>
-                {i < recentExpenses.length - 1 ? <Separator className="mx-4" /> : null}
-              </div>
             ))}
           </div>
         </div>
       ) : null}
     </div>
   );
+}
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
