@@ -50,38 +50,50 @@ export default function SecuritySettingsPage() {
 
   if (auth?.role && auth.role !== "parent") {
     return (
-      <div className="w-full space-y-4 px-4 pb-4">
-        <h1 className="text-xl font-semibold">Security</h1>
-        <p className="rounded-2xl bg-card border border-border shadow-sm p-4 text-sm">Access denied. Only parent profiles can manage security settings.</p>
+      <div className="w-full px-4 pb-4">
+        <h1 className="mb-1 font-serif text-2xl text-foreground">Security</h1>
+        <p className="mb-4 text-sm text-muted-foreground">PINs protect profile switching and parent-only actions.</p>
+        <p className="rounded-2xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">Access denied. Only parent profiles can manage security settings.</p>
       </div>
     );
   }
 
   return (
-    <div className="w-full space-y-4 px-4 pb-4">
-      <h1 className="text-xl font-semibold">Security</h1>
-      <p className="text-sm text-muted-foreground">PINs protect profile switching and parent-only actions. Biometric unlock is planned for a future native app and is not available yet.</p>
-      {message ? <p className="rounded-2xl bg-card border border-border shadow-sm p-4 text-sm">{message}</p> : null}
+    <div className="w-full px-4 pb-4">
+      <h1 className="mb-1 font-serif text-2xl text-foreground">Security</h1>
+      <p className="mb-4 text-sm text-muted-foreground">PINs protect profile switching and parent-only actions. Biometric unlock is planned for a future native app and is not available yet.</p>
+      {message ? <p className="mb-4 rounded-2xl border border-border bg-card px-4 py-3 text-sm text-foreground">{message}</p> : null}
 
-      <section className="rounded-2xl bg-card border border-border shadow-sm p-4 space-y-2 text-sm">
-        <h2 className="text-base font-semibold">Role protections</h2>
-        <p><strong>Parent:</strong> {data?.role_protections.parent}</p>
-        <p><strong>Kid:</strong> {data?.role_protections.kid}</p>
-        <p><strong>Grandparent:</strong> {data?.role_protections.grandparent}</p>
+      <section className="mb-4 rounded-2xl border border-border bg-card p-4">
+        <h2 className="mb-3 text-sm font-semibold">Role protections</h2>
+        <div className="flex justify-between border-b border-border py-1.5 last:border-0">
+          <p className="text-sm font-medium text-foreground">Parent</p>
+          <p className="text-sm text-muted-foreground">{data?.role_protections.parent}</p>
+        </div>
+        <div className="flex justify-between border-b border-border py-1.5 last:border-0">
+          <p className="text-sm font-medium text-foreground">Kid</p>
+          <p className="text-sm text-muted-foreground">{data?.role_protections.kid}</p>
+        </div>
+        <div className="flex justify-between border-b border-border py-1.5 last:border-0">
+          <p className="text-sm font-medium text-foreground">Grandparent</p>
+          <p className="text-sm text-muted-foreground">{data?.role_protections.grandparent}</p>
+        </div>
       </section>
 
-      <section className="space-y-3">
+      <section>
         {data?.profiles.map((profile) => (
-          <form key={profile.id} onSubmit={(event) => updatePin(event, profile.id).catch(() => undefined)} className="rounded-2xl bg-card border border-border shadow-sm p-4 space-y-2">
-            <div className="flex items-center justify-between">
-              <p className="font-semibold">{profile.name} <span className="text-xs capitalize text-muted-foreground">({profile.role})</span></p>
-              <span className="text-xs">{profile.has_pin ? "PIN set" : "No PIN"}</span>
+          <form key={profile.id} onSubmit={(event) => updatePin(event, profile.id).catch(() => undefined)} className="mb-3 rounded-2xl border border-border bg-card p-4">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-foreground">{profile.name}</p>
+              <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] capitalize text-muted-foreground">{profile.role}</span>
+              <span className="ml-auto text-xs text-muted-foreground">{profile.has_pin ? "PIN set" : "No PIN"}</span>
             </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input name="pin_enabled" type="checkbox" defaultChecked={profile.has_pin || profile.role === "parent"} /> Require PIN
+            <label className="flex items-center gap-2 py-2">
+              <input name="pin_enabled" type="checkbox" defaultChecked={profile.has_pin || profile.role === "parent"} className="accent-primary" />
+              <span className="text-sm text-foreground">Require PIN</span>
             </label>
-            <input name="pin" type="password" inputMode="numeric" pattern="[0-9]*" minLength={4} maxLength={12} className="w-full rounded bg-background p-3" placeholder="New PIN (4-12 digits)" />
-            <button className="min-h-11 rounded bg-primary text-primary-foreground px-3 py-2 text-sm disabled:opacity-60" disabled={saving[profile.id]}>{saving[profile.id] ? "Saving..." : "Save security"}</button>
+            <input name="pin" type="password" inputMode="numeric" pattern="[0-9]*" minLength={4} maxLength={12} className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="New PIN (4–12 digits)" />
+            <button className="mt-1 w-full rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-60" disabled={saving[profile.id]}>{saving[profile.id] ? "Saving..." : "Save security"}</button>
           </form>
         ))}
       </section>

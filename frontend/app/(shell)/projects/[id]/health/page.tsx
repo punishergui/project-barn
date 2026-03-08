@@ -110,7 +110,7 @@ export default function ProjectHealthPage() {
         </button>
       </form>
 
-      {errorMessage ? <p className="rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-200">{errorMessage}</p> : null}
+      {errorMessage ? <p className="rounded-lg border border-border bg-secondary p-3 text-sm text-foreground">{errorMessage}</p> : null}
       {isLoading ? <p className="text-sm text-muted-foreground">Loading entries...</p> : null}
 
       {!isLoading && rows.length === 0 ? (
@@ -133,7 +133,7 @@ export default function ProjectHealthPage() {
                     href={entry.attachment_receipt_url}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-1 inline-block text-blue-300 underline"
+                    className="mt-1 inline-block text-primary underline"
                   >
                     View receipt
                   </a>
@@ -142,7 +142,7 @@ export default function ProjectHealthPage() {
               <button
                 type="button"
                 onClick={() => removeEntry(entry.id).catch(() => undefined)}
-                className="rounded border border-white/20 px-2 py-1 text-xs hover:bg-white/10 disabled:opacity-50"
+                className="rounded border border-border px-2 py-1 text-xs hover:bg-secondary disabled:opacity-50"
                 disabled={deletingId === entry.id}
               >
                 {deletingId === entry.id ? "Removing..." : "Remove"}

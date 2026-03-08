@@ -19,14 +19,18 @@ export default function NewShowPage() {
     }
   };
 
-  return <form className="space-y-3" onSubmit={submit}>
-    <h1 className="text-xl font-semibold text-foreground">New Show</h1>
-    {error ? <p className="text-sm text-red-600">{error}</p> : null}
-    <input name="name" placeholder="Show name" className="w-full rounded-lg border border-border bg-card p-2 text-sm text-foreground" required />
-    <input name="location" placeholder="Location" className="w-full rounded-lg border border-border bg-card p-2 text-sm text-foreground" required />
-    <input name="start_date" type="date" className="w-full rounded-lg border border-border bg-card p-2 text-sm text-foreground" required />
-    <input name="end_date" type="date" className="w-full rounded-lg border border-border bg-card p-2 text-sm text-foreground" />
-    <textarea name="notes" placeholder="Notes" className="w-full rounded-lg border border-border bg-card p-2 text-sm text-foreground" />
-    <button className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground" type="submit">Create</button>
-  </form>;
+  return <div className="mx-auto min-h-dvh max-w-lg bg-background px-4 pb-28 pt-6">
+    <h1 className="mb-4 font-serif text-2xl text-foreground">New Show</h1>
+    <form className="space-y-3 rounded-2xl border border-border bg-card p-4" onSubmit={submit}>
+      <input name="name" placeholder="Show name" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" required />
+      <input name="location" placeholder="Location" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" required />
+      <div className="grid grid-cols-2 gap-2">
+        <input name="start_date" type="date" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" required />
+        <input name="end_date" type="date" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" />
+      </div>
+      <textarea name="notes" placeholder="Notes" rows={3} className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" />
+      <button className="mt-1 w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground" type="submit">Create</button>
+    </form>
+    {error ? <p className="mt-2 text-sm text-red-500">{error}</p> : null}
+  </div>;
 }
