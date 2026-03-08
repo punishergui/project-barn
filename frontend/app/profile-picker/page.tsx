@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import BarnLogo from "@/components/BarnLogo";
 import { Profile, apiClientJson } from "@/lib/api";
 import { toUserErrorMessage } from "@/lib/errorMessage";
 
@@ -85,20 +86,9 @@ export default function ProfilePickerPage() {
   };
 
   return (
-    <main className="min-h-dvh bg-background">
-      <div className="mx-auto flex min-h-dvh w-full max-w-sm flex-col items-center justify-center px-6">
-        <svg viewBox="0 0 64 48" width="56" height="42" fill="none" aria-hidden="true" className="text-primary">
-          <path d="M10 20 H54 V44 H10 Z" stroke="currentColor" strokeWidth="1.8" fill="none" />
-          <path d="M6 21 L32 8 L58 21" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M28 4 H36 V9 H28 Z" stroke="currentColor" strokeWidth="1.8" fill="none" />
-          <path d="M27 4 L32 1 L37 4" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M18 24 H24 V30 H18 Z" stroke="currentColor" strokeWidth="1.8" fill="none" />
-          <path d="M40 24 H46 V30 H40 Z" stroke="currentColor" strokeWidth="1.8" fill="none" />
-          <path d="M20 28 H32 V44 H20 Z" stroke="currentColor" strokeWidth="1.8" fill="none" />
-          <path d="M32 28 H44 V44 H32 Z" stroke="currentColor" strokeWidth="1.8" fill="none" />
-          <path d="M20 28 L32 44 M32 28 L20 44" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" />
-          <path d="M32 28 L44 44 M44 28 L32 44" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" />
-        </svg>
+    <main className="min-h-dvh bg-secondary">
+      <div className="mx-auto flex min-h-dvh w-full max-w-sm flex-col items-center justify-center px-6 py-10">
+        <BarnLogo size={88} className="h-[66px] w-[88px] object-contain" />
         <h1 className="mt-3 font-serif text-3xl text-foreground">Project Barn</h1>
         <p className="mb-6 mt-1 text-sm text-muted-foreground">Who&apos;s using the app?</p>
 
@@ -112,7 +102,7 @@ export default function ProfilePickerPage() {
               onClick={() => onProfileTap(profile).catch(() => undefined)}
               className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-left shadow-sm"
             >
-              <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-primary text-lg font-bold text-primary-foreground">
+              <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-2 border-amber-200 bg-primary text-lg font-bold text-primary-foreground">
                 {profile.avatar_url ? <img src={profile.avatar_url} alt={profile.name} className="h-full w-full object-cover" /> : initials(profile.name)}
               </div>
               <div>
@@ -125,7 +115,7 @@ export default function ProfilePickerPage() {
         </div>
 
         {selectedProfile ? (
-          <form onSubmit={onSubmitPin} className="mt-6 w-full rounded-2xl border border-border bg-card p-5">
+          <form onSubmit={onSubmitPin} className="mt-6 w-full rounded-2xl border border-border bg-card p-5 shadow-sm">
             <p className="mb-4 text-sm font-medium text-foreground">Enter PIN for {selectedProfile.name}</p>
             <div className="mb-4 flex justify-center gap-4">
               {pinDigits.map((digit, index) => (
