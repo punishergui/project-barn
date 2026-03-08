@@ -40,8 +40,8 @@
   --popover: #292524;
   --popover-foreground: #faf8f5;
   --primary: #d97706;
-  --primary-foreground: #fffbeb;
-  --secondary: #44403c;
+  --primary-foreground: #1c1917;
+  --secondary: #3c3532;
   --secondary-foreground: #faf8f5;
   --muted: #44403c;
   --muted-foreground: #a8a29e;
@@ -55,6 +55,7 @@
   --sidebar-foreground: #faf8f5;
   --sidebar-primary: #d97706;
   --success: #22c55e;
+  --radius: 0.75rem;
 }
 
 @layer base {

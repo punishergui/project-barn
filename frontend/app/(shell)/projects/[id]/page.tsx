@@ -254,7 +254,7 @@ export default function ProjectDetailPage() {
         {error ? <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</p> : null}
 
         {activeSection === "info" ? (
-          <section className="rounded-xl border border-border bg-card px-4">
+          <section className="rounded-xl border border-border bg-card px-4 pb-4">
             {[
               { label: "Status", value: project.status },
               { label: "Owner", value: ownerName },
@@ -268,6 +268,14 @@ export default function ProjectDetailPage() {
                 <span className="text-right text-sm font-medium text-foreground">{item.value}</span>
               </div>
             ))}
+            <a
+              href={`/api/export/project/${params.id}.pdf`}
+              download
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground"
+            >
+              <span>📄</span>
+              Download Record Book PDF
+            </a>
           </section>
         ) : null}
 
