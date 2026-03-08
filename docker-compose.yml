@@ -63,7 +63,7 @@ services:
       - "traefik.http.routers.barn.rule=Host(`barn.white-house.cc`)"
       - "traefik.http.routers.barn.entrypoints=websecure"
       - "traefik.http.routers.barn.tls=true"
-      - "traefik.http.routers.barn.priority=1"
+      - "traefik.http.routers.barn.priority=10"
       - "traefik.http.services.barn.loadbalancer.server.port=3000"
 
 networks:
