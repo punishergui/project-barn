@@ -59,21 +59,40 @@ export default function ExpensesPage() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-5 px-4 pb-4">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto w-full max-w-5xl space-y-4 px-4 pb-4">
+      <div className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Expenses</h1>
-          <p className="text-sm text-neutral-300">Review costs, receipts, and project allocations.</p>
+          <h1 className="font-serif text-2xl text-foreground">Expenses</h1>
+          <p className="text-sm text-muted-foreground">Review costs, receipts, and project allocations.</p>
         </div>
         {auth?.role === "parent" && auth.is_unlocked ? (
-          <Link href="/expenses/new" className="rounded-lg bg-[var(--barn-red)] px-3 py-2 text-sm font-medium text-white">
+          <Link href="/expenses/new" className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
             Add Expense
           </Link>
         ) : null}
       </div>
 
-      <section className="grid gap-2 rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-3 sm:grid-cols-2">
-        <select value={projectId} onChange={(event) => setProjectId(event.target.value)} className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-2">
+      <div className="rounded-2xl border border-border bg-card px-4 py-3">
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-muted-foreground">This month</p>
+          <p className="text-base font-semibold text-foreground">${thisMonth.toFixed(2)}</p>
+        </div>
+        <div className="mt-2 border-t border-border pt-2">
+          {projectTotals.map((item) => (
+            <div key={item.name} className="flex items-center justify-between py-1">
+              <p className="text-sm text-foreground">{item.name}</p>
+              <p className="text-sm font-medium text-foreground">${item.total.toFixed(2)}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <section className="mb-4 flex gap-2">
+        <select
+          value={projectId}
+          onChange={(event) => setProjectId(event.target.value)}
+          className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+        >
           <option value="">All projects</option>
           {projects.map((project) => (
             <option key={project.id} value={project.id}>
@@ -81,43 +100,43 @@ export default function ExpensesPage() {
             </option>
           ))}
         </select>
-        <input value={category} onChange={(event) => setCategory(event.target.value)} placeholder="Category" className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-2" />
+        <input
+          value={category}
+          onChange={(event) => setCategory(event.target.value)}
+          placeholder="Category"
+          className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+        />
       </section>
 
       <div className="flex justify-end">
-        <Link href="/expenses/categories" className="see-all-link text-sm">
+        <Link href="/expenses/categories" className="text-sm text-primary underline-offset-2 hover:underline">
           View category summary
         </Link>
       </div>
 
-      <div className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-sm">
-        <p className="font-medium">This month total: ${thisMonth.toFixed(2)}</p>
-        {projectTotals.map((item) => (
-          <p key={item.name} className="text-neutral-300">
-            {item.name}: ${item.total.toFixed(2)}
-          </p>
-        ))}
-      </div>
-
-      {loading ? <p className="text-sm text-neutral-300">Loading expenses...</p> : null}
+      {loading ? <p className="text-sm text-muted-foreground">Loading expenses...</p> : null}
 
       {error ? (
-        <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-100">
-          <p>{error}</p>
-          <button type="button" onClick={() => load().catch(() => undefined)} className="mt-2 rounded bg-neutral-700 px-3 py-2 text-sm">
+        <div className="rounded-2xl border border-destructive/20 bg-destructive/10 p-4 text-sm">
+          <p className="text-destructive">{error}</p>
+          <button type="button" onClick={() => load().catch(() => undefined)} className="mt-2 rounded-xl bg-primary px-3 py-2 text-sm text-primary-foreground">
             Retry
           </button>
         </div>
       ) : null}
 
       {!loading && !error && expenses.length === 0 ? (
-        <div className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-sm text-neutral-300">
+        <div className="rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground">
           <p>No expenses found for the current filters.</p>
-          {auth?.role === "parent" && auth.is_unlocked ? <Link href="/expenses/new" className="see-all-link mt-2 inline-block">Add your first expense</Link> : null}
+          {auth?.role === "parent" && auth.is_unlocked ? (
+            <Link href="/expenses/new" className="mt-2 inline-block text-primary underline-offset-2 hover:underline">
+              Add your first expense
+            </Link>
+          ) : null}
         </div>
       ) : null}
 
-      <div className="space-y-2">
+      <div className="flex flex-col gap-2">
         {expenses.map((expense) => (
           <Link
             key={expense.id}
@@ -125,15 +144,14 @@ export default function ExpensesPage() {
             title={expense.allocations
               .map((allocation) => `${projects.find((project) => project.id === allocation.project_id)?.name ?? allocation.project_id}: $${allocation.amount.toFixed(2)}`)
               .join(" | ")}
-            className="block rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-sm"
+            className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3"
           >
-            {expense.date.slice(0, 10)} • ${expense.amount.toFixed(2)} • {expense.category} • {expense.vendor ?? "No vendor"}{" "}
-            {expense.is_split ? <span className="ml-2 rounded bg-blue-900 px-2 py-0.5 text-xs">Split</span> : null}
-            {expense.receipt_count > 0 ? (
-              <span className="ml-2 rounded bg-emerald-900 px-2 py-0.5 text-xs">
-                {expense.receipt_count} receipt{expense.receipt_count === 1 ? "" : "s"}
-              </span>
-            ) : null}
+            <div>
+              <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium capitalize text-muted-foreground">{expense.category}</span>
+              <p className="mt-0.5 text-sm text-foreground">{expense.vendor ?? expense.description ?? "No description"}</p>
+              <p className="text-xs text-muted-foreground">{expense.date.slice(0, 10)}</p>
+            </div>
+            <p className="text-base font-semibold text-foreground">${expense.amount.toFixed(2)}</p>
           </Link>
         ))}
       </div>

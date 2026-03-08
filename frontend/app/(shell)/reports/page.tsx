@@ -3,20 +3,15 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-import { FamilyFinancialSummary, apiClientJson } from "@/lib/api";
+import { FamilyFinancialSummary, FamilySummaryExtra, apiClientJson } from "@/lib/api";
 import { toUserErrorMessage } from "@/lib/errorMessage";
 
-type FamilySummaryExtra = {
-  checklists?: { total: number; completed: number; completion_percent: number };
-  project_type_distribution?: Record<string, number>;
-};
-
 export default function ReportsPage() {
+  const [summary, setSummary] = useState<FamilyFinancialSummary | null>(null);
+  const [familySummary, setFamilySummary] = useState<FamilySummaryExtra | null>(null);
   const [range, setRange] = useState("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [summary, setSummary] = useState<FamilyFinancialSummary | null>(null);
-  const [familySummary, setFamilySummary] = useState<FamilySummaryExtra | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,73 +54,131 @@ export default function ReportsPage() {
 
   return (
     <div className="w-full space-y-4 px-4 pb-4">
-      <section className="barn-card space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-semibold">Reports</h1>
-          <button type="button" onClick={() => window.print()} className="rounded bg-neutral-700 px-3 py-2 text-sm">Print</button>
-          <a className="rounded bg-[var(--barn-red)] px-3 py-2 text-sm" href="/api/reports/family-summary.csv">Family CSV</a>
+      <section>
+        <div className="mb-4 flex items-center justify-between">
+          <h1 className="font-serif text-2xl text-foreground">Reports</h1>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => window.print()} className="rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground">
+              Print
+            </button>
+            <a className="rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground" href="/api/reports/family-summary.csv">
+              Family CSV
+            </a>
+          </div>
         </div>
-        <div className="grid gap-2 sm:grid-cols-3">
-          <select value={range} onChange={(event) => setRange(event.target.value)} className="rounded border border-[var(--barn-border)] bg-black/20 p-2 text-sm">
+
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3">
+          <select
+            value={range}
+            onChange={(event) => setRange(event.target.value)}
+            className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground"
+          >
             <option value="all">All time</option>
             <option value="this_year">This year</option>
             <option value="custom">Custom range</option>
           </select>
-          {range === "custom" ? <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="rounded border border-[var(--barn-border)] bg-black/20 p-2 text-sm" /> : null}
-          {range === "custom" ? <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="rounded border border-[var(--barn-border)] bg-black/20 p-2 text-sm" /> : null}
+          {range === "custom" ? (
+            <input
+              type="date"
+              value={startDate}
+              onChange={(event) => setStartDate(event.target.value)}
+              className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground"
+            />
+          ) : null}
+          {range === "custom" ? (
+            <input
+              type="date"
+              value={endDate}
+              onChange={(event) => setEndDate(event.target.value)}
+              className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground"
+            />
+          ) : null}
+          {range === "custom" ? (
+            <button type="button" onClick={() => load().catch(() => undefined)} className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
+              Apply dates
+            </button>
+          ) : null}
         </div>
-        {range === "custom" ? <button type="button" onClick={() => load().catch(() => undefined)} className="rounded bg-neutral-700 px-3 py-2 text-sm">Apply dates</button> : null}
       </section>
 
-      {loading ? <p className="text-sm text-[var(--barn-muted)]">Loading report summary...</p> : null}
+      {loading ? <p className="text-sm text-muted-foreground">Loading report summary...</p> : null}
 
       {error ? (
-        <section className="barn-card space-y-2 text-sm">
-          <p className="text-red-200">{error}</p>
-          <button type="button" onClick={() => load().catch(() => undefined)} className="rounded bg-neutral-700 px-3 py-2 text-sm">Retry</button>
+        <section className="rounded-2xl border border-destructive/20 bg-destructive/10 p-4 text-sm">
+          <p className="text-destructive">{error}</p>
+          <button type="button" onClick={() => load().catch(() => undefined)} className="mt-2 rounded-xl bg-primary px-3 py-2 text-sm text-primary-foreground">
+            Retry
+          </button>
         </section>
       ) : null}
 
       {summary && !error ? (
         <>
-          <section className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            <article className="barn-chip">${summary.overall_totals.total_expenses.toFixed(2)}<span>Total expenses</span></article>
-            <article className="barn-chip">${summary.overall_totals.total_income.toFixed(2)}<span>Total income</span></article>
-            <article className="barn-chip">${summary.overall_totals.net_family_balance.toFixed(2)}<span>Net family balance</span></article>
+          <section className="mb-4 grid grid-cols-3 gap-3">
+            <article className="flex flex-col items-center rounded-2xl border border-border bg-card px-2 py-3">
+              <p className="text-base font-semibold text-foreground">${summary.overall_totals.total_expenses.toFixed(2)}</p>
+              <span className="mt-0.5 text-[10px] text-muted-foreground">Total expenses</span>
+            </article>
+            <article className="flex flex-col items-center rounded-2xl border border-border bg-card px-2 py-3">
+              <p className="text-base font-semibold text-foreground">${summary.overall_totals.total_income.toFixed(2)}</p>
+              <span className="mt-0.5 text-[10px] text-muted-foreground">Total income</span>
+            </article>
+            <article className="flex flex-col items-center rounded-2xl border border-border bg-card px-2 py-3">
+              <p className="text-base font-semibold text-foreground">${summary.overall_totals.net_family_balance.toFixed(2)}</p>
+              <span className="mt-0.5 text-[10px] text-muted-foreground">Net family balance</span>
+            </article>
           </section>
 
-          <section className="barn-card space-y-2">
-            <h2 className="text-base font-medium">Family summary polish</h2>
-            <p className="text-sm text-[var(--barn-muted)]">Checklist completion: {familySummary?.checklists?.completed ?? 0} / {familySummary?.checklists?.total ?? 0} ({familySummary?.checklists?.completion_percent ?? 0}%)</p>
-            <div className="flex flex-wrap gap-2 text-xs">
-              {Object.entries(familySummary?.project_type_distribution ?? {}).map(([projectType, count]) => <span key={projectType} className="rounded bg-neutral-800 px-2 py-1">{projectType}: {count}</span>)}
-            </div>
+          <section className="mb-4 flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3">
+            <p className="text-sm text-muted-foreground">Checklist completion</p>
+            <p className="text-sm font-medium text-foreground">
+              {familySummary?.checklists?.completed ?? 0} / {familySummary?.checklists?.total ?? 0} ({familySummary?.checklists?.completion_percent ?? 0}%)
+            </p>
           </section>
 
-          <section className="barn-card space-y-2">
-            <h2 className="text-base font-medium">By project</h2>
-            {sortedProjects.map((project) => (
-              <article key={project.project_id} className="barn-row text-sm">
-                <p className="font-medium">{project.project_name}</p>
-                <p className="text-xs text-[var(--barn-muted)]">Owner: {project.owner_name ?? "Unknown"}</p>
-                <p className="text-xs text-[var(--barn-muted)]">Expenses ${project.total_expenses.toFixed(2)} • Materials ${(project.total_materials ?? 0).toFixed(2)} • Income ${project.total_income.toFixed(2)} • Net ${project.net_profit_loss.toFixed(2)}</p>
-                <div className="flex gap-2">
-                  <Link className="see-all-link" href={`/reports/projects/${project.project_id}`}>Project record</Link>
-                  <a className="see-all-link" href={`/api/reports/projects/${project.project_id}.csv`}>CSV</a>
-                </div>
-              </article>
-            ))}
+          <section>
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Project breakdown</h2>
+            {sortedProjects.map((project) => {
+              const net = project.net_profit_loss;
+              return (
+                <article key={project.project_id} className="mb-2 flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
+                  <p className="text-sm font-medium text-foreground">{project.project_name}</p>
+                  <div className="flex gap-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Spent</p>
+                      <p className="text-sm font-medium text-foreground">${project.total_expenses.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Income</p>
+                      <p className="text-sm font-medium text-green-600">${project.total_income.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Net</p>
+                      <p className={`text-sm font-semibold ${net >= 0 ? "text-green-600" : "text-red-500"}`}>${net.toFixed(2)}</p>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
           </section>
 
-          <section className="barn-card space-y-2">
-            <h2 className="text-base font-medium">By member/profile</h2>
+          <section className="rounded-2xl border border-border bg-card p-4">
+            <h2 className="mb-2 text-sm font-medium text-foreground">By member/profile</h2>
             {summary.by_member.map((member) => (
-              <article key={member.profile_id} className="barn-row text-sm">
-                <p className="font-medium">{member.member_name}</p>
-                <p className="text-xs text-[var(--barn-muted)]">Expenses ${member.total_project_expenses.toFixed(2)} • Income ${member.total_project_income.toFixed(2)} • Net ${member.net_total.toFixed(2)}</p>
+              <article key={member.profile_id} className="py-1 text-sm text-muted-foreground">
+                <p className="text-sm font-medium text-foreground">{member.member_name}</p>
+                <p>
+                  Expenses ${member.total_project_expenses.toFixed(2)} • Income ${member.total_project_income.toFixed(2)} • Net ${member.net_total.toFixed(2)}
+                </p>
               </article>
             ))}
           </section>
+
+          <div className="flex gap-2">
+            <Link className="text-sm text-primary underline-offset-2 hover:underline" href="/reports/projects">
+              Project records
+            </Link>
+          </div>
         </>
       ) : null}
     </div>
