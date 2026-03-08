@@ -103,13 +103,13 @@ export default function EditExpensePage() {
     }
   };
 
-  if (!expense) return <p className="px-4 text-sm text-neutral-300">Loading expense...</p>;
+  if (!expense) return <p className="px-4 text-sm text-muted-foreground">Loading expense...</p>;
 
   if (savedSummary) {
-    return <section className="space-y-3 rounded-lg border border-white/10 bg-neutral-900 p-4">
+    return <section className="space-y-3 rounded-lg border border-border bg-background p-4">
       <h1 className="text-xl font-semibold">Expense updated</h1>
-      <p className="text-sm text-neutral-300">Total amount: ${savedSummary.amount.toFixed(2)}</p>
-      <div className="rounded bg-neutral-800 p-3 text-sm">
+      <p className="text-sm text-muted-foreground">Total amount: ${savedSummary.amount.toFixed(2)}</p>
+      <div className="rounded bg-background p-3 text-sm">
         <p className="mb-1 font-semibold">Allocations</p>
         {savedSummary.allocations.map((row, index) => <p key={`${row.projectName}-${index}`}>{row.projectName}: ${row.amount.toFixed(2)}</p>)}
       </div>
@@ -118,35 +118,35 @@ export default function EditExpensePage() {
     </section>;
   }
 
-  return <form onSubmit={submit} className="space-y-3 rounded-lg border border-white/10 bg-neutral-900 p-4 mx-4 mb-6">
+  return <form onSubmit={submit} className="space-y-3 rounded-lg border border-border bg-background p-4 mx-4 mb-6">
     <h1 className="text-xl font-semibold">Edit Expense</h1>
-    <select name="project_id" defaultValue={expense.project_id} className="w-full rounded bg-neutral-800 p-2">{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select>
-    <input name="date" type="date" defaultValue={expense.date.slice(0, 10)} className="w-full rounded bg-neutral-800 p-2" />
-    <input name="category" defaultValue={expense.category} className="w-full rounded bg-neutral-800 p-2" />
-    <input name="vendor" defaultValue={expense.vendor ?? ""} className="w-full rounded bg-neutral-800 p-2" />
-    <input name="amount" type="number" step="0.01" defaultValue={expense.amount} className="w-full rounded bg-neutral-800 p-2" onChange={(event) => setExpense((prev) => prev ? ({ ...prev, amount: Number(event.target.value) || 0 }) : prev)} />
-    <textarea name="note" defaultValue={expense.note ?? ""} className="w-full rounded bg-neutral-800 p-2" />
+    <select name="project_id" defaultValue={expense.project_id} className="w-full rounded bg-background p-2">{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select>
+    <input name="date" type="date" defaultValue={expense.date.slice(0, 10)} className="w-full rounded bg-background p-2" />
+    <input name="category" defaultValue={expense.category} className="w-full rounded bg-background p-2" />
+    <input name="vendor" defaultValue={expense.vendor ?? ""} className="w-full rounded bg-background p-2" />
+    <input name="amount" type="number" step="0.01" defaultValue={expense.amount} className="w-full rounded bg-background p-2" onChange={(event) => setExpense((prev) => prev ? ({ ...prev, amount: Number(event.target.value) || 0 }) : prev)} />
+    <textarea name="note" defaultValue={expense.note ?? ""} className="w-full rounded bg-background p-2" />
 
-    <section className="space-y-2 rounded border border-white/10 p-3">
+    <section className="space-y-2 rounded border border-border p-3">
       <h2 className="font-semibold">Receipt photos</h2>
       <div className="flex flex-wrap items-center gap-2">
-        <input type="file" multiple accept="image/*,.pdf,application/pdf" className="rounded bg-neutral-800 p-2 text-sm" onChange={(event) => setReceiptFiles(Array.from(event.target.files ?? []))} />
-        <input value={receiptCaption} onChange={(event) => setReceiptCaption(event.target.value)} placeholder="Caption" className="rounded bg-neutral-800 p-2 text-sm" />
+        <input type="file" multiple accept="image/*,.pdf,application/pdf" className="rounded bg-background p-2 text-sm" onChange={(event) => setReceiptFiles(Array.from(event.target.files ?? []))} />
+        <input value={receiptCaption} onChange={(event) => setReceiptCaption(event.target.value)} placeholder="Caption" className="rounded bg-background p-2 text-sm" />
         <button type="button" onClick={uploadReceipts} className="rounded bg-red-700 px-3 py-2 text-sm">Upload</button>
       </div>
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-3">{receipts.map((receipt) => <div key={receipt.id} className="space-y-1 rounded bg-neutral-800 p-2 text-xs">{/\.pdf($|\?)/i.test(receipt.url) ? <a href={receipt.url} className="block rounded border border-white/20 p-3 text-center text-blue-200 underline">Download PDF</a> : <img src={receipt.url} alt={receipt.caption ?? receipt.file_name} className="h-20 w-full cursor-pointer rounded object-cover" onClick={() => setPreviewUrl(receipt.url)} />}<p>{receipt.caption ?? receipt.file_name}</p></div>)}</div>
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-3">{receipts.map((receipt) => <div key={receipt.id} className="space-y-1 rounded bg-background p-2 text-xs">{/\.pdf($|\?)/i.test(receipt.url) ? <a href={receipt.url} className="block rounded border border-white/20 p-3 text-center text-blue-200 underline">Download PDF</a> : <img src={receipt.url} alt={receipt.caption ?? receipt.file_name} className="h-20 w-full cursor-pointer rounded object-cover" onClick={() => setPreviewUrl(receipt.url)} />}<p>{receipt.caption ?? receipt.file_name}</p></div>)}</div>
     </section>
 
-    <section className="space-y-2 rounded border border-white/10 p-3">
+    <section className="space-y-2 rounded border border-border p-3">
       <div className="flex items-center justify-between"><h2 className="font-semibold">Split allocations</h2><label className="text-sm"><input type="checkbox" checked={splitEnabled} onChange={(event) => setSplitEnabled(event.target.checked)} className="mr-2" />Split this expense</label></div>
       {splitEnabled ? <>
         <div className="flex gap-2 text-sm">
-          <button type="button" onClick={() => setSplitMode("dollar")} className={`rounded px-2 py-1 ${splitMode === "dollar" ? "bg-red-700" : "bg-neutral-800"}`}>Dollar split</button>
-          <button type="button" onClick={() => setSplitMode("percent")} className={`rounded px-2 py-1 ${splitMode === "percent" ? "bg-red-700" : "bg-neutral-800"}`}>Percent split</button>
-          <button type="button" onClick={autoSplitEqually} className="rounded bg-neutral-800 px-2 py-1">Auto split equally</button>
+          <button type="button" onClick={() => setSplitMode("dollar")} className={`rounded px-2 py-1 ${splitMode === "dollar" ? "bg-red-700" : "bg-background"}`}>Dollar split</button>
+          <button type="button" onClick={() => setSplitMode("percent")} className={`rounded px-2 py-1 ${splitMode === "percent" ? "bg-red-700" : "bg-background"}`}>Percent split</button>
+          <button type="button" onClick={autoSplitEqually} className="rounded bg-background px-2 py-1">Auto split equally</button>
         </div>
-        <div className="space-y-2">{rows.map((row) => <div key={row.id} className="grid grid-cols-12 gap-2 text-sm"><select value={row.project_id} onChange={(event) => setRows((prev) => prev.map((item) => item.id === row.id ? ({ ...item, project_id: event.target.value }) : item))} className="col-span-6 rounded bg-neutral-800 p-2"><option value="">Project</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select>{splitMode === "dollar" ? <input type="number" step="0.01" value={row.amount} onChange={(event) => setRows((prev) => prev.map((item) => item.id === row.id ? ({ ...item, amount: event.target.value }) : item))} placeholder="Amount" className="col-span-5 rounded bg-neutral-800 p-2" /> : <input type="number" step="0.01" value={row.percent} onChange={(event) => setRows((prev) => prev.map((item) => item.id === row.id ? ({ ...item, percent: event.target.value }) : item))} placeholder="Percent" className="col-span-5 rounded bg-neutral-800 p-2" />}<button type="button" onClick={() => setRows((prev) => prev.length > 1 ? prev.filter((item) => item.id !== row.id) : prev)} className="col-span-1 rounded bg-neutral-700">×</button></div>)}</div>
-        <div className="flex items-center justify-between"><button type="button" onClick={() => setRows((prev) => [...prev, { id: Date.now() + prev.length, project_id: "", amount: "", percent: "" }])} className="rounded bg-neutral-800 px-3 py-2 text-sm">Add allocation</button><p className={`text-sm ${preview.remainingCents === 0 ? "text-green-300" : "text-yellow-300"}`}>Remaining ${(preview.remainingCents / 100).toFixed(2)}</p></div>
+        <div className="space-y-2">{rows.map((row) => <div key={row.id} className="grid grid-cols-12 gap-2 text-sm"><select value={row.project_id} onChange={(event) => setRows((prev) => prev.map((item) => item.id === row.id ? ({ ...item, project_id: event.target.value }) : item))} className="col-span-6 rounded bg-background p-2"><option value="">Project</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select>{splitMode === "dollar" ? <input type="number" step="0.01" value={row.amount} onChange={(event) => setRows((prev) => prev.map((item) => item.id === row.id ? ({ ...item, amount: event.target.value }) : item))} placeholder="Amount" className="col-span-5 rounded bg-background p-2" /> : <input type="number" step="0.01" value={row.percent} onChange={(event) => setRows((prev) => prev.map((item) => item.id === row.id ? ({ ...item, percent: event.target.value }) : item))} placeholder="Percent" className="col-span-5 rounded bg-background p-2" />}<button type="button" onClick={() => setRows((prev) => prev.length > 1 ? prev.filter((item) => item.id !== row.id) : prev)} className="col-span-1 rounded bg-secondary text-foreground">×</button></div>)}</div>
+        <div className="flex items-center justify-between"><button type="button" onClick={() => setRows((prev) => [...prev, { id: Date.now() + prev.length, project_id: "", amount: "", percent: "" }])} className="rounded bg-background px-3 py-2 text-sm">Add allocation</button><p className={`text-sm ${preview.remainingCents === 0 ? "text-green-300" : "text-yellow-300"}`}>Remaining ${(preview.remainingCents / 100).toFixed(2)}</p></div>
       </> : null}
     </section>
 

@@ -17,5 +17,5 @@ export default function LegacyShowDayRedirectPage() {
     router.replace(`/shows/${params.id}`);
   }, [params.id, router, searchParams]);
 
-  return <p className="px-4 py-4 text-sm text-[var(--barn-muted)]">Opening show day…</p>;
+  return <p className="px-4 py-4 text-sm text-muted-foreground">Opening show day…</p>;
 }

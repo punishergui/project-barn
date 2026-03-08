@@ -345,7 +345,7 @@ export default function ProjectDetailPage() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Link href={`/projects/${project.id}/edit`} className="rounded-lg border border-border bg-secondary px-3 py-2 text-xs">Edit Project</Link>
-              <button onClick={() => apiClientJson(`/projects/${project.id}`, { method: "DELETE" }).then(() => router.push("/projects"))} className="rounded-lg bg-destructive px-3 py-2 text-xs text-white">Delete Project</button>
+              <button onClick={() => apiClientJson(`/projects/${project.id}`, { method: "DELETE" }).then(() => router.push("/projects"))} className="rounded-lg bg-destructive px-3 py-2 text-xs text-primary-foreground">Delete Project</button>
             </div>
           </section>
         ) : null}

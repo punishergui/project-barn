@@ -24,9 +24,9 @@ export default function SettingsProfilesPage() {
           actions={[{ href: "/setup", label: "Open setup" }]}
         />
       ) : profiles.map((profile) => (
-        <Link key={profile.id} href={`/settings/profiles/${profile.id}`} className="barn-row block text-sm">
+        <Link key={profile.id} href={`/settings/profiles/${profile.id}`} className="text-sm text-muted-foreground block text-sm">
           <p className="font-medium">{profile.name}</p>
-          <p className="text-xs text-[var(--barn-muted)]">{profile.role} • {profile.archived ? "Archived" : "Active"}</p>
+          <p className="text-xs text-muted-foreground">{profile.role} • {profile.archived ? "Archived" : "Active"}</p>
         </Link>
       ))}
     </div>

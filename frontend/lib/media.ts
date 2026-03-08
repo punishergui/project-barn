@@ -17,10 +17,10 @@ export function detectMediaType(item: MediaItem): "photo" | "video" | "ribbon" {
 
 export function ribbonBadgeClass(ribbonType?: string | null) {
   const key = (ribbonType || "").toLowerCase();
-  if (key.includes("champion")) return "bg-purple-700 text-white";
-  if (key.includes("reserve")) return "bg-pink-600 text-white";
-  if (key.includes("blue") || key.includes("1")) return "bg-blue-700 text-white";
-  if (key.includes("red") || key.includes("2")) return "bg-red-700 text-white";
+  if (key.includes("champion")) return "bg-purple-700 text-primary-foreground";
+  if (key.includes("reserve")) return "bg-pink-600 text-primary-foreground";
+  if (key.includes("blue") || key.includes("1")) return "bg-primary text-primary-foreground text-primary-foreground";
+  if (key.includes("red") || key.includes("2")) return "bg-red-700 text-primary-foreground";
   if (key.includes("white") || key.includes("3")) return "bg-slate-200 text-slate-900";
-  return "bg-neutral-700 text-white";
+  return "bg-secondary text-foreground text-primary-foreground";
 }

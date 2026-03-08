@@ -78,9 +78,9 @@ export default function ProjectTasksPage() {
     <div className="space-y-3">
       <h1 className="text-2xl font-semibold">Project Tasks</h1>
 
-      <form onSubmit={submit} className="grid gap-2 rounded border border-white/10 bg-neutral-900 p-3">
-        <input name="title" required placeholder="Task title" className="rounded bg-neutral-800 p-2" />
-        <input name="due_date" type="date" className="rounded bg-neutral-800 p-2" />
+      <form onSubmit={submit} className="grid gap-2 rounded border border-border bg-background p-3">
+        <input name="title" required placeholder="Task title" className="rounded bg-background p-2" />
+        <input name="due_date" type="date" className="rounded bg-background p-2" />
         <label className="text-sm">
           <input type="checkbox" name="is_daily" className="mr-2" />
           Daily task
@@ -88,7 +88,7 @@ export default function ProjectTasksPage() {
         <button
           type="submit"
           disabled={saving}
-          className="rounded bg-blue-700 px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded bg-primary text-primary-foreground px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
         >
           {saving ? "Saving..." : "Add task"}
         </button>
@@ -97,18 +97,18 @@ export default function ProjectTasksPage() {
       {error ? <p className="rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-100">{error}</p> : null}
 
       {loading ? (
-        <p className="text-sm text-neutral-300">Loading tasks...</p>
+        <p className="text-sm text-muted-foreground">Loading tasks...</p>
       ) : (
         <>
           <section className="space-y-2">
-            <h2 className="text-sm font-semibold uppercase text-neutral-300">Today (Daily)</h2>
-            {daily.length === 0 ? <p className="text-sm text-neutral-400">No daily tasks yet.</p> : null}
+            <h2 className="text-sm font-semibold uppercase text-muted-foreground">Today (Daily)</h2>
+            {daily.length === 0 ? <p className="text-sm text-muted-foreground">No daily tasks yet.</p> : null}
             {daily.map((task) => (
               <button
                 key={task.id}
                 type="button"
                 onClick={() => toggle(task)}
-                className="block w-full rounded border border-white/10 bg-neutral-900 p-3 text-left text-sm"
+                className="block w-full rounded border border-border bg-background p-3 text-left text-sm"
               >
                 <span className={task.is_completed ? "line-through" : ""}>{task.title}</span>
               </button>
@@ -116,17 +116,17 @@ export default function ProjectTasksPage() {
           </section>
 
           <section className="space-y-2">
-            <h2 className="text-sm font-semibold uppercase text-neutral-300">Due tasks</h2>
-            {due.length === 0 ? <p className="text-sm text-neutral-400">No due-date tasks yet.</p> : null}
+            <h2 className="text-sm font-semibold uppercase text-muted-foreground">Due tasks</h2>
+            {due.length === 0 ? <p className="text-sm text-muted-foreground">No due-date tasks yet.</p> : null}
             {due.map((task) => (
               <button
                 key={task.id}
                 type="button"
                 onClick={() => toggle(task)}
-                className="block w-full rounded border border-white/10 bg-neutral-900 p-3 text-left text-sm"
+                className="block w-full rounded border border-border bg-background p-3 text-left text-sm"
               >
                 <span className={task.is_completed ? "line-through" : ""}>{task.title}</span>
-                <span className="ml-2 text-xs text-neutral-400">{task.due_date?.slice(0, 10) ?? "No due date"}</span>
+                <span className="ml-2 text-xs text-muted-foreground">{task.due_date?.slice(0, 10) ?? "No due date"}</span>
               </button>
             ))}
           </section>

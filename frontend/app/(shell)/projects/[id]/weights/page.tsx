@@ -83,10 +83,10 @@ export default function ProjectWeightsPage() {
     <div className="space-y-4">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold">Weights</h1>
-        <p className="text-sm text-[var(--barn-muted)]">Track weigh-ins and quick trends for this project.</p>
+        <p className="text-sm text-muted-foreground">Track weigh-ins and quick trends for this project.</p>
         {latestWeight !== null ? (
-          <p className="text-sm text-[var(--barn-muted)]">
-            Latest: <span className="font-semibold text-white">{latestWeight} lbs</span>
+          <p className="text-sm text-muted-foreground">
+            Latest: <span className="font-semibold text-primary-foreground">{latestWeight} lbs</span>
             {changeFromPrevious !== null ? (
               <span> ({changeFromPrevious >= 0 ? "+" : ""}{changeFromPrevious} since previous entry)</span>
             ) : null}
@@ -94,12 +94,12 @@ export default function ProjectWeightsPage() {
         ) : null}
       </header>
 
-      <form onSubmit={submit} className="grid gap-3 rounded-lg border border-white/10 bg-neutral-900 p-3">
+      <form onSubmit={submit} className="grid gap-3 rounded-lg border border-border bg-background p-3">
         <input
           name="recorded_at"
           type="date"
           defaultValue={new Date().toISOString().slice(0, 10)}
-          className="rounded bg-neutral-800 p-2"
+          className="rounded bg-background p-2"
           required
         />
         <input
@@ -108,29 +108,29 @@ export default function ProjectWeightsPage() {
           step="0.1"
           required
           placeholder="Weight (lbs)"
-          className="rounded bg-neutral-800 p-2"
+          className="rounded bg-background p-2"
         />
-        <textarea name="notes" className="rounded bg-neutral-800 p-2" placeholder="Notes" rows={3} />
-        <button disabled={isSubmitting} className="rounded bg-blue-700 px-3 py-2 text-sm font-medium disabled:opacity-50">
+        <textarea name="notes" className="rounded bg-background p-2" placeholder="Notes" rows={3} />
+        <button disabled={isSubmitting} className="rounded bg-primary text-primary-foreground px-3 py-2 text-sm font-medium disabled:opacity-50">
           {isSubmitting ? "Saving..." : "Add entry"}
         </button>
       </form>
 
       {errorMessage ? <p className="rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-200">{errorMessage}</p> : null}
 
-      {isLoading ? <p className="text-sm text-[var(--barn-muted)]">Loading entries...</p> : null}
+      {isLoading ? <p className="text-sm text-muted-foreground">Loading entries...</p> : null}
 
       {!isLoading && rows.length === 0 ? (
-        <p className="rounded-lg border border-white/10 bg-neutral-900 p-3 text-sm text-[var(--barn-muted)]">No weight entries yet.</p>
+        <p className="rounded-lg border border-border bg-background p-3 text-sm text-muted-foreground">No weight entries yet.</p>
       ) : null}
 
       <div className="space-y-2">
         {rows.map((entry) => (
-          <article key={entry.id} className="rounded-lg border border-white/10 bg-neutral-900 p-3 text-sm">
+          <article key={entry.id} className="rounded-lg border border-border bg-background p-3 text-sm">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="font-medium">{formatDate(entry.recorded_at)} • {entry.weight_lbs} lbs</p>
-                {entry.notes ? <p className="mt-1 text-[var(--barn-muted)]">{entry.notes}</p> : null}
+                {entry.notes ? <p className="mt-1 text-muted-foreground">{entry.notes}</p> : null}
               </div>
               <button
                 type="button"

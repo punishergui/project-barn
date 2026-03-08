@@ -84,48 +84,48 @@ export default function ProjectHealthPage() {
     <div className="space-y-4">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold">Health</h1>
-        <p className="text-sm text-[var(--barn-muted)]">Record treatments, vaccinations, and injuries for this project.</p>
+        <p className="text-sm text-muted-foreground">Record treatments, vaccinations, and injuries for this project.</p>
       </header>
 
-      <form onSubmit={submit} className="grid gap-3 rounded-lg border border-white/10 bg-neutral-900 p-3">
+      <form onSubmit={submit} className="grid gap-3 rounded-lg border border-border bg-background p-3">
         <input
           name="recorded_at"
           type="date"
           defaultValue={new Date().toISOString().slice(0, 10)}
-          className="rounded bg-neutral-800 p-2"
+          className="rounded bg-background p-2"
           required
         />
-        <select name="category" className="rounded bg-neutral-800 p-2" required>
+        <select name="category" className="rounded bg-background p-2" required>
           <option value="treatment">Treatment</option>
           <option value="vaccination">Vaccination</option>
           <option value="injury">Injury</option>
           <option value="note">Note</option>
         </select>
-        <textarea name="description" required className="rounded bg-neutral-800 p-2" placeholder="Description" rows={3} />
-        <input name="cost" type="number" step="0.01" placeholder="Cost" className="rounded bg-neutral-800 p-2" />
-        <input name="vendor" placeholder="Vendor" className="rounded bg-neutral-800 p-2" />
-        <input name="attachment_receipt_url" type="url" placeholder="Receipt URL" className="rounded bg-neutral-800 p-2" />
-        <button disabled={isSubmitting} className="rounded bg-blue-700 px-3 py-2 text-sm font-medium disabled:opacity-50">
+        <textarea name="description" required className="rounded bg-background p-2" placeholder="Description" rows={3} />
+        <input name="cost" type="number" step="0.01" placeholder="Cost" className="rounded bg-background p-2" />
+        <input name="vendor" placeholder="Vendor" className="rounded bg-background p-2" />
+        <input name="attachment_receipt_url" type="url" placeholder="Receipt URL" className="rounded bg-background p-2" />
+        <button disabled={isSubmitting} className="rounded bg-primary text-primary-foreground px-3 py-2 text-sm font-medium disabled:opacity-50">
           {isSubmitting ? "Saving..." : "Add entry"}
         </button>
       </form>
 
       {errorMessage ? <p className="rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-200">{errorMessage}</p> : null}
-      {isLoading ? <p className="text-sm text-[var(--barn-muted)]">Loading entries...</p> : null}
+      {isLoading ? <p className="text-sm text-muted-foreground">Loading entries...</p> : null}
 
       {!isLoading && rows.length === 0 ? (
-        <p className="rounded-lg border border-white/10 bg-neutral-900 p-3 text-sm text-[var(--barn-muted)]">No health entries yet.</p>
+        <p className="rounded-lg border border-border bg-background p-3 text-sm text-muted-foreground">No health entries yet.</p>
       ) : null}
 
       <div className="space-y-2">
         {rows.map((entry) => (
-          <article key={entry.id} className="rounded-lg border border-white/10 bg-neutral-900 p-3 text-sm">
+          <article key={entry.id} className="rounded-lg border border-border bg-background p-3 text-sm">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="font-medium">{formatDate(entry.recorded_at)} • {entry.category}</p>
-                <p className="mt-1 text-[var(--barn-muted)]">{entry.description}</p>
-                <p className="mt-1 text-[var(--barn-muted)]">
-                  Cost: <span className="text-white">{formatCurrency(entry.cost)}</span>
+                <p className="mt-1 text-muted-foreground">{entry.description}</p>
+                <p className="mt-1 text-muted-foreground">
+                  Cost: <span className="text-primary-foreground">{formatCurrency(entry.cost)}</span>
                   {entry.vendor ? <span> • Vendor: {entry.vendor}</span> : null}
                 </p>
                 {entry.attachment_receipt_url ? (

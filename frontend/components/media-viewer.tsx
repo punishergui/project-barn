@@ -42,7 +42,7 @@ export function MediaViewer({ items, initialIndex, auth, onClose, onChanged }: P
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black/95 text-white" onTouchStart={(event) => setTouchStart(event.changedTouches[0]?.clientX ?? null)} onTouchEnd={(event) => {
+    <div className="fixed inset-0 z-50 flex flex-col bg-black/95 text-primary-foreground" onTouchStart={(event) => setTouchStart(event.changedTouches[0]?.clientX ?? null)} onTouchEnd={(event) => {
       if (touchStart === null) return;
       const end = event.changedTouches[0]?.clientX ?? touchStart;
       const delta = end - touchStart;
@@ -70,7 +70,7 @@ export function MediaViewer({ items, initialIndex, auth, onClose, onChanged }: P
           {current.helper_profile_name ? <span className="rounded bg-white/15 px-2 py-1">By {current.helper_profile_name}</span> : null}
         </div>
         <p>{current.caption || current.file_name}</p>
-        {current.tags?.length ? <p className="text-xs text-neutral-300">Tags: {current.tags.join(", ")}</p> : null}
+        {current.tags?.length ? <p className="text-xs text-muted-foreground">Tags: {current.tags.join(", ")}</p> : null}
       </div>
 
       <div className="absolute inset-y-0 left-0 flex items-center">
