@@ -29,7 +29,7 @@ function TopBar({
     <header className="sticky top-0 z-40 h-14 border-b border-border bg-card">
       <div className="mx-auto flex h-full max-w-lg items-center justify-between px-4">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <BarnLogo size={28} className="h-[21px] w-[28px] object-contain" />
+          <BarnLogo size={28} className="h-[21px] w-[28px] text-primary" />
           <span className="font-serif text-lg text-foreground">Project Barn</span>
         </Link>
         <div className="flex items-center gap-3">

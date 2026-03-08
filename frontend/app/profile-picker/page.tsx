@@ -88,7 +88,7 @@ export default function ProfilePickerPage() {
   return (
     <main className="min-h-dvh bg-secondary">
       <div className="mx-auto flex min-h-dvh w-full max-w-sm flex-col items-center justify-center px-6 py-10">
-        <BarnLogo size={88} className="h-[66px] w-[88px] object-contain" />
+        <BarnLogo size={88} className="h-[66px] w-[88px] text-primary" />
         <h1 className="mt-3 font-serif text-3xl text-foreground">Project Barn</h1>
         <p className="mb-6 mt-1 text-sm text-muted-foreground">Who&apos;s using the app?</p>
 

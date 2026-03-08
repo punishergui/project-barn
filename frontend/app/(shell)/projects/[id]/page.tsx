@@ -190,119 +190,126 @@ export default function ProjectDetailPage() {
   ];
 
   return (
-    <div className="-mx-4 pb-8">
-      <section className="relative h-56 w-full overflow-hidden">
+    <div className="pb-8">
+      <section className="-mx-4 h-48 overflow-hidden">
         {project.photo_url ? (
           <img src={project.photo_url} alt={project.name} className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-secondary text-6xl">{project.is_livestock ? "🐄" : "📋"}</div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-        <Link href="/projects" className="absolute left-4 top-4 rounded-full bg-white/20 px-3 py-1.5 text-xs font-medium text-white backdrop-blur">
-          Back
-        </Link>
-        {auth?.role === "parent" && auth.is_unlocked ? (
-          <label className="absolute right-4 top-4 cursor-pointer rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
-            Upload
-            <input type="file" accept="image/*" className="hidden" onChange={(event) => handleHeroUpload(event).catch(() => undefined)} />
-          </label>
-        ) : null}
-        <div className="absolute bottom-4 left-4 right-4">
-          <p className="text-xs uppercase tracking-wider text-white/80">{project.project_category ?? project.project_type}</p>
-          <h1 className="font-serif text-3xl text-white">{project.name}</h1>
-          <p className="text-sm text-white/80">{ownerName}</p>
-        </div>
       </section>
 
-      <div className="space-y-5 px-4 pt-4">
+      <div className="mt-3">
+        <h1 className="font-serif text-2xl text-foreground">{project.name}</h1>
+        <p className="text-sm capitalize text-muted-foreground">
+          {project.species} • {ownerName}
+        </p>
+      </div>
+
+      <div className="mt-3 grid grid-cols-4 gap-2">
+        <div className="flex flex-col items-center rounded-xl border border-border bg-card px-1 py-2.5">
+          <p className="text-sm font-semibold text-foreground">{latestWeight ? `${latestWeight} lbs` : "—"}</p>
+          <p className="mt-0.5 text-[10px] text-muted-foreground">Weight</p>
+        </div>
+        <div className="flex flex-col items-center rounded-xl border border-border bg-card px-1 py-2.5">
+          <p className="text-sm font-semibold text-foreground">{targetWeight ? `${targetWeight} lbs` : "—"}</p>
+          <p className="mt-0.5 text-[10px] text-muted-foreground">Target</p>
+        </div>
+        <div className="flex flex-col items-center rounded-xl border border-border bg-card px-1 py-2.5">
+          <p className="text-sm font-semibold text-foreground">{tasks.filter((task) => !task.is_completed).length}</p>
+          <p className="mt-0.5 text-[10px] text-muted-foreground">Tasks</p>
+        </div>
+        <div className="flex flex-col items-center rounded-xl border border-border bg-card px-1 py-2.5">
+          <p className="text-sm font-semibold text-foreground">{financialSummary ? `$${financialSummary.total_expenses.toFixed(0)}` : "—"}</p>
+          <p className="mt-0.5 text-[10px] text-muted-foreground">Spent</p>
+        </div>
+      </div>
+
+      <div className="mt-4 -mx-4 flex gap-0 border-b border-border px-4">
+        {(["info", "tasks", "expenses", "weight"] as SectionName[]).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveSection(tab)}
+            className={cn(
+              "relative flex-1 pb-2 text-center text-sm font-medium",
+              activeSection === tab
+                ? "text-primary after:absolute after:bottom-0 after:inset-x-0 after:h-0.5 after:rounded-full after:bg-primary"
+                : "text-muted-foreground"
+            )}
+          >
+            {tab === "info" ? "Info" : tab === "tasks" ? "Tasks" : tab === "expenses" ? "Expenses" : "Weight"}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-4 flex flex-col gap-4">
         {error ? <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</p> : null}
 
-        <div className="grid grid-cols-4 gap-2">
-          <div className="rounded-xl border border-border bg-card p-2 text-center"><p className="font-serif text-lg">{placings.length}</p><p className="text-[9px] uppercase tracking-wider text-muted-foreground">Ribbons</p></div>
-          <div className="rounded-xl border border-border bg-card p-2 text-center"><p className="font-mono text-sm">${totalExpenses.toFixed(0)}</p><p className="text-[9px] uppercase tracking-wider text-muted-foreground">Spent</p></div>
-          <div className="rounded-xl border border-border bg-card p-2 text-center"><p className="font-serif text-lg">{tasks.filter((task) => !task.is_completed).length}</p><p className="text-[9px] uppercase tracking-wider text-muted-foreground">Tasks</p></div>
-          <div className="rounded-xl border border-border bg-card p-2 text-center"><p className="font-mono text-sm">${(financialSummary?.net_profit_loss ?? 0).toFixed(0)}</p><p className="text-[9px] uppercase tracking-wider text-muted-foreground">Net P/L</p></div>
-        </div>
-
-        <div className="grid grid-cols-4 gap-2">
-          {moduleTiles.slice(0, 8).map((tile) => (
-            <Link key={tile.href + tile.label} href={tile.href} className="flex flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card p-4 transition-all hover:shadow-md active:scale-[0.98]">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary">
-                <tile.icon className="h-5 w-5 text-secondary-foreground" />
-              </div>
-              <span className="text-xs font-medium text-foreground">{tile.label}</span>
-              {tile.badge ? <span className="font-mono text-[10px] text-muted-foreground">{tile.badge}</span> : null}
-            </Link>
-          ))}
-        </div>
-
-        <section className="rounded-xl border border-border bg-card p-4">
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="font-serif text-lg">Weight Projection</h2>
-            <span className="font-mono text-xs text-muted-foreground">{latestWeight ? `${latestWeight} / ${targetWeight ?? "--"} lb` : "No data"}</span>
-          </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
-            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${weightProgress}%` }} />
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">Goal progress: {weightProgress}%</p>
-        </section>
-
-        <div className="grid grid-cols-4 gap-2 rounded-xl border border-border bg-card p-1">
-          {(["info", "tasks", "expenses", "weight"] as SectionName[]).map((tab) => (
-            <button key={tab} type="button" onClick={() => setActiveSection(tab)} className={cn("rounded-lg px-2 py-2 text-xs font-medium capitalize", activeSection === tab ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>{tab}</button>
-          ))}
-        </div>
-
         {activeSection === "info" ? (
-          <section className="rounded-xl border border-border bg-card">
-            {[`Status: ${project.status}`, `Owner: ${ownerName}`, `Materials tracked: ${materials.length}`, `Reminders: ${reminders.length}`, `Checklist complete: ${checklists?.summary.completed ?? 0}/${checklists?.summary.total ?? 0}`, `Readiness: ${readiness?.summary.completed ?? 0}/${readiness?.summary.total ?? 0}`].map((line, i, arr) => (
-              <div key={line}>
-                <div className="px-4 py-3 text-sm">{line}</div>
-                {i < arr.length - 1 ? <div className="mx-4 h-px bg-border" /> : null}
+          <section className="rounded-xl border border-border bg-card px-4">
+            {[
+              { label: "Status", value: project.status },
+              { label: "Owner", value: ownerName },
+              { label: "Materials", value: String(materials.length) },
+              { label: "Reminders", value: String(reminders.length) },
+              { label: "Checklist", value: `${checklists?.summary.completed ?? 0}/${checklists?.summary.total ?? 0}` },
+              { label: "Readiness", value: `${readiness?.summary.completed ?? 0}/${readiness?.summary.total ?? 0}` }
+            ].map((item, index, arr) => (
+              <div key={item.label} className={cn("flex justify-between py-2", index < arr.length - 1 ? "border-b border-border" : "") }>
+                <span className="text-sm text-muted-foreground">{item.label}</span>
+                <span className="text-right text-sm font-medium text-foreground">{item.value}</span>
               </div>
             ))}
           </section>
         ) : null}
 
         {activeSection === "tasks" ? (
-          <section className="rounded-xl border border-border bg-card">
-            {tasks.length === 0 ? <p className="px-4 py-3 text-sm text-muted-foreground">No tasks yet.</p> : tasks.map((task, i) => (
-              <div key={task.id}>
-                <div className="px-4 py-3 text-sm"><p className={task.is_completed ? "line-through text-muted-foreground" : ""}>{task.title}</p></div>
-                {i < tasks.length - 1 ? <div className="mx-4 h-px bg-border" /> : null}
-              </div>
-            ))}
+          <section className="rounded-xl border border-border bg-card px-4">
+            {tasks.length === 0 ? (
+              <p className="py-3 text-sm text-muted-foreground">No tasks yet.</p>
+            ) : (
+              tasks.map((task, i) => (
+                <div key={task.id} className={cn("flex items-center gap-3 py-2", i < tasks.length - 1 ? "border-b border-border" : "") }>
+                  <div className={cn("h-5 w-5 rounded-full border-2", task.is_completed ? "border-primary bg-primary" : "border-border")} />
+                  <p className={cn("text-sm text-foreground", task.is_completed ? "line-through text-muted-foreground" : "")}>{task.title}</p>
+                  <span className="ml-auto text-xs text-muted-foreground">{task.due_date ? formatDate(task.due_date) : "No due date"}</span>
+                </div>
+              ))
+            )}
           </section>
         ) : null}
 
         {activeSection === "expenses" ? (
-          <section className="rounded-xl border border-border bg-card">
-            {expenses.length === 0 ? <p className="px-4 py-3 text-sm text-muted-foreground">No expenses logged yet.</p> : expenses.map((expense, i) => (
-              <div key={expense.id}>
-                <div className="flex items-center justify-between px-4 py-3 text-sm">
+          <section className="rounded-xl border border-border bg-card px-4">
+            {expenses.length === 0 ? (
+              <p className="py-3 text-sm text-muted-foreground">No expenses logged yet.</p>
+            ) : (
+              expenses.map((expense, i) => (
+                <div key={expense.id} className={cn("flex items-center justify-between py-2", i < expenses.length - 1 ? "border-b border-border" : "") }>
                   <div>
-                    <p className="font-medium">{expense.vendor ?? expense.category}</p>
-                    <p className="text-xs text-muted-foreground">{formatDate(expense.date)}</p>
+                    <span className="rounded-full bg-secondary px-2 py-0.5 text-xs">{expense.category}</span>
+                    <span className="ml-2 text-sm text-foreground">{expense.vendor ?? "Unknown vendor"}</span>
                   </div>
-                  <span className="font-mono">${expense.amount.toFixed(2)}</span>
+                  <span className="text-sm font-semibold">${expense.amount.toFixed(2)}</span>
                 </div>
-                {i < expenses.length - 1 ? <div className="mx-4 h-px bg-border" /> : null}
-              </div>
-            ))}
+              ))
+            )}
           </section>
         ) : null}
 
         {activeSection === "weight" ? (
-          <section className="rounded-xl border border-border bg-card">
-            {weights.length === 0 ? <p className="px-4 py-3 text-sm text-muted-foreground">No weight entries yet.</p> : weights.map((entry, i) => (
-              <div key={entry.id}>
-                <div className="flex items-center justify-between px-4 py-3 text-sm">
-                  <span>{formatDate(entry.recorded_at)}</span>
-                  <span className="font-mono">{entry.weight_lbs.toFixed(1)} lb</span>
+          <section className="rounded-xl border border-border bg-card px-4">
+            {weights.length === 0 ? (
+              <p className="py-3 text-sm text-muted-foreground">No weight entries yet.</p>
+            ) : (
+              weights.map((entry, i) => (
+                <div key={entry.id} className={cn("flex items-center justify-between py-2", i < weights.length - 1 ? "border-b border-border" : "") }>
+                  <span className="text-sm text-muted-foreground">{formatDate(entry.recorded_at)}</span>
+                  <span className="text-sm font-semibold">{entry.weight_lbs.toFixed(1)} lbs</span>
                 </div>
-                {i < weights.length - 1 ? <div className="mx-4 h-px bg-border" /> : null}
-              </div>
-            ))}
+              ))
+            )}
           </section>
         ) : null}
 
@@ -329,7 +336,13 @@ export default function ProjectDetailPage() {
 
         {auth?.role === "parent" && auth.is_unlocked ? (
           <section className="rounded-xl border border-border bg-card p-3">
-            <h2 className="mb-2 font-serif text-lg">Project actions</h2>
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="font-serif text-lg">Project actions</h2>
+              <label className="cursor-pointer rounded-lg border border-border bg-secondary px-3 py-2 text-xs">
+                Upload Hero
+                <input type="file" accept="image/*" className="hidden" onChange={(event) => handleHeroUpload(event).catch(() => undefined)} />
+              </label>
+            </div>
             <div className="flex flex-wrap gap-2">
               <Link href={`/projects/${project.id}/edit`} className="rounded-lg border border-border bg-secondary px-3 py-2 text-xs">Edit Project</Link>
               <button onClick={() => apiClientJson(`/projects/${project.id}`, { method: "DELETE" }).then(() => router.push("/projects"))} className="rounded-lg bg-destructive px-3 py-2 text-xs text-white">Delete Project</button>
