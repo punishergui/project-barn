@@ -40,6 +40,7 @@ import { toUserErrorMessage } from "@/lib/errorMessage";
 import { uploadProjectHero, uploadProjectMedia } from "@/lib/uploads";
 import { cn } from "@/lib/utils";
 import LogActivityDrawer from "@/components/LogActivityDrawer";
+import WeightChart from "@/components/WeightChart";
 
 type SectionName = "info" | "tasks" | "expenses" | "weight";
 
@@ -306,6 +307,7 @@ export default function ProjectDetailPage() {
 
         {activeSection === "weight" ? (
           <section className="rounded-xl border border-border bg-card px-4">
+            <WeightChart weights={weights} targetWeight={targetWeight} />
             {weights.length === 0 ? (
               <p className="py-3 text-sm text-muted-foreground">No weight entries yet.</p>
             ) : (

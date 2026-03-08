@@ -88,7 +88,18 @@ export default function ExpenseDetailPage() {
   }
 
   if (!expense) {
-    return <div className="space-y-2 px-4"><p className="text-sm text-foreground">{error ?? "Expense not found."}</p><button type="button" className="rounded bg-secondary text-foreground px-3 py-2 text-sm" onClick={() => load().catch(() => undefined)}>Retry</button></div>;
+    return (
+      <div className="space-y-3 px-4">
+        <p className="text-sm text-foreground">{error ?? "Expense not found."}</p>
+        <button
+          type="button"
+          className="rounded-lg bg-secondary px-3 py-2 text-sm text-foreground"
+          onClick={() => load().catch(() => undefined)}
+        >
+          Retry
+        </button>
+      </div>
+    );
   }
 
   const canManage = auth?.role === "parent" && auth.is_unlocked;
@@ -96,14 +107,27 @@ export default function ExpenseDetailPage() {
   return (
     <div className="space-y-4 px-4 pb-6">
       <div className="flex items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">Expense Detail</h1>
+        <h1 className="text-2xl font-semibold text-foreground">Expense Detail</h1>
         <div className="flex gap-2">
-          <Link href={`/expenses/${expense.id}/edit`} className="rounded bg-primary text-primary-foreground px-3 py-2 text-sm">Edit</Link>
-          {canManage ? <button type="button" onClick={() => deleteExpense().catch(() => undefined)} className="rounded bg-primary text-primary-foreground px-3 py-2 text-sm">Delete</button> : null}
+          <Link
+            href={`/expenses/${expense.id}/edit`}
+            className="rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground"
+          >
+            Edit
+          </Link>
+          {canManage ? (
+            <button
+              type="button"
+              onClick={() => deleteExpense().catch(() => undefined)}
+              className="rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground"
+            >
+              Delete
+            </button>
+          ) : null}
         </div>
       </div>
 
-      <section className="rounded bg-background p-3 text-sm">
+      <section className="space-y-1 rounded-lg border border-border bg-card p-3 text-sm text-foreground">
         <p className="font-semibold">${expense.amount.toFixed(2)}</p>
         <p>{expense.category}</p>
         <p>{expense.vendor ?? "No vendor"}</p>
@@ -112,9 +136,12 @@ export default function ExpenseDetailPage() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="font-semibold">Allocations</h2>
+        <h2 className="font-semibold text-foreground">Allocations</h2>
         {expense.allocations.map((allocation) => (
-          <div key={`${allocation.project_id}-${allocation.id ?? "row"}`} className="rounded bg-background p-3 text-sm">
+          <div
+            key={`${allocation.project_id}-${allocation.id ?? "row"}`}
+            className="space-y-1 rounded-lg border border-border bg-card p-3 text-sm text-foreground"
+          >
             <p>{projectNames.get(allocation.project_id) ?? `Project ${allocation.project_id}`}</p>
             <p>${allocation.amount.toFixed(2)} ({expense.amount > 0 ? ((allocation.amount / expense.amount) * 100).toFixed(1) : "0.0"}%)</p>
           </div>
@@ -123,24 +150,26 @@ export default function ExpenseDetailPage() {
 
       <section className="space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="font-semibold">Receipts</h2>
+          <h2 className="font-semibold text-foreground">Receipts</h2>
           {canManage ? (
-            <label className="cursor-pointer rounded bg-primary text-primary-foreground px-3 py-2 text-xs">
+            <label className="cursor-pointer rounded-lg bg-primary px-3 py-2 text-xs text-primary-foreground">
               Upload receipt
               <input type="file" accept="image/*,.pdf,application/pdf" className="hidden" onChange={(event) => onUpload(event).catch(() => undefined)} />
             </label>
           ) : null}
         </div>
         {error ? <p className="text-sm text-foreground">{error}</p> : null}
-        {expense.receipts.length === 0 ? <p className="rounded bg-background p-3 text-sm text-muted-foreground">No receipts attached.</p> : null}
+        {expense.receipts.length === 0 ? (
+          <p className="rounded-lg border border-border bg-card p-3 text-sm text-muted-foreground">No receipts attached.</p>
+        ) : null}
         <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
           {expense.receipts.map((receipt) => (
-            <div key={receipt.id} className="rounded bg-background p-2">
+            <div key={receipt.id} className="rounded-lg border border-border bg-card p-2">
               {isPdf(receipt.url) ? (
-                <a href={receipt.url} className="block rounded border border-border p-4 text-center text-xs text-primary underline">View PDF receipt</a>
+                <a href={receipt.url} className="block rounded-lg border border-border p-4 text-center text-xs text-primary underline">View PDF receipt</a>
               ) : (
                 <a href={receipt.url}>
-                  <img src={receipt.url} alt={receipt.caption ?? receipt.file_name} className="h-24 w-full rounded object-cover" />
+                  <img src={receipt.url} alt={receipt.caption ?? receipt.file_name} className="h-24 w-full rounded-lg object-cover" />
                 </a>
               )}
               <p className="mt-1 text-xs text-muted-foreground">{receipt.caption ?? receipt.file_name}</p>
