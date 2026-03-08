@@ -45,7 +45,7 @@ services:
     depends_on:
       - barn-backend
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000/dashboard"]
+      test: ["CMD-SHELL", "wget -q --spider --server-response http://127.0.0.1:3000/ 2>&1 | grep -qE 'HTTP/[0-9]' && exit 0 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 6
