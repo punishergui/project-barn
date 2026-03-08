@@ -54,18 +54,18 @@ export default function EditShowPage() {
   };
 
   if (error && !show) {
-    return <p className="px-4 py-4 text-sm text-red-300">{error}</p>;
+    return <p className="px-4 py-4 text-sm text-red-600">{error}</p>;
   }
 
   if (!show || !auth) {
-    return <p className="px-4 py-4 text-sm text-[var(--barn-muted)]">Loading show...</p>;
+    return <p className="px-4 py-4 text-sm text-muted-foreground">Loading show...</p>;
   }
 
   if (!(auth.role === "parent" && auth.is_unlocked)) {
     return (
       <div className="space-y-3 px-4 py-4 text-sm">
-        <p className="barn-card">This page requires parent unlock.</p>
-        <Link href="/more" className="see-all-link">
+        <p className="rounded-lg border border-border bg-card px-3 py-2 text-foreground">This page requires parent unlock.</p>
+        <Link href="/more" className="inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline">
           Go to parent unlock
         </Link>
       </div>
@@ -74,18 +74,18 @@ export default function EditShowPage() {
 
   return (
     <form className="space-y-3 px-4 pb-4" onSubmit={submit}>
-      <h1 className="text-xl font-semibold">Edit Show</h1>
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
-      <input name="name" defaultValue={show.name} placeholder="Show name" className="w-full rounded bg-neutral-900 p-2" required />
-      <input name="location" defaultValue={show.location} placeholder="Location" className="w-full rounded bg-neutral-900 p-2" required />
-      <input name="start_date" defaultValue={show.start_date ? show.start_date.slice(0, 10) : ""} type="date" className="w-full rounded bg-neutral-900 p-2" required />
-      <input name="end_date" defaultValue={show.end_date ? show.end_date.slice(0, 10) : ""} type="date" className="w-full rounded bg-neutral-900 p-2" />
-      <textarea name="notes" defaultValue={show.notes ?? ""} placeholder="Notes" className="w-full rounded bg-neutral-900 p-2" rows={4} />
+      <h1 className="text-xl font-semibold text-foreground">Edit Show</h1>
+      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      <input name="name" defaultValue={show.name} placeholder="Show name" className="w-full rounded-lg border border-border bg-card p-2 text-sm text-foreground" required />
+      <input name="location" defaultValue={show.location} placeholder="Location" className="w-full rounded-lg border border-border bg-card p-2 text-sm text-foreground" required />
+      <input name="start_date" defaultValue={show.start_date ? show.start_date.slice(0, 10) : ""} type="date" className="w-full rounded-lg border border-border bg-card p-2 text-sm text-foreground" required />
+      <input name="end_date" defaultValue={show.end_date ? show.end_date.slice(0, 10) : ""} type="date" className="w-full rounded-lg border border-border bg-card p-2 text-sm text-foreground" />
+      <textarea name="notes" defaultValue={show.notes ?? ""} placeholder="Notes" className="w-full rounded-lg border border-border bg-card p-2 text-sm text-foreground" rows={4} />
       <div className="flex gap-2">
-        <button className="rounded bg-blue-700 px-4 py-2" type="submit" disabled={saving}>
+        <button className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground" type="submit" disabled={saving}>
           {saving ? "Saving..." : "Save changes"}
         </button>
-        <Link href={`/shows/${params.id}`} className="rounded bg-neutral-700 px-4 py-2">
+        <Link href={`/shows/${params.id}`} className="rounded-lg border border-border bg-card px-4 py-2 text-sm text-foreground">
           Cancel
         </Link>
       </div>

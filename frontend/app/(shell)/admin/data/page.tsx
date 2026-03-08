@@ -51,15 +51,15 @@ export default function AdminDataPage() {
 
   return (
     <div className="space-y-4 px-4 pb-4">
-      <section className="barn-card space-y-1">
+      <section className="rounded-2xl bg-card border border-border shadow-sm p-4 space-y-1">
         <h1 className="text-2xl font-semibold">Admin Data Tools</h1>
-        <p className="text-sm text-[var(--barn-muted)]">Backup/export controls for durability checks.</p>
+        <p className="text-sm text-muted-foreground">Backup/export controls for durability checks.</p>
       </section>
 
-      {error ? <p className="barn-row text-sm text-red-200">{error}</p> : null}
+      {error ? <p className="text-sm text-muted-foreground text-sm text-red-200">{error}</p> : null}
 
       {summary ? (
-        <section className="barn-card space-y-2 text-sm">
+        <section className="rounded-2xl bg-card border border-border shadow-sm p-4 space-y-2 text-sm">
           <p>Database path: <span className="font-mono text-xs">{summary.paths.database}</span></p>
           <p>Media path: <span className="font-mono text-xs">{summary.paths.media}</span></p>
           <p>Database size: {humanSize(summary.database_size_bytes)}</p>
@@ -68,9 +68,9 @@ export default function AdminDataPage() {
         </section>
       ) : null}
 
-      <section className="barn-card space-y-2 text-sm">
-        <a href="/api/export/all" className="quick-action-card justify-start px-3">Download full export bundle (.zip)</a>
-        <button type="button" onClick={() => scanOrphans().catch(() => undefined)} disabled={scanning} className="quick-action-card justify-start px-3 disabled:opacity-60">
+      <section className="rounded-2xl bg-card border border-border shadow-sm p-4 space-y-2 text-sm">
+        <a href="/api/export/all" className="rounded-xl bg-card border border-border px-4 py-3 flex items-center gap-2 text-sm text-foreground justify-start px-3">Download full export bundle (.zip)</a>
+        <button type="button" onClick={() => scanOrphans().catch(() => undefined)} disabled={scanning} className="rounded-xl bg-card border border-border px-4 py-3 flex items-center gap-2 text-sm text-foreground justify-start px-3 disabled:opacity-60">
           {scanning ? "Scanning..." : "Run orphan media scan"}
         </button>
       </section>

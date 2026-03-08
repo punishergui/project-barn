@@ -15,7 +15,7 @@ function formatDate(value?: string | null) {
 
 function ribbonClass(ribbon?: string | null) {
   const key = (ribbon ?? "").toLowerCase();
-  if (key.includes("blue")) return "bg-blue-700/70";
+  if (key.includes("blue")) return "bg-primary text-primary-foreground/70";
   if (key.includes("red")) return "bg-red-700/70";
   if (key.includes("white")) return "bg-slate-400/70 text-black";
   if (key.includes("purple")) return "bg-purple-700/70";
@@ -211,7 +211,7 @@ export default function ShowDetailPage() {
             <p className="text-xs text-muted-foreground">{formatDate(show.start_date)}{show.end_date ? ` → ${formatDate(show.end_date)}` : ""}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link href={`/shows/${show.id}/edit`} className="rounded bg-neutral-700 px-3 py-2 text-xs">Edit</Link>
+            <Link href={`/shows/${show.id}/edit`} className="rounded bg-secondary text-foreground px-3 py-2 text-xs">Edit</Link>
             {canManage ? <button type="button" onClick={() => removeShow().catch(() => undefined)} className="rounded bg-red-900 px-3 py-2 text-xs">Delete</button> : null}
           </div>
         </div>
@@ -229,7 +229,7 @@ export default function ShowDetailPage() {
               <p className="text-xs text-muted-foreground">{entry.class_name || "Class pending"} • {entry.division || "Division pending"}</p>
               <p className="text-xs text-muted-foreground">Owner: {profileMap.get(projectMap.get(entry.project_id)?.owner_profile_id ?? -1) ?? "Unknown"}</p>
             </div>
-            {canManage ? <button type="button" onClick={() => removeEntry(entry.id).catch(() => undefined)} className="rounded bg-neutral-700 px-2 py-1 text-xs">Delete</button> : null}
+            {canManage ? <button type="button" onClick={() => removeEntry(entry.id).catch(() => undefined)} className="rounded bg-secondary text-foreground px-2 py-1 text-xs">Delete</button> : null}
           </article>
         ))}
 
@@ -242,7 +242,7 @@ export default function ShowDetailPage() {
           <input name="weight" placeholder="Weight / class notes" className="rounded bg-background border border-border p-2" />
           <input name="division" placeholder="Division" className="rounded bg-background border border-border p-2" />
           <input name="stall_info" placeholder="Stall info (optional)" className="rounded bg-background border border-border p-2" />
-          <button disabled={!canManage} className="rounded bg-primary px-3 py-2 text-sm text-white disabled:opacity-60">Save Entry</button>
+          <button disabled={!canManage} className="rounded bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-60">Save Entry</button>
         </form>
       </section>
 
@@ -257,7 +257,7 @@ export default function ShowDetailPage() {
               <p className="font-medium">{day.label || `Day ${day.day_number}`}</p>
               <p className="text-xs text-muted-foreground">{formatDate(day.show_date || day.date)}</p>
             </Link>
-            {canManage ? <button type="button" onClick={() => removeShowDay(day.id).catch(() => undefined)} className="rounded bg-neutral-700 px-2 py-1 text-xs">Delete</button> : null}
+            {canManage ? <button type="button" onClick={() => removeShowDay(day.id).catch(() => undefined)} className="rounded bg-secondary text-foreground px-2 py-1 text-xs">Delete</button> : null}
           </div>
         ))}
 
@@ -266,7 +266,7 @@ export default function ShowDetailPage() {
           <input name="label" placeholder="Day label" className="rounded bg-background border border-border p-2" />
           <input name="date" type="date" className="rounded bg-background border border-border p-2" />
           <textarea name="notes" placeholder="Day notes" className="rounded bg-background border border-border p-2" />
-          <button disabled={!canManage} className="rounded bg-primary px-3 py-2 text-sm text-white disabled:opacity-60">Create Day</button>
+          <button disabled={!canManage} className="rounded bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-60">Create Day</button>
         </form>
       </section>
 
@@ -281,7 +281,7 @@ export default function ShowDetailPage() {
             </div>
             <div className="flex items-center gap-2">
               <span className={`rounded-full px-2 py-1 text-xs ${ribbonClass(placing.ribbon_type)}`}>{placing.ribbon_type || "Ribbon"}</span>
-              {canManage ? <button type="button" onClick={() => removePlacing(placing.id).catch(() => undefined)} className="rounded bg-neutral-700 px-2 py-1 text-xs">Delete</button> : null}
+              {canManage ? <button type="button" onClick={() => removePlacing(placing.id).catch(() => undefined)} className="rounded bg-secondary text-foreground px-2 py-1 text-xs">Delete</button> : null}
             </div>
           </article>
         ))}
@@ -299,7 +299,7 @@ export default function ShowDetailPage() {
           <input name="placing" placeholder="Placing" className="rounded bg-background border border-border p-2" required />
           <input name="ribbon_type" placeholder="Ribbon color" className="rounded bg-background border border-border p-2" />
           <textarea name="notes" placeholder="Notes" className="rounded bg-background border border-border p-2" />
-          <button disabled={!canManage} className="rounded bg-primary px-3 py-2 text-sm text-white disabled:opacity-60">Save Placing</button>
+          <button disabled={!canManage} className="rounded bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-60">Save Placing</button>
         </form>
       </section>
 
@@ -312,7 +312,7 @@ export default function ShowDetailPage() {
               <option value="">No placing tag</option>
               {placings.map((placing) => <option key={placing.id} value={placing.id}>{placing.placing}</option>)}
             </select>
-            <label className={`rounded px-3 py-2 text-xs text-white ${canManage ? "bg-primary" : "bg-neutral-700"}`}>
+            <label className={`rounded px-3 py-2 text-xs text-primary-foreground ${canManage ? "bg-primary" : "bg-secondary text-foreground"}`}>
               Upload
               <input disabled={!canManage} type="file" accept="image/*,video/mp4,video/quicktime,video/mov" className="hidden" onChange={(event) => uploadShowMedia(event).catch(() => undefined)} />
             </label>
@@ -330,7 +330,7 @@ export default function ShowDetailPage() {
                 </a>
                 <p className="mt-1 truncate">{item.caption || item.file_name}</p>
                 <p className="text-[10px] text-muted-foreground">{item.show_name || show.name}{item.placing_value ? ` • ${item.placing_value}` : ""}{item.ribbon_type ? ` • ${item.ribbon_type}` : ""}</p>
-                {canManage ? <button type="button" onClick={() => removeMedia(item.id).catch(() => undefined)} className="mt-1 rounded bg-neutral-700 px-2 py-1 text-[10px]">Delete</button> : null}
+                {canManage ? <button type="button" onClick={() => removeMedia(item.id).catch(() => undefined)} className="mt-1 rounded bg-secondary text-foreground px-2 py-1 text-[10px]">Delete</button> : null}
               </div>
             );
           })}

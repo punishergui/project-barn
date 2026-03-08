@@ -84,11 +84,11 @@ export default function ExpenseDetailPage() {
   const projectNames = useMemo(() => new Map(projects.map((project) => [project.id, project.name])), [projects]);
 
   if (loading) {
-    return <p className="px-4 text-sm text-neutral-300">Loading expense...</p>;
+    return <p className="px-4 text-sm text-muted-foreground">Loading expense...</p>;
   }
 
   if (!expense) {
-    return <div className="space-y-2 px-4"><p className="text-sm text-red-200">{error ?? "Expense not found."}</p><button type="button" className="rounded bg-neutral-700 px-3 py-2 text-sm" onClick={() => load().catch(() => undefined)}>Retry</button></div>;
+    return <div className="space-y-2 px-4"><p className="text-sm text-red-200">{error ?? "Expense not found."}</p><button type="button" className="rounded bg-secondary text-foreground px-3 py-2 text-sm" onClick={() => load().catch(() => undefined)}>Retry</button></div>;
   }
 
   const canManage = auth?.role === "parent" && auth.is_unlocked;
@@ -103,18 +103,18 @@ export default function ExpenseDetailPage() {
         </div>
       </div>
 
-      <section className="rounded bg-neutral-800 p-3 text-sm">
+      <section className="rounded bg-background p-3 text-sm">
         <p className="font-semibold">${expense.amount.toFixed(2)}</p>
         <p>{expense.category}</p>
         <p>{expense.vendor ?? "No vendor"}</p>
         <p>{expense.date.slice(0, 10)}</p>
-        <p className="text-neutral-300">{expense.note ?? "No note"}</p>
+        <p className="text-muted-foreground">{expense.note ?? "No note"}</p>
       </section>
 
       <section className="space-y-2">
         <h2 className="font-semibold">Allocations</h2>
         {expense.allocations.map((allocation) => (
-          <div key={`${allocation.project_id}-${allocation.id ?? "row"}`} className="rounded bg-neutral-800 p-3 text-sm">
+          <div key={`${allocation.project_id}-${allocation.id ?? "row"}`} className="rounded bg-background p-3 text-sm">
             <p>{projectNames.get(allocation.project_id) ?? `Project ${allocation.project_id}`}</p>
             <p>${allocation.amount.toFixed(2)} ({expense.amount > 0 ? ((allocation.amount / expense.amount) * 100).toFixed(1) : "0.0"}%)</p>
           </div>
@@ -132,10 +132,10 @@ export default function ExpenseDetailPage() {
           ) : null}
         </div>
         {error ? <p className="text-sm text-red-300">{error}</p> : null}
-        {expense.receipts.length === 0 ? <p className="rounded bg-neutral-800 p-3 text-sm text-neutral-300">No receipts attached.</p> : null}
+        {expense.receipts.length === 0 ? <p className="rounded bg-background p-3 text-sm text-muted-foreground">No receipts attached.</p> : null}
         <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
           {expense.receipts.map((receipt) => (
-            <div key={receipt.id} className="rounded bg-neutral-800 p-2">
+            <div key={receipt.id} className="rounded bg-background p-2">
               {isPdf(receipt.url) ? (
                 <a href={receipt.url} className="block rounded border border-white/20 p-4 text-center text-xs text-blue-200 underline">View PDF receipt</a>
               ) : (
@@ -143,7 +143,7 @@ export default function ExpenseDetailPage() {
                   <img src={receipt.url} alt={receipt.caption ?? receipt.file_name} className="h-24 w-full rounded object-cover" />
                 </a>
               )}
-              <p className="mt-1 text-xs text-neutral-300">{receipt.caption ?? receipt.file_name}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{receipt.caption ?? receipt.file_name}</p>
               {canManage ? <button type="button" onClick={() => removeReceipt(receipt.id).catch(() => undefined)} className="mt-1 text-xs text-red-200 underline">Delete receipt</button> : null}
             </div>
           ))}

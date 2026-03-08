@@ -185,32 +185,32 @@ export default function ShowDayModePage() {
   const projectMap = useMemo(() => new Map(projects.map((project) => [project.id, project])), [projects]);
   const profileMap = useMemo(() => new Map(profiles.map((profile) => [profile.id, profile.name])), [profiles]);
 
-  if (isLoading && !show) return <p className="px-4 py-4 text-sm text-[var(--barn-muted)]">Loading show day...</p>;
-  if (!show) return <p className="px-4 py-4 text-sm text-[var(--barn-muted)]">Show day not found.</p>;
+  if (isLoading && !show) return <p className="px-4 py-4 text-sm text-muted-foreground">Loading show day...</p>;
+  if (!show) return <p className="px-4 py-4 text-sm text-muted-foreground">Show day not found.</p>;
 
   const day = show.days.find((item) => item.id === Number(params.dayId));
 
   return (
     <div className="space-y-3 px-3 pb-6">
-      <header className="barn-card space-y-1">
+      <header className="rounded-2xl bg-card border border-border shadow-sm p-4 space-y-1">
         <div className="flex items-center justify-between gap-2">
           <h1 className="text-xl font-semibold">{show.name}</h1>
-          <Link href={`/shows/${show.id}`} className="see-all-link">Back to show</Link>
+          <Link href={`/shows/${show.id}`} className="text-sm text-primary underline">Back to show</Link>
         </div>
-        <p className="text-sm text-[var(--barn-muted)]">{day?.label || `Day ${day?.day_number ?? ""}`}</p>
-        <p className="text-xs text-[var(--barn-muted)]">{formatDate(day?.show_date || day?.date)}</p>
+        <p className="text-sm text-muted-foreground">{day?.label || `Day ${day?.day_number ?? ""}`}</p>
+        <p className="text-xs text-muted-foreground">{formatDate(day?.show_date || day?.date)}</p>
         {error ? (
           <div className="rounded border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-100">
             <p>{error}</p>
-            <button type="button" onClick={() => load().catch(() => undefined)} className="mt-2 min-h-11 rounded bg-neutral-700 px-3 py-2 text-xs">Retry</button>
+            <button type="button" onClick={() => load().catch(() => undefined)} className="mt-2 min-h-11 rounded bg-secondary text-foreground px-3 py-2 text-xs">Retry</button>
           </div>
         ) : null}
       </header>
 
       {show.entries.length === 0 ? (
-        <section className="barn-card space-y-2 text-sm text-[var(--barn-muted)]">
+        <section className="rounded-2xl bg-card border border-border shadow-sm p-4 space-y-2 text-sm text-muted-foreground">
           <p>No entries are attached to this show yet.</p>
-          <Link href={`/shows/${show.id}`} className="see-all-link">Open show and add entries</Link>
+          <Link href={`/shows/${show.id}`} className="text-sm text-primary underline">Open show and add entries</Link>
         </section>
       ) : null}
 
@@ -219,10 +219,10 @@ export default function ShowDayModePage() {
         const owner = profileMap.get(project?.owner_profile_id ?? -1) ?? "Unknown owner";
 
         return (
-          <section key={entry.id} className="barn-card space-y-2">
+          <section key={entry.id} className="rounded-2xl bg-card border border-border shadow-sm p-4 space-y-2">
             <div>
               <h2 className="text-lg font-semibold">{project?.name ?? `Project ${entry.project_id}`}</h2>
-              <p className="text-xs capitalize text-[var(--barn-muted)]">{project?.species ?? "Unknown species"} • {owner}</p>
+              <p className="text-xs capitalize text-muted-foreground">{project?.species ?? "Unknown species"} • {owner}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
@@ -234,10 +234,10 @@ export default function ShowDayModePage() {
                     type="button"
                     disabled={isSaving || !canManage}
                     onClick={() => toggleTask(entry.project_id, template.key, template.label).catch(() => undefined)}
-                    className={`min-h-14 rounded-lg border px-3 py-2 text-left text-sm disabled:opacity-60 ${row?.is_completed ? "border-emerald-500 bg-emerald-700/40" : "border-[var(--barn-border)] bg-[var(--barn-bg)]"}`}
+                    className={`min-h-14 rounded-lg border px-3 py-2 text-left text-sm disabled:opacity-60 ${row?.is_completed ? "border-emerald-500 bg-emerald-700/40" : "border-border bg-background"}`}
                   >
                     <p className="font-medium">{template.label}</p>
-                    <p className="text-xs text-[var(--barn-muted)]">{row?.is_completed ? `Done ${formatDate(row.completed_at)}` : "Tap to mark complete"}</p>
+                    <p className="text-xs text-muted-foreground">{row?.is_completed ? `Done ${formatDate(row.completed_at)}` : "Tap to mark complete"}</p>
                   </button>
                 );
               })}
@@ -246,49 +246,49 @@ export default function ShowDayModePage() {
         );
       })}
 
-      <section className="barn-card space-y-2">
+      <section className="rounded-2xl bg-card border border-border shadow-sm p-4 space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">Day media</h2>
-          <label className={`min-h-11 rounded px-3 py-2 text-xs text-white ${canManage ? "bg-[var(--barn-red)]" : "bg-neutral-700"}`}>
+          <label className={`min-h-11 rounded px-3 py-2 text-xs text-primary-foreground ${canManage ? "bg-primary" : "bg-secondary text-foreground"}`}>
             Upload
             <input disabled={!canManage} type="file" accept="image/*,video/mp4,video/quicktime,video/mov" className="hidden" onChange={(event) => uploadDayMedia(event).catch(() => undefined)} />
           </label>
         </div>
-        {dayMedia.length === 0 ? <p className="barn-row text-xs text-[var(--barn-muted)]">No day media yet.</p> : null}
+        {dayMedia.length === 0 ? <p className="text-sm text-muted-foreground text-xs text-muted-foreground">No day media yet.</p> : null}
         <div className="grid grid-cols-3 gap-2">
           {dayMedia.map((item) => {
             const mediaUrl = item.file_url || item.url;
             return (
-              <div key={item.id} className="space-y-1 rounded bg-[var(--barn-bg)] p-1.5">
+              <div key={item.id} className="space-y-1 rounded bg-background p-1.5">
                 {detectMediaType(item) === "video" ? <video src={mediaUrl} className="h-20 w-full rounded object-cover" muted playsInline preload="metadata" /> : <img src={mediaUrl} alt={item.caption || item.file_name} className="h-20 w-full rounded object-cover" loading="lazy" />}
-                {canManage ? <button type="button" onClick={() => deleteMedia(item.id).catch(() => undefined)} className="w-full rounded bg-neutral-700 px-2 py-1 text-[10px]">Delete</button> : null}
+                {canManage ? <button type="button" onClick={() => deleteMedia(item.id).catch(() => undefined)} className="w-full rounded bg-secondary text-foreground px-2 py-1 text-[10px]">Delete</button> : null}
               </div>
             );
           })}
         </div>
       </section>
 
-      <section className="barn-card space-y-2">
+      <section className="rounded-2xl bg-card border border-border shadow-sm p-4 space-y-2">
         <h2 className="text-base font-semibold">Add placing / ribbon</h2>
         <form className="grid gap-2 text-sm" onSubmit={(event) => addPlacing(event).catch(() => undefined)}>
-          <select name="project_id" className="min-h-12 rounded bg-[var(--barn-bg)] px-3" required>
+          <select name="project_id" className="min-h-12 rounded bg-background px-3" required>
             {show.entries.map((entry) => <option key={entry.id} value={entry.project_id}>{projectMap.get(entry.project_id)?.name ?? entry.project_id}</option>)}
           </select>
-          <input name="class_name" placeholder="Class" className="min-h-12 rounded bg-[var(--barn-bg)] px-3" />
-          <input name="placing" placeholder="Placing" className="min-h-12 rounded bg-[var(--barn-bg)] px-3" required />
-          <input name="ribbon_type" placeholder="Ribbon color" className="min-h-12 rounded bg-[var(--barn-bg)] px-3" />
-          <textarea name="notes" placeholder="Notes" className="rounded bg-[var(--barn-bg)] px-3 py-2" />
-          <button disabled={isSaving || !canManage} className="min-h-12 rounded bg-[var(--barn-red)] text-sm font-medium text-white disabled:opacity-60">Save placing</button>
+          <input name="class_name" placeholder="Class" className="min-h-12 rounded bg-background px-3" />
+          <input name="placing" placeholder="Placing" className="min-h-12 rounded bg-background px-3" required />
+          <input name="ribbon_type" placeholder="Ribbon color" className="min-h-12 rounded bg-background px-3" />
+          <textarea name="notes" placeholder="Notes" className="rounded bg-background px-3 py-2" />
+          <button disabled={isSaving || !canManage} className="min-h-12 rounded bg-primary text-sm font-medium text-primary-foreground disabled:opacity-60">Save placing</button>
         </form>
 
-        {dayPlacings.length === 0 ? <p className="barn-row text-xs text-[var(--barn-muted)]">No placings for this day yet.</p> : null}
+        {dayPlacings.length === 0 ? <p className="text-sm text-muted-foreground text-xs text-muted-foreground">No placings for this day yet.</p> : null}
         {dayPlacings.map((placing) => (
-          <article key={placing.id} className="barn-row flex items-center justify-between gap-2 text-sm">
+          <article key={placing.id} className="text-sm text-muted-foreground flex items-center justify-between gap-2 text-sm">
             <div>
               <p className="font-medium">{projectMap.get(placing.project_id ?? -1)?.name ?? "Project"}</p>
-              <p className="text-xs text-[var(--barn-muted)]">{placing.class_name || "Class"} • {placing.placing} • {placing.ribbon_type || "Ribbon"}</p>
+              <p className="text-xs text-muted-foreground">{placing.class_name || "Class"} • {placing.placing} • {placing.ribbon_type || "Ribbon"}</p>
             </div>
-            {canManage ? <button type="button" onClick={() => deletePlacing(placing.id).catch(() => undefined)} className="rounded bg-neutral-700 px-2 py-1 text-xs">Delete</button> : null}
+            {canManage ? <button type="button" onClick={() => deletePlacing(placing.id).catch(() => undefined)} className="rounded bg-secondary text-foreground px-2 py-1 text-xs">Delete</button> : null}
           </article>
         ))}
       </section>

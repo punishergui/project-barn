@@ -20,13 +20,13 @@ export default function NewShowPage() {
   };
 
   return <form className="space-y-3" onSubmit={submit}>
-    <h1 className="text-xl font-semibold">New Show</h1>
-    {error ? <p className="text-red-300">{error}</p> : null}
-    <input name="name" placeholder="Show name" className="w-full rounded bg-neutral-900 p-2" required />
-    <input name="location" placeholder="Location" className="w-full rounded bg-neutral-900 p-2" required />
-    <input name="start_date" type="date" className="w-full rounded bg-neutral-900 p-2" required />
-    <input name="end_date" type="date" className="w-full rounded bg-neutral-900 p-2" />
-    <textarea name="notes" placeholder="Notes" className="w-full rounded bg-neutral-900 p-2" />
-    <button className="rounded bg-blue-700 px-4 py-2" type="submit">Create</button>
+    <h1 className="text-xl font-semibold text-foreground">New Show</h1>
+    {error ? <p className="text-sm text-red-600">{error}</p> : null}
+    <input name="name" placeholder="Show name" className="w-full rounded-lg border border-border bg-card p-2 text-sm text-foreground" required />
+    <input name="location" placeholder="Location" className="w-full rounded-lg border border-border bg-card p-2 text-sm text-foreground" required />
+    <input name="start_date" type="date" className="w-full rounded-lg border border-border bg-card p-2 text-sm text-foreground" required />
+    <input name="end_date" type="date" className="w-full rounded-lg border border-border bg-card p-2 text-sm text-foreground" />
+    <textarea name="notes" placeholder="Notes" className="w-full rounded-lg border border-border bg-card p-2 text-sm text-foreground" />
+    <button className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground" type="submit">Create</button>
   </form>;
 }

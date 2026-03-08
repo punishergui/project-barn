@@ -56,7 +56,7 @@ export default function SettingsProfileDetailPage() {
     <div className="w-full space-y-3 px-4 pb-4">
       <h1 className="text-xl font-semibold">{profile.name}</h1>
 
-      <section className="barn-card space-y-2 text-sm">
+      <section className="rounded-2xl bg-card border border-border shadow-sm p-4 space-y-2 text-sm">
         <p>Active projects: {profile.summary?.active_projects ?? 0}</p>
         <p>Shows: {profile.summary?.shows ?? 0}</p>
         <p>Expenses: {profile.summary?.expenses ?? 0}</p>
@@ -67,38 +67,38 @@ export default function SettingsProfileDetailPage() {
         <p>Lifetime income: ${lifetime?.lifetime_income.toFixed(2) ?? "0.00"}</p>
       </section>
 
-      <form className="barn-card grid gap-2" onSubmit={(event) => save(event).catch(() => undefined)}>
-        <input name="name" defaultValue={profile.name} className="rounded bg-neutral-800 p-2" placeholder="Profile name" required />
-        <select name="role" defaultValue={profile.role} className="rounded bg-neutral-800 p-2">
+      <form className="rounded-2xl bg-card border border-border shadow-sm p-4 grid gap-2" onSubmit={(event) => save(event).catch(() => undefined)}>
+        <input name="name" defaultValue={profile.name} className="rounded bg-background p-2" placeholder="Profile name" required />
+        <select name="role" defaultValue={profile.role} className="rounded bg-background p-2">
           <option value="parent">parent</option>
           <option value="kid">kid</option>
           <option value="grandparent">grandparent</option>
         </select>
-        <input name="color" defaultValue={profile.color ?? "#A08060"} className="rounded bg-neutral-800 p-2" placeholder="#A08060" />
+        <input name="color" defaultValue={profile.color ?? "#A08060"} className="rounded bg-background p-2" placeholder="#A08060" />
         <div className="grid grid-cols-2 gap-2">
-          <input name="county" defaultValue={profile.county ?? ""} className="rounded bg-neutral-800 p-2" placeholder="County" />
-          <input name="state" defaultValue={profile.state ?? ""} className="rounded bg-neutral-800 p-2" placeholder="State" />
+          <input name="county" defaultValue={profile.county ?? ""} className="rounded bg-background p-2" placeholder="County" />
+          <input name="state" defaultValue={profile.state ?? ""} className="rounded bg-background p-2" placeholder="State" />
         </div>
-        <input name="club_name" defaultValue={profile.club_name ?? ""} className="rounded bg-neutral-800 p-2" placeholder="Club / chapter" />
+        <input name="club_name" defaultValue={profile.club_name ?? ""} className="rounded bg-background p-2" placeholder="Club / chapter" />
         <div className="grid grid-cols-2 gap-2">
-          <input name="years_in_4h" type="number" defaultValue={profile.years_in_4h ?? ""} className="rounded bg-neutral-800 p-2" placeholder="Years in 4-H" />
-          <input name="birthdate" type="date" defaultValue={profile.birthdate ?? ""} className="rounded bg-neutral-800 p-2" />
+          <input name="years_in_4h" type="number" defaultValue={profile.years_in_4h ?? ""} className="rounded bg-background p-2" placeholder="Years in 4-H" />
+          <input name="birthdate" type="date" defaultValue={profile.birthdate ?? ""} className="rounded bg-background p-2" />
         </div>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="archived" defaultChecked={profile.archived} /> Archived</label>
-        <button className="rounded bg-blue-700 px-3 py-2">Save profile</button>
+        <button className="rounded bg-primary text-primary-foreground px-3 py-2">Save profile</button>
       </form>
 
-      <section className="barn-card space-y-2">
+      <section className="rounded-2xl bg-card border border-border shadow-sm p-4 space-y-2">
         <h2 className="text-base font-semibold">Avatar</h2>
-        <label className="inline-flex rounded bg-neutral-700 px-3 py-2 text-xs">Upload avatar<input className="hidden" type="file" accept="image/*" onChange={(event) => {
+        <label className="inline-flex rounded bg-secondary text-foreground px-3 py-2 text-xs">Upload avatar<input className="hidden" type="file" accept="image/*" onChange={(event) => {
           const file = event.target.files?.[0];
           if (file) uploadAvatar(file).catch(() => undefined);
         }} /></label>
       </section>
 
-      <section className="barn-card space-y-2">
+      <section className="rounded-2xl bg-card border border-border shadow-sm p-4 space-y-2">
         <h2 className="text-base font-semibold">Owned projects</h2>
-        {(profile.projects ?? []).map((project) => <p key={project.id} className="barn-row text-sm">{project.name}</p>)}
+        {(profile.projects ?? []).map((project) => <p key={project.id} className="text-sm text-muted-foreground text-sm">{project.name}</p>)}
       </section>
     </div>
   );

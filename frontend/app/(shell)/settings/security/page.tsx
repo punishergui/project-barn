@@ -52,7 +52,7 @@ export default function SecuritySettingsPage() {
     return (
       <div className="w-full space-y-4 px-4 pb-4">
         <h1 className="text-xl font-semibold">Security</h1>
-        <p className="barn-card text-sm">Access denied. Only parent profiles can manage security settings.</p>
+        <p className="rounded-2xl bg-card border border-border shadow-sm p-4 text-sm">Access denied. Only parent profiles can manage security settings.</p>
       </div>
     );
   }
@@ -60,10 +60,10 @@ export default function SecuritySettingsPage() {
   return (
     <div className="w-full space-y-4 px-4 pb-4">
       <h1 className="text-xl font-semibold">Security</h1>
-      <p className="text-sm text-[var(--barn-muted)]">PINs protect profile switching and parent-only actions. Biometric unlock is planned for a future native app and is not available yet.</p>
-      {message ? <p className="barn-card text-sm">{message}</p> : null}
+      <p className="text-sm text-muted-foreground">PINs protect profile switching and parent-only actions. Biometric unlock is planned for a future native app and is not available yet.</p>
+      {message ? <p className="rounded-2xl bg-card border border-border shadow-sm p-4 text-sm">{message}</p> : null}
 
-      <section className="barn-card space-y-2 text-sm">
+      <section className="rounded-2xl bg-card border border-border shadow-sm p-4 space-y-2 text-sm">
         <h2 className="text-base font-semibold">Role protections</h2>
         <p><strong>Parent:</strong> {data?.role_protections.parent}</p>
         <p><strong>Kid:</strong> {data?.role_protections.kid}</p>
@@ -72,16 +72,16 @@ export default function SecuritySettingsPage() {
 
       <section className="space-y-3">
         {data?.profiles.map((profile) => (
-          <form key={profile.id} onSubmit={(event) => updatePin(event, profile.id).catch(() => undefined)} className="barn-card space-y-2">
+          <form key={profile.id} onSubmit={(event) => updatePin(event, profile.id).catch(() => undefined)} className="rounded-2xl bg-card border border-border shadow-sm p-4 space-y-2">
             <div className="flex items-center justify-between">
-              <p className="font-semibold">{profile.name} <span className="text-xs capitalize text-[var(--barn-muted)]">({profile.role})</span></p>
+              <p className="font-semibold">{profile.name} <span className="text-xs capitalize text-muted-foreground">({profile.role})</span></p>
               <span className="text-xs">{profile.has_pin ? "PIN set" : "No PIN"}</span>
             </div>
             <label className="flex items-center gap-2 text-sm">
               <input name="pin_enabled" type="checkbox" defaultChecked={profile.has_pin || profile.role === "parent"} /> Require PIN
             </label>
-            <input name="pin" type="password" inputMode="numeric" pattern="[0-9]*" minLength={4} maxLength={12} className="w-full rounded bg-neutral-800 p-3" placeholder="New PIN (4-12 digits)" />
-            <button className="min-h-11 rounded bg-blue-700 px-3 py-2 text-sm disabled:opacity-60" disabled={saving[profile.id]}>{saving[profile.id] ? "Saving..." : "Save security"}</button>
+            <input name="pin" type="password" inputMode="numeric" pattern="[0-9]*" minLength={4} maxLength={12} className="w-full rounded bg-background p-3" placeholder="New PIN (4-12 digits)" />
+            <button className="min-h-11 rounded bg-primary text-primary-foreground px-3 py-2 text-sm disabled:opacity-60" disabled={saving[profile.id]}>{saving[profile.id] ? "Saving..." : "Save security"}</button>
           </form>
         ))}
       </section>

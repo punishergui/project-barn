@@ -39,16 +39,16 @@ export default function ProjectShowReadinessPage() {
   return (
     <div className="w-full space-y-3 px-4 pb-4">
       <h1 className="text-xl font-semibold">Show Readiness</h1>
-      <p className="text-sm text-[var(--barn-muted)]">Ready: {data?.summary.completion_percent ?? 0}%</p>
-      <div className="h-2 w-full overflow-hidden rounded bg-neutral-800"><div className="h-full bg-amber-500" style={{ width: `${data?.summary.completion_percent ?? 0}%` }} /></div>
-      <form className="barn-card flex gap-2" onSubmit={(event) => addItem(event).catch(() => undefined)}>
-        <input name="item_name" required className="flex-1 rounded bg-neutral-800 p-2" placeholder="Add readiness item" />
-        <button className="rounded bg-blue-700 px-3 py-2 text-xs">Add</button>
+      <p className="text-sm text-muted-foreground">Ready: {data?.summary.completion_percent ?? 0}%</p>
+      <div className="h-2 w-full overflow-hidden rounded bg-background"><div className="h-full bg-amber-500" style={{ width: `${data?.summary.completion_percent ?? 0}%` }} /></div>
+      <form className="rounded-2xl bg-card border border-border shadow-sm p-4 flex gap-2" onSubmit={(event) => addItem(event).catch(() => undefined)}>
+        <input name="item_name" required className="flex-1 rounded bg-background p-2" placeholder="Add readiness item" />
+        <button className="rounded bg-primary text-primary-foreground px-3 py-2 text-xs">Add</button>
       </form>
       {(data?.items ?? []).map((item) => (
-        <article key={item.id} className="barn-row flex items-center justify-between text-sm">
+        <article key={item.id} className="text-sm text-muted-foreground flex items-center justify-between text-sm">
           <p className={item.is_completed ? "line-through" : ""}>{item.item_name}</p>
-          <button onClick={() => toggle(item.id, item.is_completed).catch(() => undefined)} className="rounded bg-neutral-700 px-2 py-1 text-xs">{item.is_completed ? "Undo" : "Done"}</button>
+          <button onClick={() => toggle(item.id, item.is_completed).catch(() => undefined)} className="rounded bg-secondary text-foreground px-2 py-1 text-xs">{item.is_completed ? "Undo" : "Done"}</button>
         </article>
       ))}
     </div>
