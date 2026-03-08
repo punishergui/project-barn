@@ -3,6 +3,7 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import BarnLogo from "@/components/BarnLogo";
 import { Badge } from "@/components/ui/badge";
 import { Profile, apiClientJson } from "@/lib/api";
 import { toUserErrorMessage } from "@/lib/errorMessage";
@@ -96,11 +97,7 @@ export default function ProfilePickerPage() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col items-center bg-background px-6 py-10">
-      <svg viewBox="0 0 40 32" width="48" height="38" fill="none" aria-hidden="true" className="text-primary">
-        <rect x="2" y="14" width="36" height="16" rx="1" stroke="currentColor" strokeWidth="1.8" />
-        <path d="M0 15 L20 4 L40 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        <rect x="14" y="18" width="12" height="12" rx="0.5" stroke="currentColor" strokeWidth="1.5" />
-      </svg>
+      <BarnLogo size={56} />
       <h1 className="mt-3 font-serif text-3xl text-foreground">Project Barn</h1>
       <p className="mt-1 text-sm text-muted-foreground">Choose a profile to continue</p>
 

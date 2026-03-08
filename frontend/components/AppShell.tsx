@@ -13,6 +13,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import BarnLogo from "@/components/BarnLogo";
 import { NotificationsResponse, SessionResponse, apiClientJson } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -27,13 +28,7 @@ function TopBar({
     <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-md supports-[backdrop-filter]:bg-card/80">
       <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-3">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <svg viewBox="0 0 40 32" width="28" height="22" fill="none" aria-hidden="true">
-            <rect x="2" y="14" width="36" height="16" rx="1" stroke="currentColor" strokeWidth="1.8" className="text-primary" />
-            <path d="M0 15 L20 4 L40 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary" />
-            <rect x="14" y="18" width="12" height="12" rx="0.5" stroke="currentColor" strokeWidth="1.5" className="text-primary" />
-            <line x1="14" y1="18" x2="26" y2="30" stroke="currentColor" strokeWidth="1.2" className="text-primary/60" />
-            <line x1="26" y1="18" x2="14" y2="30" stroke="currentColor" strokeWidth="1.2" className="text-primary/60" />
-          </svg>
+          <BarnLogo size={28} />
           <span className="font-serif text-lg text-foreground">Project Barn</span>
         </Link>
         <div className="flex items-center gap-2">
