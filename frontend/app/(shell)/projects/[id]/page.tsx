@@ -1,5 +1,17 @@
 "use client";
 
+import {
+  BarChart3,
+  ClipboardList,
+  DollarSign,
+  HeartPulse,
+  ImageIcon,
+  Scale,
+  Target,
+  TrendingUp,
+  Trophy,
+  Utensils
+} from "lucide-react";
 import Link from "next/link";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -25,10 +37,9 @@ import {
 } from "@/lib/api";
 import { toUserErrorMessage } from "@/lib/errorMessage";
 import { uploadProjectHero, uploadProjectMedia } from "@/lib/uploads";
-import { ShowsMediaCard } from "@/components/shows-media-card";
+import { cn } from "@/lib/utils";
 
-const sections = ["overview", "timeline", "expenses", "shows", "media", "tasks", "checklists"] as const;
-type SectionName = (typeof sections)[number];
+type SectionName = "info" | "tasks" | "expenses" | "weight";
 
 function formatDate(value?: string | null) {
   if (!value) return "TBD";
@@ -40,7 +51,7 @@ export default function ProjectDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [activeSection, setActiveSection] = useState<SectionName>("overview");
+  const [activeSection, setActiveSection] = useState<SectionName>("info");
   const [project, setProject] = useState<Project | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -105,12 +116,16 @@ export default function ProjectDetailPage() {
 
   useEffect(() => {
     const tab = searchParams.get("tab");
-    if (tab && sections.includes(tab as SectionName)) setActiveSection(tab as SectionName);
+    if (tab === "tasks" || tab === "expenses" || tab === "weight" || tab === "info") {
+      setActiveSection(tab);
+    }
   }, [searchParams]);
 
-  const ownerName = profiles.find((profile) => profile.id === project?.owner_profile_id)?.name ?? "Unknown owner";
+  const ownerName = profiles.find((profileItem) => profileItem.id === project?.owner_profile_id)?.name ?? "Unknown owner";
   const totalExpenses = useMemo(() => expenses.reduce((sum, row) => sum + row.amount, 0), [expenses]);
   const latestWeight = weights[0]?.weight_lbs ?? null;
+  const targetWeight = project?.target_weight ?? null;
+  const weightProgress = targetWeight && latestWeight ? Math.min(100, Math.round((latestWeight / targetWeight) * 100)) : 0;
 
   const addTimeline = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -158,122 +173,170 @@ export default function ProjectDetailPage() {
     }
   };
 
-  if (error && !project) return <p className="px-4 py-4 text-sm text-red-300">{error}</p>;
-  if (!project) return <p className="px-4 py-4 text-sm text-[var(--barn-muted)]">Loading project...</p>;
+  if (error && !project) return <p className="px-4 py-4 text-sm text-destructive">{error}</p>;
+  if (!project) return <p className="px-4 py-4 text-sm text-muted-foreground">Loading project...</p>;
+
+  const moduleTiles = [
+    { href: `/projects/${project.id}/feed`, label: "Feed", icon: Utensils, badge: `${feedEntries.length}` },
+    { href: `/projects/${project.id}/health`, label: "Health", icon: HeartPulse },
+    { href: `/projects/${project.id}/weights`, label: "Weight", icon: Scale, badge: latestWeight ? `${latestWeight} lb` : undefined },
+    { href: `/projects/${project.id}/expenses`, label: "Expenses", icon: DollarSign, badge: `$${totalExpenses.toFixed(0)}` },
+    { href: `/reports/projects/${project.id}`, label: "Financials", icon: TrendingUp },
+    { href: `/projects/${project.id}/gallery`, label: "Gallery", icon: ImageIcon, badge: `${media.length}` },
+    { href: `/projects/${project.id}/show-readiness`, label: "Goals", icon: Target },
+    { href: `/projects/${project.id}/timeline`, label: "Timeline", icon: ClipboardList, badge: `${timeline.length}` },
+    { href: `/reports/projects/${project.id}`, label: "Reports", icon: BarChart3 },
+    { href: `/projects/${project.id}/shows`, label: "Shows", icon: Trophy, badge: `${shows.length}` }
+  ];
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4 px-4 pb-6">
-      <header className="barn-card space-y-3">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <h1 className="text-2xl font-semibold">{project.name}</h1>
-            <p className="text-sm text-[var(--barn-muted)]">{project.project_category ?? project.project_type} • {ownerName}</p>
-          </div>
-          {auth?.role === "parent" && auth.is_unlocked ? (
-            <label className="cursor-pointer rounded bg-[var(--barn-red)] px-3 py-2 text-xs text-white">
-              Upload Hero
-              <input type="file" accept="image/*" className="hidden" onChange={(event) => handleHeroUpload(event).catch(() => undefined)} />
-            </label>
-          ) : null}
+    <div className="-mx-4 pb-8">
+      <section className="relative h-56 w-full overflow-hidden">
+        {project.photo_url ? (
+          <img src={project.photo_url} alt={project.name} className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-secondary text-6xl">{project.is_livestock ? "🐄" : "📋"}</div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+        <Link href="/projects" className="absolute left-4 top-4 rounded-full bg-white/20 px-3 py-1.5 text-xs font-medium text-white backdrop-blur">
+          Back
+        </Link>
+        {auth?.role === "parent" && auth.is_unlocked ? (
+          <label className="absolute right-4 top-4 cursor-pointer rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
+            Upload
+            <input type="file" accept="image/*" className="hidden" onChange={(event) => handleHeroUpload(event).catch(() => undefined)} />
+          </label>
+        ) : null}
+        <div className="absolute bottom-4 left-4 right-4">
+          <p className="text-xs uppercase tracking-wider text-white/80">{project.project_category ?? project.project_type}</p>
+          <h1 className="font-serif text-3xl text-white">{project.name}</h1>
+          <p className="text-sm text-white/80">{ownerName}</p>
         </div>
-        {error ? <p className="text-xs text-red-200">{error}</p> : null}
-        <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-          <p className="barn-row">Status: {project.status}</p>
-          <p className="barn-row">Expenses: ${totalExpenses.toFixed(2)}</p>
-          <p className="barn-row">Latest Weight: {latestWeight ? `${latestWeight} lbs` : "No entries"}</p>
-          <p className="barn-row">Placings: {placings.length}</p>
-        </div>
-      </header>
-
-      <section className="barn-card flex flex-wrap gap-2 text-xs">
-        {sections.map((section) => (
-          <button
-            key={section}
-            type="button"
-            onClick={() => setActiveSection(section)}
-            className={`rounded px-3 py-2 capitalize ${activeSection === section ? "bg-[var(--barn-red)] text-white" : "bg-[var(--barn-bg)]"}`}
-          >
-            {section}
-          </button>
-        ))}
       </section>
 
-      {activeSection === "overview" ? (
-        <section className="barn-card space-y-3 text-sm">
-          <p>{project.notes || "No notes yet for this project."}</p>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <Link href={`/projects/${project.id}/feed`} className="barn-row block">Feed logs ({feedEntries.length})</Link>
-            <Link href={`/projects/${project.id}/weights`} className="barn-row block">Weight logs ({weights.length})</Link>
-            <Link href={`/projects/${project.id}/tasks`} className="barn-row block">Tasks ({tasks.length})</Link>
-            <Link href={`/projects/${project.id}/reminders`} className="barn-row block">Reminders ({reminders.length})</Link>
-          </div>
-          <p className="text-xs text-[var(--barn-muted)]">Materials tracked: {materials.length} • Net: ${financialSummary?.net_profit_loss?.toFixed(2) ?? "0.00"}</p>
-        </section>
-      ) : null}
+      <div className="space-y-5 px-4 pt-4">
+        {error ? <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</p> : null}
 
-      {activeSection === "timeline" ? (
-        <section className="barn-card space-y-3 text-sm">
-          <form className="grid gap-2 sm:grid-cols-2" onSubmit={(event) => addTimeline(event).catch(() => undefined)}>
-            <input name="date" type="date" className="rounded bg-black/20 p-2" required />
-            <input name="type" placeholder="Type" defaultValue="Update" className="rounded bg-black/20 p-2" required />
-            <input name="title" placeholder="Title" className="rounded bg-black/20 p-2 sm:col-span-2" required />
-            <textarea name="description" placeholder="Description" className="rounded bg-black/20 p-2 sm:col-span-2" />
-            <button className="rounded bg-[var(--barn-red)] px-3 py-2 text-sm text-white sm:col-span-2">Save timeline entry</button>
+        <div className="grid grid-cols-4 gap-2">
+          <div className="rounded-xl border border-border bg-card p-2 text-center"><p className="font-serif text-lg">{placings.length}</p><p className="text-[9px] uppercase tracking-wider text-muted-foreground">Ribbons</p></div>
+          <div className="rounded-xl border border-border bg-card p-2 text-center"><p className="font-mono text-sm">${totalExpenses.toFixed(0)}</p><p className="text-[9px] uppercase tracking-wider text-muted-foreground">Spent</p></div>
+          <div className="rounded-xl border border-border bg-card p-2 text-center"><p className="font-serif text-lg">{tasks.filter((task) => !task.is_completed).length}</p><p className="text-[9px] uppercase tracking-wider text-muted-foreground">Tasks</p></div>
+          <div className="rounded-xl border border-border bg-card p-2 text-center"><p className="font-mono text-sm">${(financialSummary?.net_profit_loss ?? 0).toFixed(0)}</p><p className="text-[9px] uppercase tracking-wider text-muted-foreground">Net P/L</p></div>
+        </div>
+
+        <div className="grid grid-cols-4 gap-2">
+          {moduleTiles.slice(0, 8).map((tile) => (
+            <Link key={tile.href + tile.label} href={tile.href} className="flex flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card p-4 transition-all hover:shadow-md active:scale-[0.98]">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary">
+                <tile.icon className="h-5 w-5 text-secondary-foreground" />
+              </div>
+              <span className="text-xs font-medium text-foreground">{tile.label}</span>
+              {tile.badge ? <span className="font-mono text-[10px] text-muted-foreground">{tile.badge}</span> : null}
+            </Link>
+          ))}
+        </div>
+
+        <section className="rounded-xl border border-border bg-card p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="font-serif text-lg">Weight Projection</h2>
+            <span className="font-mono text-xs text-muted-foreground">{latestWeight ? `${latestWeight} / ${targetWeight ?? "--"} lb` : "No data"}</span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
+            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${weightProgress}%` }} />
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">Goal progress: {weightProgress}%</p>
+        </section>
+
+        <div className="grid grid-cols-4 gap-2 rounded-xl border border-border bg-card p-1">
+          {(["info", "tasks", "expenses", "weight"] as SectionName[]).map((tab) => (
+            <button key={tab} type="button" onClick={() => setActiveSection(tab)} className={cn("rounded-lg px-2 py-2 text-xs font-medium capitalize", activeSection === tab ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>{tab}</button>
+          ))}
+        </div>
+
+        {activeSection === "info" ? (
+          <section className="rounded-xl border border-border bg-card">
+            {[`Status: ${project.status}`, `Owner: ${ownerName}`, `Materials tracked: ${materials.length}`, `Reminders: ${reminders.length}`, `Checklist complete: ${checklists?.summary.completed ?? 0}/${checklists?.summary.total ?? 0}`, `Readiness: ${readiness?.summary.completed ?? 0}/${readiness?.summary.total ?? 0}`].map((line, i, arr) => (
+              <div key={line}>
+                <div className="px-4 py-3 text-sm">{line}</div>
+                {i < arr.length - 1 ? <div className="mx-4 h-px bg-border" /> : null}
+              </div>
+            ))}
+          </section>
+        ) : null}
+
+        {activeSection === "tasks" ? (
+          <section className="rounded-xl border border-border bg-card">
+            {tasks.length === 0 ? <p className="px-4 py-3 text-sm text-muted-foreground">No tasks yet.</p> : tasks.map((task, i) => (
+              <div key={task.id}>
+                <div className="px-4 py-3 text-sm"><p className={task.is_completed ? "line-through text-muted-foreground" : ""}>{task.title}</p></div>
+                {i < tasks.length - 1 ? <div className="mx-4 h-px bg-border" /> : null}
+              </div>
+            ))}
+          </section>
+        ) : null}
+
+        {activeSection === "expenses" ? (
+          <section className="rounded-xl border border-border bg-card">
+            {expenses.length === 0 ? <p className="px-4 py-3 text-sm text-muted-foreground">No expenses logged yet.</p> : expenses.map((expense, i) => (
+              <div key={expense.id}>
+                <div className="flex items-center justify-between px-4 py-3 text-sm">
+                  <div>
+                    <p className="font-medium">{expense.vendor ?? expense.category}</p>
+                    <p className="text-xs text-muted-foreground">{formatDate(expense.date)}</p>
+                  </div>
+                  <span className="font-mono">${expense.amount.toFixed(2)}</span>
+                </div>
+                {i < expenses.length - 1 ? <div className="mx-4 h-px bg-border" /> : null}
+              </div>
+            ))}
+          </section>
+        ) : null}
+
+        {activeSection === "weight" ? (
+          <section className="rounded-xl border border-border bg-card">
+            {weights.length === 0 ? <p className="px-4 py-3 text-sm text-muted-foreground">No weight entries yet.</p> : weights.map((entry, i) => (
+              <div key={entry.id}>
+                <div className="flex items-center justify-between px-4 py-3 text-sm">
+                  <span>{formatDate(entry.weighed_at)}</span>
+                  <span className="font-mono">{entry.weight_lbs.toFixed(1)} lb</span>
+                </div>
+                {i < weights.length - 1 ? <div className="mx-4 h-px bg-border" /> : null}
+              </div>
+            ))}
+          </section>
+        ) : null}
+
+        <section className="rounded-xl border border-border bg-card p-3">
+          <form className="grid gap-2" onSubmit={(event) => addTimeline(event).catch(() => undefined)}>
+            <input name="date" type="date" className="rounded-lg border border-input bg-background px-3 py-2 text-sm" required />
+            <input name="type" placeholder="Type" defaultValue="Update" className="rounded-lg border border-input bg-background px-3 py-2 text-sm" required />
+            <input name="title" placeholder="Title" className="rounded-lg border border-input bg-background px-3 py-2 text-sm" required />
+            <textarea name="description" placeholder="Description" className="rounded-lg border border-input bg-background px-3 py-2 text-sm" />
+            <button className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">Save timeline entry</button>
           </form>
-          {timeline.length === 0 ? <p className="barn-row text-[var(--barn-muted)]">No timeline entries yet.</p> : timeline.map((item) => <article key={item.id} className="barn-row"><p className="font-medium">{item.title}</p><p className="text-xs text-[var(--barn-muted)]">{formatDate(item.date)} • {item.type}</p></article>)}
         </section>
-      ) : null}
 
-      {activeSection === "expenses" ? (
-        <section className="barn-card space-y-3 text-sm">
-          <div className="flex items-center justify-between"><h2 className="text-base font-semibold">Expenses</h2><Link href={`/expenses/new?projectId=${project.id}`} className="rounded bg-[var(--barn-red)] px-3 py-2 text-xs text-white">Add expense</Link></div>
-          {expenses.length === 0 ? <p className="barn-row text-[var(--barn-muted)]">No expenses logged yet.</p> : expenses.map((expense) => <Link key={expense.id} href={`/expenses/${expense.id}`} className="barn-row block"><p className="font-medium">${expense.amount.toFixed(2)} • {expense.vendor ?? expense.category}</p><p className="text-xs text-[var(--barn-muted)]">{formatDate(expense.date)}</p></Link>)}
-        </section>
-      ) : null}
-
-      {activeSection === "shows" ? (
-        <section className="barn-card space-y-3 text-sm">
-          <h2 className="text-base font-semibold">Shows</h2>
-          {shows.length === 0 ? <p className="barn-row text-[var(--barn-muted)]">No shows for this project yet.</p> : shows.map((show) => <Link key={show.id} href={`/shows/${show.id}`} className="barn-row block"><p className="font-medium">{show.name}</p><p className="text-xs text-[var(--barn-muted)]">{formatDate(show.start_date)} • {show.location}</p></Link>)}
-        </section>
-      ) : null}
-
-      {activeSection === "media" ? (
-        <section className="barn-card space-y-3 text-sm">
-          <div className="flex flex-wrap items-center gap-2">
-            <input value={mediaCaption} onChange={(event) => setMediaCaption(event.target.value)} placeholder="Caption" className="rounded bg-[var(--barn-bg)] px-3 py-2" />
-            <label className="rounded bg-[var(--barn-red)] px-3 py-2 text-xs text-white">Add Media<input type="file" accept="image/*,video/*" className="hidden" onChange={(event) => handleMediaUpload(event).catch(() => undefined)} /></label>
-            <Link href={`/projects/${project.id}/gallery`} className="see-all-link">Open gallery</Link>
+        <section className="rounded-xl border border-border bg-card p-3">
+          <div className="mb-2 flex items-center gap-2">
+            <input value={mediaCaption} onChange={(event) => setMediaCaption(event.target.value)} placeholder="Caption" className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm" />
+            <label className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground">
+              Add Media
+              <input type="file" accept="image/*,video/*" className="hidden" onChange={(event) => handleMediaUpload(event).catch(() => undefined)} />
+            </label>
           </div>
-          {media.length === 0 ? <p className="barn-row text-[var(--barn-muted)]">No media uploaded for this project yet.</p> : <div className="grid grid-cols-2 gap-2 md:grid-cols-3">{media.map((item) => <ShowsMediaCard key={item.id} item={item} />)}</div>}
+          <p className="text-xs text-muted-foreground">Media items: {media.length}</p>
         </section>
-      ) : null}
 
-      {activeSection === "tasks" ? (
-        <section className="barn-card space-y-3 text-sm">
-          <div className="flex items-center justify-between"><h2 className="text-base font-semibold">Tasks / Checklist</h2><Link href={`/projects/${project.id}/tasks`} className="see-all-link">Manage</Link></div>
-          {tasks.length === 0 ? <p className="barn-row text-[var(--barn-muted)]">No tasks yet.</p> : tasks.map((task) => <article key={task.id} className="barn-row"><p className={task.is_completed ? "line-through" : ""}>{task.title}</p></article>)}
-        </section>
-      ) : null}
-
-      {activeSection === "checklists" ? (
-        <section className="barn-card space-y-3 text-sm">
-          <div className="flex items-center justify-between"><h2 className="text-base font-semibold">Skills / Show readiness</h2><Link href={`/projects/${project.id}/checklists`} className="see-all-link">Checklist</Link></div>
-          <p className="text-[var(--barn-muted)]">Checklist: {checklists?.summary.completed ?? 0}/{checklists?.summary.total ?? 0} complete</p>
-          <p className="text-[var(--barn-muted)]">Readiness: {readiness?.summary.completed ?? 0}/{readiness?.summary.total ?? 0} ready</p>
-          <Link href={`/projects/${project.id}/show-readiness`} className="barn-row block">Open show readiness board</Link>
-        </section>
-      ) : null}
-
-      {auth?.role === "parent" && auth.is_unlocked ? (
-        <section className="barn-card space-y-2 text-sm">
-          <h2 className="text-base font-semibold">Project actions</h2>
-          <div className="flex flex-wrap gap-2">
-            <Link href={`/projects/${project.id}/edit`} className="rounded bg-neutral-700 px-3 py-2 text-xs">Edit Project</Link>
-            <button onClick={() => apiClientJson(`/projects/${project.id}`, { method: "DELETE" }).then(() => router.push("/projects"))} className="rounded bg-red-900 px-3 py-2 text-xs">Delete Project</button>
-          </div>
-        </section>
-      ) : null}
+        {auth?.role === "parent" && auth.is_unlocked ? (
+          <section className="rounded-xl border border-border bg-card p-3">
+            <h2 className="mb-2 font-serif text-lg">Project actions</h2>
+            <div className="flex flex-wrap gap-2">
+              <Link href={`/projects/${project.id}/edit`} className="rounded-lg border border-border bg-secondary px-3 py-2 text-xs">Edit Project</Link>
+              <button onClick={() => apiClientJson(`/projects/${project.id}`, { method: "DELETE" }).then(() => router.push("/projects"))} className="rounded-lg bg-destructive px-3 py-2 text-xs text-white">Delete Project</button>
+            </div>
+          </section>
+        ) : null}
+      </div>
     </div>
   );
 }

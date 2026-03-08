@@ -1,84 +1,151 @@
+import { Beef, ChevronRight, FolderOpen, Receipt, Trophy } from "lucide-react";
 import Link from "next/link";
 
-import EmptyState from "@/components/empty-state";
+import { SectionHeader } from "@/components/section-header";
+import { StatCard } from "@/components/stat-card";
+import { Separator } from "@/components/ui/separator";
 
-type QuickAction = { href: string; label: string; emoji: string };
-type DashboardProject = { id: number; name: string; project_type: string; project_category: string | null; is_livestock: boolean; owner: string; photo_url: string | null; spent_total: number; open_tasks: number; latest_weight_lbs: number | null; next_event: string | null };
+type DashboardProject = {
+  id: number;
+  name: string;
+  species: string;
+  project_type: string;
+  project_category: string | null;
+  is_livestock: boolean;
+  owner: string;
+  photo_url: string | null;
+};
 type DashboardShow = { id: number; name: string; date: string | null; location: string | null };
-type DashboardExpense = { id: number; amount: number; date: string | null; category: string; vendor: string | null; has_receipt: boolean; project_name: string };
-type DashboardActivity = { id: string; title: string; subtitle: string; date: string; href: string };
-type LowFeedInventory = { id: number; name: string; qty_on_hand: number; unit: string; low_stock_threshold: number | null };
-type RecentFeedEvent = { id: number; project_id: number; project_name: string; recorded_at: string | null; feed_type: string; amount: number; unit: string };
-type FinanceSummary = { total_spent: number; total_income: number; net_balance: number; recent_sale: { id: number; buyer_name: string; sale_date: string; final_payout: number } | null };
-type UpcomingReminder = { id: number; project_name: string; type: string; time_of_day: string | null; notes: string | null; parent_locked: boolean; route: string };
+type DashboardExpense = { id: number; amount: number; category: string; project_name: string };
 
 type Props = {
   todayLabel: string;
   profileName: string;
-  familyName: string | null;
-  profileRole: string | null;
-  profileAvatarUrl: string | null;
-  quickActions: QuickAction[];
   activeProjects: DashboardProject[];
   upcomingShows: DashboardShow[];
   recentExpenses: DashboardExpense[];
-  recentActivity: DashboardActivity[];
-  lowFeedInventory: LowFeedInventory[];
-  recentFeedEvents: RecentFeedEvent[];
-  financeSummary: FinanceSummary;
-  hasLoadError: boolean;
-  unreadNotifications: number;
-  upcomingReminders: UpcomingReminder[];
 };
 
-function shortDate(value: string | null) {
-  if (!value) return "No date";
-  return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+function greetingForHour(hour: number) {
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
 }
 
-export default function DashboardTodayClient({ todayLabel, profileName, familyName, profileRole, profileAvatarUrl, quickActions, activeProjects, upcomingShows, recentExpenses, recentActivity, lowFeedInventory, recentFeedEvents, financeSummary, hasLoadError, unreadNotifications, upcomingReminders }: Props) {
-  return <div className="w-full space-y-4 px-4 pb-6">
-    <section className="rounded-2xl border border-[var(--barn-border)] bg-gradient-to-br from-[var(--barn-red)]/25 via-[var(--barn-surface)] to-[var(--barn-surface)] p-5 shadow-lg shadow-black/20">
-      <p className="text-xs uppercase tracking-wide text-[var(--barn-muted)]">{todayLabel}</p>
-      <h1 className="mt-2 text-3xl font-semibold">Hi, {profileName}</h1>
-      <p className="mt-1 text-sm text-[var(--barn-muted)]">{familyName ?? "Welcome back to Project Barn"}</p>
-      <div className="mt-3 flex items-center gap-2 text-xs text-[var(--barn-muted)]">
-        {profileAvatarUrl ? <img src={profileAvatarUrl} alt={profileName} className="h-8 w-8 rounded-full object-cover" /> : <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/30">👤</span>}
-        <span>Active profile: <strong className="text-[var(--barn-text)]">{profileName}</strong>{profileRole ? ` (${profileRole})` : ""}</span>
+function projectEmoji(project: DashboardProject) {
+  if (project.species === "pig") return "🐷";
+  if (project.species === "goat") return "🐐";
+  if (project.is_livestock) return "🐄";
+  return "📋";
+}
+
+export default function DashboardTodayClient({ todayLabel, profileName, activeProjects, upcomingShows, recentExpenses }: Props) {
+  const firstName = profileName.split(" ")[0] ?? "Friend";
+  const greeting = greetingForHour(new Date().getHours());
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-0.5">
+        <h1 className="font-serif text-2xl text-foreground">
+          {greeting}, {firstName}
+        </h1>
+        <p className="text-sm text-muted-foreground">{todayLabel}</p>
       </div>
-      <div className="mt-4 flex flex-wrap gap-2 text-xs">
-        <Link href="/profile-picker" className="rounded-full border border-[var(--barn-border)] bg-black/20 px-3 py-1.5">Switch profile</Link>
-        <Link href="/notifications" className="rounded-full border border-[var(--barn-border)] bg-black/20 px-3 py-1.5">{unreadNotifications} unread alerts</Link>
+
+      <div className="grid grid-cols-3 gap-3">
+        <StatCard label="Projects" value={activeProjects.length} icon={FolderOpen} />
+        <StatCard label="Animals" value={activeProjects.filter((p) => p.is_livestock).length} icon={Beef} />
+        <StatCard label="Shows" value={upcomingShows.length} icon={Trophy} />
       </div>
-    </section>
 
-    {hasLoadError ? <section className="barn-card text-sm text-red-200">We could not refresh dashboard data. Pull down to try again.</section> : null}
+      <div className="flex flex-col gap-3">
+        <SectionHeader title="Your Animals" href="/projects" count={activeProjects.length} />
+        <div className="-mx-4 overflow-x-auto px-4">
+          <div className="flex gap-3 pb-2">
+            {activeProjects.map((project) => (
+              <Link key={project.id} href={`/projects/${project.id}`} className="block w-40 flex-shrink-0">
+                <div className="overflow-hidden rounded-xl border border-border bg-card">
+                  <div className="relative h-28 w-full bg-secondary">
+                    {project.photo_url ? (
+                      <img src={project.photo_url} alt={project.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-4xl">{projectEmoji(project)}</div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                    <div className="absolute bottom-2 left-2.5 right-2.5">
+                      <p className="font-serif text-sm text-white">{project.name}</p>
+                      <p className="text-[11px] text-white/75">{project.owner}</p>
+                    </div>
+                  </div>
+                  <div className="px-2.5 py-2">
+                    <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground">{project.species}</span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+            <Link href="/projects/new" className="flex h-40 w-40 flex-shrink-0 items-center justify-center rounded-xl border border-dashed border-border bg-card/50 text-muted-foreground transition-colors hover:border-primary hover:text-primary">
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-2xl">+</span>
+                <span className="text-xs">Add Project</span>
+              </div>
+            </Link>
+          </div>
+        </div>
+      </div>
 
-    <section className="barn-card space-y-3">
-      <h2 className="text-base font-semibold">Quick actions</h2>
-      <div className="grid grid-cols-2 gap-2">{quickActions.map((item) => <Link key={item.href} href={item.href} className="flex min-h-14 items-center gap-2 rounded-xl border border-[var(--barn-border)] bg-[var(--barn-bg)] px-3 py-2 text-sm font-medium"><span>{item.emoji}</span><span>{item.label}</span></Link>)}</div>
-    </section>
+      <Separator />
 
-    <section className="barn-card space-y-3">
-      <div className="flex items-center justify-between"><h2 className="text-base font-semibold">Alerts</h2><Link href="/notifications" className="see-all-link">Open</Link></div>
-      {upcomingReminders.length === 0 ? <EmptyState icon="🔔" title="No reminders queued" description="You're all caught up. Add reminders from project pages to see them here." actions={[{ href: "/projects", label: "Open projects" }]} /> : upcomingReminders.slice(0, 4).map((item) => <Link key={item.id} href={item.route} className="barn-row block"><p className="font-medium">{item.project_name} • {item.type.replace("_", " ")}{item.parent_locked ? " 🔒" : ""}</p><p className="text-xs text-[var(--barn-muted)]">{item.time_of_day || "Any time"}{item.notes ? ` • ${item.notes}` : ""}</p></Link>)}
-    </section>
+      {upcomingShows.length > 0 ? (
+        <div className="flex flex-col gap-3">
+          <SectionHeader title="Upcoming Shows" href="/shows" count={upcomingShows.length} />
+          <div className="flex flex-col gap-2">
+            {upcomingShows.slice(0, 2).map((show) => (
+              <Link key={show.id} href={`/shows/${show.id}`} className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 transition-shadow hover:shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-900/20">
+                    <Trophy className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{show.name}</p>
+                    <p className="text-xs text-muted-foreground">{show.location}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-mono text-xs text-foreground">{show.date ? new Date(show.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "TBD"}</p>
+                  <ChevronRight className="ml-auto mt-0.5 h-4 w-4 text-muted-foreground" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
-    <section className="barn-card space-y-3">
-      <div className="flex items-center justify-between"><h2 className="text-base font-semibold">Active Projects</h2><Link href="/projects" className="see-all-link">See all</Link></div>
-      {activeProjects.length === 0 ? <EmptyState icon="🐄" title="No projects yet" description="Create your first project to unlock feed logs, show prep, tasks, and expenses." actions={[{ href: "/projects/new", label: "Create project" }, { href: "/setup", label: "Guided setup", variant: "secondary" }]} /> : activeProjects.map((project) => <Link key={project.id} href={`/projects/${project.id}`} className="barn-row block"><p className="font-medium">{project.name}</p><p className="text-xs text-[var(--barn-muted)]">{project.project_category || project.project_type} • {project.owner} • Open tasks {project.open_tasks}</p></Link>)}
-    </section>
+      <Separator />
 
-    <section className="barn-card space-y-3"><div className="flex items-center justify-between"><h2 className="text-base font-semibold">Upcoming Shows</h2><Link href="/shows" className="see-all-link">See all</Link></div>{upcomingShows.length === 0 ? <EmptyState icon="🏆" title="No shows scheduled" description="Add a show date so weigh-ins and entries stay organized." actions={[{ href: "/shows/new", label: "Add show" }]} /> : upcomingShows.map((show) => <Link key={show.id} href={`/shows/${show.id}`} className="barn-row block"><p className="font-medium">{show.name}</p><p className="text-xs text-[var(--barn-muted)]">{shortDate(show.date)} • {show.location ?? "Location TBD"}</p></Link>)}</section>
-
-    <section className="barn-card space-y-3"><div className="flex items-center justify-between"><h2 className="text-base font-semibold">Finance Snapshot</h2><Link href="/income" className="see-all-link">Income</Link></div><div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3"><article className="barn-row">Spent ${financeSummary.total_spent.toFixed(2)}</article><article className="barn-row">Income ${financeSummary.total_income.toFixed(2)}</article><article className="barn-row">Net ${financeSummary.net_balance.toFixed(2)}</article></div></section>
-
-    <section className="barn-card space-y-3"><h2 className="text-base font-semibold">Recent Expenses</h2>{recentExpenses.length === 0 ? <EmptyState icon="🧾" title="No expenses yet" description="Track feed, entries, and supplies to keep season costs clear." actions={[{ href: "/expenses/new", label: "Add expense" }]} /> : recentExpenses.slice(0, 4).map((expense) => <Link key={expense.id} href={`/expenses/${expense.id}`} className="barn-row block"><p className="font-medium">${expense.amount.toFixed(2)} • {expense.project_name}</p><p className="text-xs text-[var(--barn-muted)]">{shortDate(expense.date)} • {expense.vendor || expense.category}</p></Link>)}</section>
-
-    <section className="barn-card space-y-3"><h2 className="text-base font-semibold">Recent Feeding</h2>{recentFeedEvents.length === 0 ? <EmptyState icon="🌾" title="No feed logs yet" description="Log daily feed and track cost per pound as projects progress." actions={[{ href: "/feed", label: "Open feed log" }]} /> : recentFeedEvents.slice(0, 4).map((event) => <Link key={event.id} href={`/projects/${event.project_id}/feed`} className="barn-row block"><p className="font-medium">{event.project_name} • {event.feed_type}</p><p className="text-xs text-[var(--barn-muted)]">{event.amount} {event.unit} • {shortDate(event.recorded_at)}</p></Link>)}</section>
-
-    <section className="barn-card space-y-3"><div className="flex items-center justify-between"><h2 className="text-base font-semibold">Recent Activity</h2><Link href="/activity" className="see-all-link">Full feed</Link></div>{recentActivity.length === 0 ? <EmptyState icon="🕒" title="No activity yet" description="Activity appears here as your family adds tasks, weights, expenses, and shows." /> : recentActivity.slice(0, 6).map((item) => <Link key={item.id} href={item.href} className="barn-row block"><p className="font-medium">{item.title}</p><p className="text-xs text-[var(--barn-muted)]">{item.subtitle} • {shortDate(item.date)}</p></Link>)}</section>
-
-    {lowFeedInventory.length > 0 ? <section className="barn-card space-y-2"><h2 className="text-base font-semibold text-[var(--barn-gold)]">Feed Alerts</h2>{lowFeedInventory.slice(0, 4).map((item) => <p key={item.id} className="barn-row text-sm">{item.name}: {item.qty_on_hand} {item.unit}</p>)}</section> : null}
-  </div>;
+      {recentExpenses.length > 0 ? (
+        <div className="flex flex-col gap-3">
+          <SectionHeader title="Recent Expenses" href="/expenses" />
+          <div className="rounded-xl border border-border bg-card">
+            {recentExpenses.map((expense, i) => (
+              <div key={expense.id}>
+                <div className="flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary">
+                      <Receipt className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-foreground">{expense.project_name}</span>
+                      <span className="text-xs capitalize text-muted-foreground">{expense.category}</span>
+                    </div>
+                  </div>
+                  <span className="font-mono text-sm font-medium text-foreground">${expense.amount.toFixed(2)}</span>
+                </div>
+                {i < recentExpenses.length - 1 ? <Separator className="mx-4" /> : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
 }

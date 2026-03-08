@@ -1,13 +1,21 @@
 "use client";
 
-import Image from "next/image";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 
+import { Badge } from "@/components/ui/badge";
 import { Profile, apiClientJson } from "@/lib/api";
 import { toUserErrorMessage } from "@/lib/errorMessage";
 import { uploadProfileAvatar } from "@/lib/uploads";
-import EmptyState from "@/components/empty-state";
+
+function initials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
 
 export default function ProfilePickerPage() {
   const router = useRouter();
@@ -17,6 +25,8 @@ export default function ProfilePickerPage() {
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [pin, setPin] = useState("");
   const [isSwitching, setIsSwitching] = useState(false);
+
+  const pinDigits = useMemo(() => Array.from({ length: 6 }, (_, index) => pin[index] ?? ""), [pin]);
 
   const loadProfiles = async () => {
     const profileData = await apiClientJson<Profile[]>("/profiles");
@@ -85,39 +95,31 @@ export default function ProfilePickerPage() {
   };
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center px-6 py-10 text-center">
-      <Image src="/brand/barn-logo.png" alt="Project Barn" width={92} height={92} priority className="mb-4 rounded-2xl" />
-      <h1 className="text-3xl font-semibold text-white">Project Barn</h1>
-      <p className="mt-2 text-sm text-neutral-300">Choose a profile to continue</p>
+    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col items-center bg-background px-6 py-10">
+      <svg viewBox="0 0 40 32" width="48" height="38" fill="none" aria-hidden="true" className="text-primary">
+        <rect x="2" y="14" width="36" height="16" rx="1" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M0 15 L20 4 L40 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <rect x="14" y="18" width="12" height="12" rx="0.5" stroke="currentColor" strokeWidth="1.5" />
+      </svg>
+      <h1 className="mt-3 font-serif text-3xl text-foreground">Project Barn</h1>
+      <p className="mt-1 text-sm text-muted-foreground">Choose a profile to continue</p>
 
       <div className="mt-6 w-full space-y-3">
-        {loading ? <p className="text-sm text-neutral-400">Loading profiles...</p> : null}
-        {error ? <div className="space-y-2 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-100"><p>{error}</p><button type="button" onClick={() => loadProfiles().then(() => setError(null)).catch((err) => setError(toUserErrorMessage(err, "Unable to load profiles.")))} className="rounded bg-neutral-700 px-3 py-2 text-xs">Retry</button></div> : null}
-        {profiles.length === 0 && !loading ? (
-          <EmptyState
-            icon="👨‍👩‍👧‍👦"
-            title="No family profiles yet"
-            description="Run the guided setup to create a parent profile and your first project."
-            actions={[{ href: "/setup", label: "Start setup" }, { href: "/dashboard", label: "Open dashboard", variant: "secondary" }]}
-          />
-        ) : null}
+        {loading ? <p className="text-sm text-muted-foreground">Loading profiles...</p> : null}
+        {error ? <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p> : null}
         {profiles.map((profile) => (
-          <div key={profile.id} className="rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-3">
-            <button
-              type="button"
-              onClick={() => onProfileTap(profile).catch(() => undefined)}
-              className="flex w-full items-center gap-3 text-left"
-            >
-              <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[var(--barn-red)] text-base font-semibold text-white">
-                {profile.avatar_url ? <img src={profile.avatar_url} alt={profile.name} className="h-full w-full object-cover" /> : profile.name.slice(0, 1).toUpperCase()}
+          <div key={profile.id} className="rounded-xl border border-border bg-card p-3">
+            <button type="button" onClick={() => onProfileTap(profile).catch(() => undefined)} className="flex w-full items-center gap-3 text-left">
+              <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+                {profile.avatar_url ? <img src={profile.avatar_url} alt={profile.name} className="h-full w-full object-cover" /> : initials(profile.name)}
               </div>
               <div className="flex-1">
-                <p className="font-medium text-white">{profile.name}</p>
-                <p className="text-sm capitalize text-neutral-300">{profile.role}</p>
+                <p className="font-medium text-foreground">{profile.name}</p>
+                <p className="text-sm capitalize text-muted-foreground">{profile.role}</p>
               </div>
-              {profile.requires_pin ? <span className="rounded bg-neutral-700 px-2 py-1 text-xs">PIN</span> : null}
+              {profile.requires_pin ? <Badge variant="secondary">PIN</Badge> : null}
             </button>
-            <label className="mt-3 inline-flex cursor-pointer rounded-lg border border-[var(--barn-border)] bg-black/20 px-3 py-2 text-xs">
+            <label className="mt-3 inline-flex cursor-pointer rounded-lg border border-input bg-background px-3 py-2 text-xs">
               Upload avatar
               <input type="file" accept="image/*" className="hidden" onChange={(event) => onUploadAvatar(event, profile.id).catch(() => undefined)} />
             </label>
@@ -126,22 +128,29 @@ export default function ProfilePickerPage() {
       </div>
 
       {selectedProfile ? (
-        <form onSubmit={onSubmitPin} className="mt-5 w-full space-y-3 rounded-xl border border-[var(--barn-border)] bg-[var(--barn-dark)] p-4 text-left">
-          <p className="text-sm font-medium">Enter PIN for {selectedProfile.name}</p>
+        <form onSubmit={onSubmitPin} className="mt-5 w-full space-y-3 rounded-xl border border-border bg-card p-4">
+          <p className="text-sm font-medium text-foreground">Enter PIN for {selectedProfile.name}</p>
+          <div className="grid grid-cols-6 gap-2">
+            {pinDigits.map((digit, index) => (
+              <div key={`${selectedProfile.id}-${index}`} className="flex h-12 items-center justify-center rounded-lg border border-input bg-background text-lg font-semibold text-foreground">
+                {digit || "•"}
+              </div>
+            ))}
+          </div>
           <input
             name="pin"
             value={pin}
-            onChange={(event) => setPin(event.target.value.replace(/\D+/g, "").slice(0, 12))}
+            onChange={(event) => setPin(event.target.value.replace(/\D+/g, "").slice(0, 6))}
             inputMode="numeric"
             pattern="[0-9]*"
             autoComplete="one-time-code"
-            className="w-full rounded-lg border border-[var(--barn-border)] bg-black/20 p-3 text-lg"
-            placeholder="PIN"
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-lg"
+            placeholder="Enter 6-digit PIN"
             required
           />
           <div className="flex gap-2">
-            <button disabled={isSwitching} className="min-h-11 flex-1 rounded-lg bg-[var(--barn-red)] px-3 py-2 text-sm font-medium disabled:opacity-60">{isSwitching ? "Switching..." : "Unlock & switch"}</button>
-            <button type="button" onClick={() => setSelectedProfile(null)} className="min-h-11 rounded-lg bg-neutral-700 px-3 py-2 text-sm">Cancel</button>
+            <button disabled={isSwitching} className="min-h-11 flex-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">{isSwitching ? "Switching..." : "Unlock & switch"}</button>
+            <button type="button" onClick={() => setSelectedProfile(null)} className="min-h-11 rounded-lg border border-input bg-secondary px-3 py-2 text-sm">Cancel</button>
           </div>
         </form>
       ) : null}

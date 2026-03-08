@@ -50,7 +50,10 @@ async function upload(path: string, fields: Record<string, string>, file: File, 
 }
 
 export function uploadProfileAvatar(file: File, profileId?: number): Promise<string> {
-  const fields = profileId ? { profile_id: String(profileId) } : {};
+  const fields: Record<string, string> = {};
+  if (profileId) {
+    fields.profile_id = String(profileId);
+  }
   return upload("/uploads/profile-avatar", fields, file, "avatar");
 }
 
