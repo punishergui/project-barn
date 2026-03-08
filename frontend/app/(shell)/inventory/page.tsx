@@ -6,6 +6,9 @@ import { apiClientJson, FamilyInventoryItem, Project } from "@/lib/api";
 
 const categories = ["grooming", "barn supplies", "feed equipment", "tack", "show supplies", "kitchen supplies", "craft supplies", "tools", "garden supplies", "general"];
 
+const fieldClassName =
+  "w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30";
+
 export default function InventoryPage() {
   const [items, setItems] = useState<FamilyInventoryItem[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -61,54 +64,89 @@ export default function InventoryPage() {
 
   return (
     <div className="w-full space-y-4 px-4 pb-4">
-      <h1 className="text-2xl font-semibold">Inventory</h1>
+      <h1 className="mb-4 font-serif text-2xl text-foreground">Inventory</h1>
 
-      <form id="inventory-form" onSubmit={(event) => submit(event).catch(() => undefined)} className="barn-card grid gap-2 text-sm">
-        <input name="name" placeholder="Item name" required className="rounded bg-black/20 p-2" />
+      <form id="inventory-form" onSubmit={(event) => submit(event).catch(() => undefined)} className="mb-4 grid gap-2 rounded-2xl border border-border bg-card p-4 text-sm">
+        <h2 className="mb-3 text-sm font-semibold">{editingId ? "Edit Item" : "Add Item"}</h2>
+        <input name="name" placeholder="Item name" required className={fieldClassName} />
         <div className="grid gap-2 sm:grid-cols-2">
-          <select name="category" defaultValue="general" className="rounded bg-black/20 p-2">{categories.map((category) => <option key={category}>{category}</option>)}</select>
-          <input name="quantity" type="number" defaultValue="1" step="0.1" placeholder="Quantity" className="rounded bg-black/20 p-2" />
-          <input name="unit" placeholder="Unit (optional)" className="rounded bg-black/20 p-2" />
-          <input name="location" placeholder="Location" className="rounded bg-black/20 p-2" />
-          <input name="condition" placeholder="Condition" className="rounded bg-black/20 p-2" />
-          <select name="assigned_project_id" className="rounded bg-black/20 p-2">
+          <select name="category" defaultValue="general" className={fieldClassName}>
+            {categories.map((category) => (
+              <option key={category}>{category}</option>
+            ))}
+          </select>
+          <input name="quantity" type="number" defaultValue="1" step="0.1" placeholder="Quantity" className={fieldClassName} />
+          <input name="unit" placeholder="Unit (optional)" className={fieldClassName} />
+          <input name="location" placeholder="Location" className={fieldClassName} />
+          <input name="condition" placeholder="Condition" className={fieldClassName} />
+          <select name="assigned_project_id" className={fieldClassName}>
             <option value="">Assign to project (optional)</option>
-            {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
           </select>
         </div>
-        <textarea name="notes" placeholder="Notes" className="rounded bg-black/20 p-2" />
-        <label className="flex min-h-11 items-center gap-2 rounded border border-[var(--barn-border)] px-2 py-2"><input name="low_stock" type="checkbox" /> Mark low stock</label>
-        <div className="flex gap-2">
-          <button className="rounded bg-[var(--barn-red)] px-3 py-2">{editingId ? "Save Item" : "Add Item"}</button>
-          {editingId ? <button type="button" onClick={() => setEditingId(null)} className="rounded bg-neutral-700 px-3 py-2">Cancel edit</button> : null}
+        <textarea name="notes" placeholder="Notes" className={fieldClassName} />
+        <label className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-foreground">
+          <input name="low_stock" type="checkbox" /> Mark low stock
+        </label>
+        <div className="mt-1 flex gap-2">
+          <button className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">{editingId ? "Save Item" : "Add Item"}</button>
+          {editingId ? (
+            <button type="button" onClick={() => setEditingId(null)} className="rounded-xl bg-secondary px-4 py-2 text-sm text-foreground">
+              Cancel
+            </button>
+          ) : null}
         </div>
       </form>
 
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
       <section className="space-y-2">
         {items.length === 0 ? (
-          <div className="barn-card space-y-2 text-sm text-[var(--barn-muted)]">
+          <div className="rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground shadow-sm">
             <p>No inventory items yet.</p>
             <p>Add a tool, supply, or material above to keep family inventory organized.</p>
           </div>
         ) : null}
         {items.map((item) => (
-          <article key={item.id} className="barn-card space-y-1 text-sm">
+          <article key={item.id} className="mb-2 rounded-2xl border border-border bg-card px-4 py-3 shadow-sm">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="font-medium">{item.name}</p>
-                <p className="text-xs text-[var(--barn-muted)]">{item.category} • Qty {item.quantity} {item.unit ?? ""}</p>
-                <p className="text-xs text-[var(--barn-muted)]">{item.location ?? "No location"} • {item.condition ?? "Condition n/a"}</p>
-                <p className="text-xs text-[var(--barn-muted)]">Assigned: {projects.find((project) => project.id === item.assigned_project_id)?.name ?? "None"}</p>
-                {item.notes ? <p className="text-xs text-[var(--barn-muted)]">{item.notes}</p> : null}
+                <p className="text-sm font-semibold text-foreground">{item.name}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {item.category} • Qty {item.quantity} {item.unit ?? ""}
+                </p>
+                <p className="text-xs text-muted-foreground">{item.location ?? "No location"} • {item.condition ?? "Condition n/a"}</p>
+                <p className="text-xs text-muted-foreground">Assigned: {projects.find((project) => project.id === item.assigned_project_id)?.name ?? "None"}</p>
+                {item.notes ? <p className="text-xs italic text-muted-foreground">{item.notes}</p> : null}
               </div>
-              {item.low_stock ? <span className="rounded bg-amber-600/30 px-2 py-1 text-xs">Low stock</span> : null}
+              {item.low_stock ? (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">Low stock</span>
+              ) : null}
             </div>
-            <div className="flex flex-wrap gap-2 pt-1">
-              <button type="button" onClick={() => startEdit(item)} className="rounded bg-neutral-700 px-2 py-1 text-xs">Edit Item</button>
-              <button type="button" onClick={() => apiClientJson(`/inventory/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...item, low_stock: !item.low_stock }) }).then(load)} className="rounded bg-neutral-700 px-2 py-1 text-xs">Mark Low Stock</button>
-              <button type="button" onClick={() => archive(item.id).catch(() => undefined)} className="rounded bg-neutral-700 px-2 py-1 text-xs">Archive Item</button>
+            <div className="mt-2 flex gap-2">
+              <button type="button" onClick={() => startEdit(item)} className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-foreground">
+                Edit
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  apiClientJson(`/inventory/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...item, low_stock: !item.low_stock }) }).then(load)
+                }
+                className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-foreground"
+              >
+                Toggle Low Stock
+              </button>
+              <button
+                type="button"
+                onClick={() => archive(item.id).catch(() => undefined)}
+                className="rounded-lg border border-red-200 bg-background px-3 py-1.5 text-xs text-red-500"
+              >
+                Archive
+              </button>
             </div>
           </article>
         ))}
