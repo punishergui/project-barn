@@ -390,7 +390,17 @@ def _profile_requires_pin(profile: Profile) -> bool:
 def _verify_profile_pin(profile: Profile, pin: str) -> bool:
     if not profile.pin_hash:
         return False
-    return check_password_hash(profile.pin_hash, pin)
+    h = profile.pin_hash
+    if h.startswith("$2b$") or h.startswith("$2a$"):
+        try:
+            import bcrypt as _bcrypt
+            return _bcrypt.checkpw(pin.encode(), h.encode())
+        except Exception:
+            return False
+    try:
+        return check_password_hash(h, pin)
+    except ValueError:
+        return False
 
 
 def _set_active_profile(profile: Profile) -> None:
