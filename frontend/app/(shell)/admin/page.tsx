@@ -66,6 +66,8 @@ export default function AdminDashboardPage() {
         <Link href="/projects" className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-foreground">Manage Projects</Link>
         <Link href="/notifications" className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-foreground">Manage Reminders</Link>
         <Link href="/reports" className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-foreground">Open Reports</Link>
+        <Link href="/equipment" className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-foreground">📦 Equipment</Link>
+        <Link href="/packing-lists" className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-foreground">🎒 Packing Lists</Link>
         <Link href="/admin/data" className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-foreground">Data Tools</Link>
         <a href="#export-all" className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-foreground">Export All Data</a>
       </section>
