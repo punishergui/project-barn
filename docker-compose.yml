@@ -45,7 +45,7 @@ services:
     depends_on:
       - barn-backend
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000/dashboard"]
+      test: ["CMD-SHELL", "wget -q --spider --server-response http://127.0.0.1:3000/ 2>&1 | grep -qE 'HTTP/[0-9]' && exit 0 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 6
@@ -63,7 +63,7 @@ services:
       - "traefik.http.routers.barn.rule=Host(`barn.white-house.cc`)"
       - "traefik.http.routers.barn.entrypoints=websecure"
       - "traefik.http.routers.barn.tls=true"
-      - "traefik.http.routers.barn.priority=1"
+      - "traefik.http.routers.barn.priority=10"
       - "traefik.http.services.barn.loadbalancer.server.port=3000"
 
 networks:
