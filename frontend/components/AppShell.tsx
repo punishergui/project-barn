@@ -5,11 +5,14 @@ import {
   Bell,
   FolderOpen,
   LayoutDashboard,
+  Moon,
   Receipt,
+  Sun,
   Trophy,
   UserCircle
 } from "lucide-react";
 import Link from "next/link";
+import { useTheme } from "next-themes";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -25,6 +28,8 @@ function TopBar({
   profile: SessionResponse["active_profile"] | null;
   unread: number;
 }) {
+  const { theme, setTheme } = useTheme();
+
   return (
     <header className="sticky top-0 z-40 h-14 border-b border-border bg-card">
       <div className="mx-auto flex h-full max-w-lg items-center justify-between px-4">
@@ -37,6 +42,14 @@ function TopBar({
             <Bell size={20} />
             {unread > 0 ? <span className="absolute -right-0.5 top-0 h-1.5 w-1.5 rounded-full bg-primary" /> : null}
           </Link>
+          <button
+            type="button"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            className="text-muted-foreground"
+            aria-label="Toggle dark mode"
+          >
+            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
           <Link href="/profile-picker">
             <Avatar className="h-8 w-8 rounded-full bg-primary text-primary-foreground">
               {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt={profile.name ?? "Profile"} /> : null}

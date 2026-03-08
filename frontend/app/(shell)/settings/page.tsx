@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useTheme } from "next-themes";
 import { FormEvent, useEffect, useState } from "react";
 
 import { AppSettings, AuthStatus, Profile, apiClientJson } from "@/lib/api";
 import { toUserErrorMessage } from "@/lib/errorMessage";
+import { cn } from "@/lib/utils";
 
 const inputClassName =
   "w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30";
@@ -14,6 +16,7 @@ export default function SettingsPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [auth, setAuth] = useState<AuthStatus | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { theme, setTheme } = useTheme();
 
   const load = async () => {
     const authData = await apiClientJson<AuthStatus>("/auth/status");
@@ -87,7 +90,7 @@ export default function SettingsPage() {
       <h1 className="mb-4 font-serif text-2xl text-foreground">Family & Admin Settings</h1>
       {errorMessage ? <p className="mb-4 text-sm text-muted-foreground">{errorMessage}</p> : null}
 
-      <form className="space-y-4" onSubmit={(event) => save(event).catch((error) => setErrorMessage(toUserErrorMessage(error, "Unable to save settings.")))}>
+      <form id="settings-form" className="space-y-4" onSubmit={(event) => save(event).catch((error) => setErrorMessage(toUserErrorMessage(error, "Unable to save settings.")))}>
         <section className="mb-4 rounded-2xl border border-border bg-card p-4">
           <h2 className="mb-3 text-sm font-semibold text-foreground">Family / Barn settings</h2>
           <div className="space-y-2">
@@ -146,13 +149,40 @@ export default function SettingsPage() {
           </label>
         </section>
 
-        <button
-          className="mt-2 w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-          disabled={!(auth?.role === "parent" && auth.is_unlocked)}
-        >
-          Save settings
-        </button>
       </form>
+
+      <div className="mb-4 rounded-2xl border border-border bg-card p-4">
+        <p className="mb-3 text-sm font-semibold text-foreground">Appearance</p>
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <p className="text-sm text-foreground">Dark mode</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Switch between light and dark theme</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            className={cn(
+              "relative h-6 w-11 rounded-full transition-colors",
+              theme === "dark" ? "bg-primary" : "border border-border bg-secondary"
+            )}
+          >
+            <span
+              className={cn(
+                "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+                theme === "dark" ? "translate-x-5" : "translate-x-0"
+              )}
+            />
+          </button>
+        </div>
+      </div>
+
+      <button
+        form="settings-form"
+        className="mt-2 w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+        disabled={!(auth?.role === "parent" && auth.is_unlocked)}
+      >
+        Save settings
+      </button>
 
       <section className="mt-4 rounded-2xl border border-border bg-card p-4">
         <div className="mb-3 flex items-center justify-between">
