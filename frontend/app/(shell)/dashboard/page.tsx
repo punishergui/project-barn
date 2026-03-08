@@ -46,9 +46,7 @@ const emptyDashboard: DashboardResponse = {
 };
 
 export default async function DashboardPage() {
-  let hasLoadError = false;
   const dashboard = await apiJsonServer<DashboardResponse>("/dashboard").catch(() => {
-    hasLoadError = true;
     return emptyDashboard;
   });
 
@@ -62,28 +60,9 @@ export default async function DashboardPage() {
     <DashboardTodayClient
       todayLabel={todayLabel}
       profileName={dashboard.active_profile.name ?? "Barn Family"}
-      profileRole={dashboard.active_profile.role}
-      profileAvatarUrl={dashboard.active_profile.avatar_url}
-      familyName={dashboard.family_name}
-      quickActions={[
-        { href: "/projects/new", label: "Add Project", emoji: "🐄" },
-        { href: "/expenses/new", label: "Add Expense", emoji: "💵" },
-        { href: "/income", label: "Add Income", emoji: "💰" },
-        { href: "/inventory", label: "Inventory", emoji: "🧰" },
-        { href: "/shows", label: "View Shows", emoji: "🏆" },
-        { href: "/tasks", label: "Tasks", emoji: "✅" },
-        { href: "/profile-picker", label: "Switch Profile", emoji: "👤" }
-      ]}
       activeProjects={dashboard.active_projects}
       upcomingShows={dashboard.upcoming_shows}
       recentExpenses={dashboard.recent_expenses}
-      recentActivity={dashboard.recent_activity}
-      lowFeedInventory={dashboard.low_feed_inventory}
-      recentFeedEvents={dashboard.recent_feed_events}
-      financeSummary={dashboard.finance_summary}
-      hasLoadError={hasLoadError}
-      unreadNotifications={dashboard.unread_notifications}
-      upcomingReminders={dashboard.upcoming_reminders}
     />
   );
 }

@@ -1,93 +1,94 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
 
 :root {
-  color-scheme: dark;
-  --barn-red: #a33635;
-  --barn-dark: #20181a;
-  --barn-bg: #161113;
-  --barn-surface: #221a1d;
-  --barn-border: #3d2c30;
-  --barn-text: #f6f2f3;
-  --barn-muted: #c3b5b9;
-  --barn-header-height: 56px;
-  --barn-gold: #d5ab52;
-  --barn-bottom-nav-height: 68px;
+  --background: #faf8f5;
+  --foreground: #1c1917;
+  --card: #ffffff;
+  --card-foreground: #1c1917;
+  --popover: #ffffff;
+  --popover-foreground: #1c1917;
+  --primary: #b45309;
+  --primary-foreground: #fffbeb;
+  --secondary: #f5f0eb;
+  --secondary-foreground: #44403c;
+  --muted: #f5f0eb;
+  --muted-foreground: #78716c;
+  --accent: #f5f0eb;
+  --accent-foreground: #44403c;
+  --destructive: #b91c1c;
+  --destructive-foreground: #fef2f2;
+  --border: #e7e0d8;
+  --input: #e7e0d8;
+  --ring: #b45309;
+  --radius: 0.75rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1c1917;
+  --sidebar-primary: #b45309;
+  --sidebar-primary-foreground: #fffbeb;
+  --sidebar-border: #e7e0d8;
+  --success: #15803d;
+  --success-foreground: #f0fdf4;
 }
 
-* {
-  box-sizing: border-box;
+.dark {
+  --background: #1c1917;
+  --foreground: #faf8f5;
+  --card: #292524;
+  --card-foreground: #faf8f5;
+  --popover: #292524;
+  --popover-foreground: #faf8f5;
+  --primary: #d97706;
+  --primary-foreground: #fffbeb;
+  --secondary: #44403c;
+  --secondary-foreground: #faf8f5;
+  --muted: #44403c;
+  --muted-foreground: #a8a29e;
+  --accent: #44403c;
+  --accent-foreground: #faf8f5;
+  --destructive: #dc2626;
+  --border: #44403c;
+  --input: #44403c;
+  --ring: #d97706;
+  --sidebar: #292524;
+  --sidebar-foreground: #faf8f5;
+  --sidebar-primary: #d97706;
+  --success: #22c55e;
 }
 
-html,
-body,
-#__next {
-  height: 100%;
+@theme inline {
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-serif: "DM Serif Display", "Georgia", serif;
+  --font-mono: "Geist Mono", monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
-body {
-  margin: 0;
-  background: var(--barn-bg);
-  color: var(--barn-text);
-  font-family: "DM Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
 
-input,
-select,
-textarea,
-button {
-  border-color: var(--barn-border);
-}
-
-.barn-card {
-  border: 1px solid var(--barn-border);
-  background: color-mix(in srgb, var(--barn-surface) 92%, black);
-  border-radius: 14px;
-  padding: 14px;
-  box-shadow: 0 8px 20px color-mix(in srgb, black 35%, transparent);
-}
-
-.barn-row {
-  border: 1px solid var(--barn-border);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--barn-bg) 78%, black);
-  padding: 10px 12px;
-}
-
-.quick-action-card {
-  min-height: 54px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--barn-border);
-  border-radius: 12px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--barn-surface) 94%, white), var(--barn-surface));
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.see-all-link {
-  color: var(--barn-red);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.barn-chip {
-  border: 1px solid var(--barn-border);
-  border-radius: 10px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--barn-surface) 94%, white), var(--barn-surface));
-  display: flex;
-  min-height: 54px;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.barn-chip span {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--barn-muted);
+  body {
+    @apply bg-background text-foreground;
+  }
 }
