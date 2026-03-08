@@ -59,6 +59,41 @@ export type FeedEntry = { id: number; project_id: number; recorded_at: string; f
 export type FeedInventoryItem = { id: number; name: string; brand: string | null; category: string | null; unit: string; qty_on_hand: number; low_stock_threshold: number | null; low_stock: boolean; notes: string | null; is_active: boolean; created_at: string | null; updated_at: string | null };
 export type FamilyInventoryItem = { id: number; name: string; category: string; quantity: number; unit: string | null; location: string | null; condition: string | null; assigned_project_id: number | null; notes: string | null; low_stock: boolean; archived: boolean; created_at: string | null; updated_at: string | null };
 export type ProjectMaterial = { id: number; project_id: number; logged_by_id: number; item_name: string; quantity: number | null; unit: string | null; unit_cost: number | null; total_cost: number | null; category: string | null; inventory_item_id: number | null; status: string | null; notes: string | null; date_purchased: string | null };
+export type EquipmentItem = {
+  id: number;
+  name: string;
+  category: string;
+  description: string | null;
+  purchase_date: string | null;
+  purchase_price: number | null;
+  useful_life_years: number | null;
+  current_value: number | null;
+  vendor: string | null;
+  notes: string | null;
+  active: boolean;
+  created_at: string | null;
+  depreciation_per_year: number | null;
+  estimated_current_value: number | null;
+};
+
+export type PackingListItem = {
+  id: number;
+  item_name: string;
+  category: string | null;
+  quantity: string | null;
+  sort_order: number;
+  notes: string | null;
+};
+
+export type PackingListTemplate = {
+  id: number;
+  name: string;
+  description: string | null;
+  project_type: string | null;
+  created_at: string | null;
+  items: PackingListItem[];
+};
+
 export type CareEntry = { id: number; project_id: number; recorded_at: string; category: string; label: string; title: string; notes: string | null; created_at: string | null };
 export type ReportProjectSummary = { project_id: number; project_name: string; expenses_total_cents: number; health_total_cents: number; feed_total_cents: number; shows_count: number; entries_count: number; net_total_cents: number; expenses_total: number; health_total: number; feed_total: number; net_total: number };
 export type ReportsSummary = { start_date: string | null; end_date: string | null; projects: ReportProjectSummary[]; overall: { expenses_total_cents: number; health_total_cents: number; feed_total_cents: number; shows_count: number; entries_count: number; grand_total_cents: number; expenses_total: number; health_total: number; feed_total: number; grand_total: number } };

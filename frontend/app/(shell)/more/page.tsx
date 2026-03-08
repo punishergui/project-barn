@@ -19,7 +19,7 @@ const navLinks = [
   { href: "/notifications", label: "🔔 Notifications" },
   { href: "/income", label: "💰 Income" },
   { href: "/inventory", label: "🧰 Inventory" },
-  { href: "/equipment", label: "🪛 Equipment" },
+  { href: "/equipment", label: "📦 Equipment" },
   { href: "/packing-lists", label: "🎒 Packing Lists" },
   { href: "/auctions", label: "🏷️ Auctions" },
   { href: "/settings", label: "⚙️ Settings" },

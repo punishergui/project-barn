@@ -16,7 +16,7 @@ from sqlalchemy import func, text
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app import save_upload, save_upload_in_subdir
-from app.models import AppSetting, AuctionSale, Expense, ExpenseAllocation, ExpenseReceipt, FamilyInventoryItem, FeedEntry, FeedInventorySimple, HealthEntry, IncomeRecord, Media, Placing, Profile, Project, ProjectMaterial, ProjectReminder, ProjectTask, Show, ShowDay, ShowDayCheck, ShowDayTask, ShowEntry, SkillsChecklist, Task, TaskItem, TimelineEntry, WeightEntry, Notification, db
+from app.models import AppSetting, AuctionSale, EquipmentItem, Expense, ExpenseAllocation, ExpenseReceipt, FamilyInventoryItem, FeedEntry, FeedInventorySimple, HealthEntry, IncomeRecord, Media, Notification, PackingListItem, PackingListTemplate, Placing, Profile, Project, ProjectMaterial, ProjectReminder, ProjectTask, Show, ShowDay, ShowDayCheck, ShowDayTask, ShowEntry, SkillsChecklist, Task, TaskItem, TimelineEntry, WeightEntry, db
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 UNLOCK_DURATION_MINUTES = 15
@@ -1159,6 +1159,69 @@ def _inventory_payload(item: FamilyInventoryItem) -> dict[str, object]:
     }
 
 
+def _equipment_item_payload(item: EquipmentItem) -> dict[str, object]:
+    depreciation_per_year = None
+    if item.purchase_price is not None and item.useful_life_years:
+        depreciation_per_year = float(item.purchase_price) / float(item.useful_life_years)
+
+    estimated_current_value = None
+    if depreciation_per_year is not None and item.purchase_date:
+        years_owned = (date.today() - item.purchase_date).days / 365.25
+        estimated_current_value = max(0.0, round(float(item.purchase_price) - (depreciation_per_year * years_owned), 2))
+
+    return {
+        "id": item.id,
+        "name": item.name,
+        "category": item.category,
+        "description": item.description,
+        "purchase_date": _iso(item.purchase_date),
+        "purchase_price": float(item.purchase_price) if item.purchase_price is not None else None,
+        "useful_life_years": item.useful_life_years,
+        "current_value": float(item.current_value) if item.current_value is not None else None,
+        "vendor": item.vendor,
+        "notes": item.notes,
+        "active": bool(item.active),
+        "created_at": _iso(item.created_at),
+        "depreciation_per_year": round(depreciation_per_year, 2) if depreciation_per_year is not None else None,
+        "estimated_current_value": estimated_current_value,
+    }
+
+
+def _packing_list_item_payload(item: PackingListItem) -> dict[str, object]:
+    return {
+        "id": item.id,
+        "item_name": item.item_name,
+        "category": item.category,
+        "quantity": item.quantity,
+        "sort_order": int(item.sort_order or 0),
+        "notes": item.notes,
+    }
+
+
+def _packing_list_template_payload(template: PackingListTemplate) -> dict[str, object]:
+    items = PackingListItem.query.filter_by(template_id=template.id).order_by(PackingListItem.sort_order.asc(), PackingListItem.id.asc()).all()
+    return {
+        "id": template.id,
+        "name": template.name,
+        "description": template.description,
+        "project_type": template.project_type,
+        "created_at": _iso(template.created_at),
+        "items": [_packing_list_item_payload(item) for item in items],
+    }
+
+
+def _to_float_or_none(value: object) -> float | None:
+    if value in (None, ""):
+        return None
+    return float(value)
+
+
+def _to_int_or_none(value: object) -> int | None:
+    if value in (None, ""):
+        return None
+    return int(value)
+
+
 def _project_material_payload(row: ProjectMaterial) -> dict[str, object]:
     return {
         "id": row.id,
@@ -1265,6 +1328,170 @@ def api_inventory_delete(item_id: int):
     row.updated_at = datetime.utcnow()
     db.session.commit()
     return jsonify({'success': True, 'archived': True})
+
+
+@api_bp.get('/equipment')
+def api_equipment_list():
+    rows = EquipmentItem.query.filter_by(active=True).order_by(EquipmentItem.name.asc(), EquipmentItem.id.asc()).all()
+    return jsonify([_equipment_item_payload(item) for item in rows])
+
+
+@api_bp.post('/equipment')
+def api_equipment_create():
+    profile, error = _require_parent_unlocked()
+    if error:
+        return error
+
+    payload = request.get_json(silent=True) or {}
+    name = str(payload.get('name') or '').strip()
+    if not name:
+        return jsonify({'error': 'name is required'}), 400
+
+    row = EquipmentItem(
+        logged_by_id=profile.id,
+        name=name,
+        category=str(payload.get('category') or 'equipment').strip() or 'equipment',
+        description=str(payload.get('description') or '').strip() or None,
+        purchase_date=_parse_date_value(payload.get('purchase_date')),
+        purchase_price=_to_float_or_none(payload.get('purchase_price')),
+        useful_life_years=_to_int_or_none(payload.get('useful_life_years')),
+        vendor=str(payload.get('vendor') or '').strip() or None,
+        notes=str(payload.get('notes') or '').strip() or None,
+        active=True,
+    )
+
+    db.session.add(row)
+    db.session.commit()
+    return jsonify(_equipment_item_payload(row)), 201
+
+
+@api_bp.patch('/equipment/<int:item_id>')
+def api_equipment_update(item_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+
+    row = EquipmentItem.query.get_or_404(item_id)
+    payload = request.get_json(silent=True) or {}
+
+    if 'name' in payload:
+        name = str(payload.get('name') or '').strip()
+        if not name:
+            return jsonify({'error': 'name is required'}), 400
+        row.name = name
+    if 'category' in payload:
+        row.category = str(payload.get('category') or '').strip() or 'equipment'
+    if 'description' in payload:
+        row.description = str(payload.get('description') or '').strip() or None
+    if 'purchase_date' in payload:
+        row.purchase_date = _parse_date_value(payload.get('purchase_date'))
+    if 'purchase_price' in payload:
+        row.purchase_price = _to_float_or_none(payload.get('purchase_price'))
+    if 'useful_life_years' in payload:
+        row.useful_life_years = _to_int_or_none(payload.get('useful_life_years'))
+    if 'vendor' in payload:
+        row.vendor = str(payload.get('vendor') or '').strip() or None
+    if 'notes' in payload:
+        row.notes = str(payload.get('notes') or '').strip() or None
+
+    db.session.commit()
+    return jsonify(_equipment_item_payload(row))
+
+
+@api_bp.delete('/equipment/<int:item_id>')
+def api_equipment_delete(item_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+
+    row = EquipmentItem.query.get_or_404(item_id)
+    row.active = False
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@api_bp.get('/packing-lists')
+def api_packing_lists():
+    templates = PackingListTemplate.query.order_by(PackingListTemplate.name.asc(), PackingListTemplate.id.asc()).all()
+    return jsonify([_packing_list_template_payload(template) for template in templates])
+
+
+@api_bp.post('/packing-lists')
+def api_packing_lists_create():
+    profile, error = _require_parent_unlocked()
+    if error:
+        return error
+
+    payload = request.get_json(silent=True) or {}
+    name = str(payload.get('name') or '').strip()
+    if not name:
+        return jsonify({'error': 'name is required'}), 400
+
+    template = PackingListTemplate(
+        name=name,
+        description=str(payload.get('description') or '').strip() or None,
+        project_type=str(payload.get('project_type') or '').strip() or None,
+        created_by_id=profile.id,
+    )
+
+    db.session.add(template)
+    db.session.commit()
+    return jsonify(_packing_list_template_payload(template)), 201
+
+
+@api_bp.delete('/packing-lists/<int:template_id>')
+def api_packing_lists_delete(template_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+
+    template = PackingListTemplate.query.get_or_404(template_id)
+    PackingListItem.query.filter_by(template_id=template.id).delete()
+    db.session.delete(template)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@api_bp.post('/packing-lists/<int:template_id>/items')
+def api_packing_list_item_create(template_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+
+    template = PackingListTemplate.query.get_or_404(template_id)
+    payload = request.get_json(silent=True) or {}
+    item_name = str(payload.get('item_name') or '').strip()
+    if not item_name:
+        return jsonify({'error': 'item_name is required'}), 400
+
+    max_sort_order = db.session.query(func.max(PackingListItem.sort_order)).filter_by(template_id=template.id).scalar()
+    default_sort_order = int(max_sort_order or 0) + 1
+
+    item = PackingListItem(
+        template_id=template.id,
+        item_name=item_name,
+        category=str(payload.get('category') or '').strip() or None,
+        quantity=str(payload.get('quantity') or '').strip() or None,
+        sort_order=_to_int_or_none(payload.get('sort_order')) if 'sort_order' in payload else default_sort_order,
+        notes=str(payload.get('notes') or '').strip() or None,
+    )
+
+    db.session.add(item)
+    db.session.commit()
+    return jsonify(_packing_list_item_payload(item)), 201
+
+
+@api_bp.delete('/packing-lists/<int:template_id>/items/<int:item_id>')
+def api_packing_list_item_delete(template_id: int, item_id: int):
+    _, error = _require_parent_unlocked()
+    if error:
+        return error
+
+    PackingListTemplate.query.get_or_404(template_id)
+    item = PackingListItem.query.filter_by(template_id=template_id, id=item_id).first_or_404()
+    db.session.delete(item)
+    db.session.commit()
+    return jsonify({'success': True})
 
 
 @api_bp.get('/projects/<int:project_id>/materials')
