@@ -6,7 +6,7 @@ type BarnLogoProps = {
 export default function BarnLogo({ size = 24, className }: BarnLogoProps) {
   return (
     <svg
-      viewBox="0 0 80 64"
+      viewBox="0 0 96 80"
       role="img"
       aria-label="Project Barn logo"
       width={size}
@@ -15,22 +15,21 @@ export default function BarnLogo({ size = 24, className }: BarnLogoProps) {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <path d="M40 4L6 26H74L40 4Z" fill="currentColor" />
-      <path d="M12 26H68V58C68 59.105 67.105 60 66 60H14C12.895 60 12 59.105 12 58V26Z" fill="currentColor" />
-      <path d="M24 30H16V58H24V30Z" fill="white" fillOpacity="0.16" />
-      <path d="M64 30H56V58H64V30Z" fill="white" fillOpacity="0.16" />
-      <path d="M28 32H20V42H28V32Z" fill="white" fillOpacity="0.94" />
-      <path d="M60 32H52V42H60V32Z" fill="white" fillOpacity="0.94" />
-      <path
-        d="M32 58V36C32 34.895 32.895 34 34 34H46C47.105 34 48 34.895 48 36V58"
-        stroke="white"
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
-      <path d="M40 34V58" stroke="white" strokeWidth="3" strokeLinecap="round" />
-      <path d="M34 44L40 48L46 44" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M16 26L40 11L64 26" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.95" />
-      <path d="M14 58H66" stroke="white" strokeWidth="2.5" strokeLinecap="round" opacity="0.85" />
+      <path d="M48 6L12 24H84L48 6Z" fill="currentColor" />
+      <path d="M20 24H76V70C76 72.2 74.2 74 72 74H24C21.8 74 20 72.2 20 70V24Z" fill="currentColor" />
+      <path d="M28 34H40V46H28V34Z" fill="white" fillOpacity="0.92" />
+      <path d="M56 34H68V46H56V34Z" fill="white" fillOpacity="0.92" />
+      <circle cx="48" cy="31" r="6" fill="white" fillOpacity="0.92" />
+      <path d="M42 74V48C42 46.3 43.3 45 45 45H51C52.7 45 54 46.3 54 48V74" stroke="white" strokeWidth="3.2" strokeLinecap="round" />
+      <path d="M31 74V52C31 50.3 32.3 49 34 49H39V74" stroke="white" strokeWidth="3" strokeLinecap="round" />
+      <path d="M57 74V49H62C63.7 49 65 50.3 65 52V74" stroke="white" strokeWidth="3" strokeLinecap="round" />
+      <path d="M45 57L48 60L51 57" stroke="white" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M31.5 58.5L38.5 65.5" stroke="white" strokeWidth="2.2" strokeLinecap="round" />
+      <path d="M38.5 58.5L31.5 65.5" stroke="white" strokeWidth="2.2" strokeLinecap="round" />
+      <path d="M57.5 58.5L64.5 65.5" stroke="white" strokeWidth="2.2" strokeLinecap="round" />
+      <path d="M64.5 58.5L57.5 65.5" stroke="white" strokeWidth="2.2" strokeLinecap="round" />
+      <path d="M24 24L48 12L72 24" stroke="white" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" opacity="0.95" />
+      <path d="M24 74H72" stroke="white" strokeWidth="2.6" strokeLinecap="round" opacity="0.85" />
     </svg>
   );
 }

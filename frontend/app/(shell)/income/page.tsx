@@ -77,51 +77,54 @@ export default function IncomePage() {
   const total = entries.reduce((sum, row) => sum + row.amount, 0);
 
   return (
-    <div className="w-full space-y-4 px-4 pb-5">
-      <section className="barn-card space-y-1">
-        <h1 className="text-2xl font-semibold">Income</h1>
-        <p className="text-sm text-[var(--barn-muted)]">Track auction payouts, add-ons, sponsorships, and other project income.</p>
-        <p className="text-sm font-medium text-emerald-300">Total income ${total.toFixed(2)}</p>
+    <div className="w-full space-y-4 pb-5">
+      <section>
+        <h1 className="mb-4 font-serif text-2xl text-foreground">Income</h1>
+        <p className="text-sm text-muted-foreground">Track auction payouts, add-ons, sponsorships, and other project income.</p>
+        <p className="text-sm font-medium text-green-600">Total income ${total.toFixed(2)}</p>
       </section>
 
-      <form id="income-form" className="barn-card grid gap-2" onSubmit={(event) => saveEntry(event).catch(() => undefined)}>
-        <h2 className="text-base font-semibold">{editingId ? "Edit Income" : "Add Income"}</h2>
-        <input name="date" type="date" required className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-3 text-base" />
-        <select name="project_id" required className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-3 text-base">
+      <form id="income-form" className="rounded-2xl bg-card border border-border shadow-sm p-4 mb-4 grid gap-2" onSubmit={(event) => saveEntry(event).catch(() => undefined)}>
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{editingId ? "Edit Income" : "Add Income"}</h2>
+        <input name="date" type="date" required className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30" />
+        <select name="project_id" required className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30">
           <option value="">Select project</option>
           {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
         </select>
-        <select name="profile_id" className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-3 text-base">
+        <select name="profile_id" className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30">
           <option value="">Default profile</option>
           {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
         </select>
-        <select name="type" defaultValue="other" className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-3 text-base">
+        <select name="type" defaultValue="other" className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30">
           {incomeTypes.map((type) => <option key={type} value={type}>{type}</option>)}
         </select>
-        <input name="source" placeholder="Source / buyer / sponsor" className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-3 text-base" />
-        <input name="amount" type="number" step="0.01" min="0" required placeholder="Amount" className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-3 text-lg font-semibold" />
-        <textarea name="notes" placeholder="Notes" className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-3 text-base" rows={3} />
+        <input name="source" placeholder="Source / buyer / sponsor" className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30" />
+        <input name="amount" type="number" step="0.01" min="0" required placeholder="Amount" className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30" />
+        <textarea name="notes" placeholder="Notes" className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30" rows={3} />
         <div className="flex gap-2">
-          <button className="rounded-lg bg-[var(--barn-red)] px-4 py-2 text-sm font-medium">{editingId ? "Save Income" : "Add Income"}</button>
-          {editingId ? <button type="button" className="rounded-lg bg-neutral-700 px-4 py-2 text-sm" onClick={() => setEditingId(null)}>Cancel</button> : null}
+          <button className="bg-primary text-primary-foreground rounded-xl px-4 py-2 text-sm font-medium">{editingId ? "Save Income" : "Add Income"}</button>
+          {editingId ? <button type="button" className="bg-secondary text-foreground rounded-xl px-4 py-2 text-sm" onClick={() => setEditingId(null)}>Cancel</button> : null}
         </div>
       </form>
 
-      <section className="barn-card space-y-2">
+      <section className="space-y-2">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold">Income Entries</h2>
-          <a className="see-all-link" href="/api/income.csv">Export CSV</a>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Income Entries</h2>
+          <a className="text-xs text-primary" href="/api/income.csv">Export CSV</a>
         </div>
-        {entries.length === 0 ? <p className="barn-row text-sm text-[var(--barn-muted)]">No income entries yet.</p> : null}
+        {entries.length === 0 ? <p className="text-sm text-muted-foreground">No income entries yet.</p> : null}
         {entries.map((row) => (
-          <article key={row.id} className="barn-row text-sm">
-            <p className="font-medium">${row.amount.toFixed(2)} • {row.type}</p>
-            <p className="text-xs text-[var(--barn-muted)]">{new Date(row.date).toLocaleDateString()} • {projects.find((project) => project.id === row.project_id)?.name ?? `Project ${row.project_id}`}</p>
-            <p className="text-xs text-[var(--barn-muted)]">{row.source || "No source"}</p>
-            {row.notes ? <p className="text-xs text-[var(--barn-muted)]">{row.notes}</p> : null}
+          <article key={row.id} className="rounded-2xl bg-card border border-border shadow-sm px-4 py-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="font-bold text-base text-green-600">${row.amount.toFixed(2)}</p>
+              <span className="rounded-full bg-secondary text-muted-foreground text-[10px] px-2 py-0.5 capitalize">{row.type}</span>
+            </div>
+            <p className="text-xs text-muted-foreground">{projects.find((project) => project.id === row.project_id)?.name ?? `Project ${row.project_id}`} • {new Date(row.date).toLocaleDateString()}</p>
+            <p className="text-xs text-muted-foreground">{row.source || "No source"}</p>
+            {row.notes ? <p className="text-xs text-muted-foreground">{row.notes}</p> : null}
             <div className="mt-2 flex gap-2">
-              <button type="button" className="rounded bg-neutral-700 px-2 py-1 text-xs" onClick={() => editEntry(row)}>Edit Income</button>
-              <button type="button" className="rounded bg-red-900 px-2 py-1 text-xs" onClick={() => removeEntry(row.id).catch(() => undefined)}>Delete Income</button>
+              <button type="button" className="bg-secondary text-foreground rounded-xl px-4 py-2 text-sm" onClick={() => editEntry(row)}>Edit Income</button>
+              <button type="button" className="bg-primary text-primary-foreground rounded-xl px-4 py-2 text-sm font-medium" onClick={() => removeEntry(row.id).catch(() => undefined)}>Delete Income</button>
             </div>
           </article>
         ))}

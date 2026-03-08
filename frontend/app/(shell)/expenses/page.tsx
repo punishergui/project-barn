@@ -148,7 +148,7 @@ export default function ExpensesPage() {
           >
             <div>
               <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium capitalize text-muted-foreground">{expense.category}</span>
-              <p className="mt-0.5 text-sm text-foreground">{expense.vendor ?? expense.description ?? "No description"}</p>
+              <p className="mt-0.5 text-sm text-foreground">{expense.vendor ?? expense.note ?? "No description"}</p>
               <p className="text-xs text-muted-foreground">{expense.date.slice(0, 10)}</p>
             </div>
             <p className="text-base font-semibold text-foreground">${expense.amount.toFixed(2)}</p>
