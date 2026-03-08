@@ -1,13 +1,10 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import BarnLogo from "@/components/BarnLogo";
-import { Badge } from "@/components/ui/badge";
 import { Profile, apiClientJson } from "@/lib/api";
 import { toUserErrorMessage } from "@/lib/errorMessage";
-import { uploadProfileAvatar } from "@/lib/uploads";
 
 function initials(name: string) {
   return name
@@ -26,8 +23,9 @@ export default function ProfilePickerPage() {
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [pin, setPin] = useState("");
   const [isSwitching, setIsSwitching] = useState(false);
+  const pinInputRef = useRef<HTMLInputElement>(null);
 
-  const pinDigits = useMemo(() => Array.from({ length: 6 }, (_, index) => pin[index] ?? ""), [pin]);
+  const pinDigits = useMemo(() => Array.from({ length: 4 }, (_, index) => pin[index] ?? ""), [pin]);
 
   const loadProfiles = async () => {
     const profileData = await apiClientJson<Profile[]>("/profiles");
@@ -40,6 +38,12 @@ export default function ProfilePickerPage() {
       .catch((err) => setError(toUserErrorMessage(err, "Unable to load profiles.")))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (selectedProfile) {
+      pinInputRef.current?.focus();
+    }
+  }, [selectedProfile]);
 
   const switchProfile = async (profile: Profile, pinValue?: string) => {
     setIsSwitching(true);
@@ -80,77 +84,83 @@ export default function ProfilePickerPage() {
     }
   };
 
-  const onUploadAvatar = async (event: ChangeEvent<HTMLInputElement>, profileId: number) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    try {
-      await uploadProfileAvatar(file, profileId);
-      await loadProfiles();
-      router.refresh();
-      setError(null);
-    } catch (err) {
-      setError(toUserErrorMessage(err, "Unable to upload avatar."));
-    } finally {
-      event.target.value = "";
-    }
-  };
-
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col items-center bg-background px-6 py-10">
-      <BarnLogo size={56} />
-      <h1 className="mt-3 font-serif text-3xl text-foreground">Project Barn</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Choose a profile to continue</p>
+    <main className="min-h-dvh bg-background">
+      <div className="mx-auto flex min-h-dvh w-full max-w-sm flex-col items-center justify-center px-6">
+        <svg viewBox="0 0 64 48" width="56" height="42" fill="none" aria-hidden="true" className="text-primary">
+          <path d="M10 20 H54 V44 H10 Z" stroke="currentColor" strokeWidth="1.8" fill="none" />
+          <path d="M6 21 L32 8 L58 21" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M28 4 H36 V9 H28 Z" stroke="currentColor" strokeWidth="1.8" fill="none" />
+          <path d="M27 4 L32 1 L37 4" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M18 24 H24 V30 H18 Z" stroke="currentColor" strokeWidth="1.8" fill="none" />
+          <path d="M40 24 H46 V30 H40 Z" stroke="currentColor" strokeWidth="1.8" fill="none" />
+          <path d="M20 28 H32 V44 H20 Z" stroke="currentColor" strokeWidth="1.8" fill="none" />
+          <path d="M32 28 H44 V44 H32 Z" stroke="currentColor" strokeWidth="1.8" fill="none" />
+          <path d="M20 28 L32 44 M32 28 L20 44" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+          <path d="M32 28 L44 44 M44 28 L32 44" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+        </svg>
+        <h1 className="mt-3 font-serif text-3xl text-foreground">Project Barn</h1>
+        <p className="mb-6 mt-1 text-sm text-muted-foreground">Who&apos;s using the app?</p>
 
-      <div className="mt-6 w-full space-y-3">
-        {loading ? <p className="text-sm text-muted-foreground">Loading profiles...</p> : null}
-        {error ? <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p> : null}
-        {profiles.map((profile) => (
-          <div key={profile.id} className="rounded-xl border border-border bg-card p-3">
-            <button type="button" onClick={() => onProfileTap(profile).catch(() => undefined)} className="flex w-full items-center gap-3 text-left">
-              <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+        <div className="w-full space-y-3">
+          {loading ? <p className="text-sm text-muted-foreground">Loading profiles...</p> : null}
+          {error ? <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p> : null}
+          {profiles.map((profile) => (
+            <button
+              key={profile.id}
+              type="button"
+              onClick={() => onProfileTap(profile).catch(() => undefined)}
+              className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-left shadow-sm"
+            >
+              <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-primary text-lg font-bold text-primary-foreground">
                 {profile.avatar_url ? <img src={profile.avatar_url} alt={profile.name} className="h-full w-full object-cover" /> : initials(profile.name)}
               </div>
-              <div className="flex-1">
-                <p className="font-medium text-foreground">{profile.name}</p>
+              <div>
+                <p className="text-base font-semibold text-foreground">{profile.name}</p>
                 <p className="text-sm capitalize text-muted-foreground">{profile.role}</p>
               </div>
-              {profile.requires_pin ? <Badge variant="secondary">PIN</Badge> : null}
+              {profile.requires_pin ? <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">PIN</span> : null}
             </button>
-            <label className="mt-3 inline-flex cursor-pointer rounded-lg border border-input bg-background px-3 py-2 text-xs">
-              Upload avatar
-              <input type="file" accept="image/*" className="hidden" onChange={(event) => onUploadAvatar(event, profile.id).catch(() => undefined)} />
-            </label>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
 
-      {selectedProfile ? (
-        <form onSubmit={onSubmitPin} className="mt-5 w-full space-y-3 rounded-xl border border-border bg-card p-4">
-          <p className="text-sm font-medium text-foreground">Enter PIN for {selectedProfile.name}</p>
-          <div className="grid grid-cols-6 gap-2">
-            {pinDigits.map((digit, index) => (
-              <div key={`${selectedProfile.id}-${index}`} className="flex h-12 items-center justify-center rounded-lg border border-input bg-background text-lg font-semibold text-foreground">
-                {digit || "•"}
-              </div>
-            ))}
-          </div>
-          <input
-            name="pin"
-            value={pin}
-            onChange={(event) => setPin(event.target.value.replace(/\D+/g, "").slice(0, 6))}
-            inputMode="numeric"
-            pattern="[0-9]*"
-            autoComplete="one-time-code"
-            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-lg"
-            placeholder="Enter 6-digit PIN"
-            required
-          />
-          <div className="flex gap-2">
-            <button disabled={isSwitching} className="min-h-11 flex-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">{isSwitching ? "Switching..." : "Unlock & switch"}</button>
-            <button type="button" onClick={() => setSelectedProfile(null)} className="min-h-11 rounded-lg border border-input bg-secondary px-3 py-2 text-sm">Cancel</button>
-          </div>
-        </form>
-      ) : null}
+        {selectedProfile ? (
+          <form onSubmit={onSubmitPin} className="mt-6 w-full rounded-2xl border border-border bg-card p-5">
+            <p className="mb-4 text-sm font-medium text-foreground">Enter PIN for {selectedProfile.name}</p>
+            <div className="mb-4 flex justify-center gap-4">
+              {pinDigits.map((digit, index) => (
+                <div
+                  key={`${selectedProfile.id}-${index}`}
+                  className={digit ? "h-5 w-5 rounded-full bg-primary" : "h-5 w-5 rounded-full border-2 border-border bg-background"}
+                />
+              ))}
+            </div>
+            <input
+              ref={pinInputRef}
+              name="pin"
+              value={pin}
+              onChange={(event) => setPin(event.target.value.replace(/\D+/g, "").slice(0, 4))}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              autoFocus
+              className="sr-only"
+            />
+            <button
+              disabled={isSwitching}
+              className="mt-2 w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            >
+              {isSwitching ? "Unlocking..." : "Unlock"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedProfile(null)}
+              className="mt-2 w-full text-center text-sm text-muted-foreground"
+            >
+              Cancel
+            </button>
+          </form>
+        ) : null}
+      </div>
     </main>
   );
 }
