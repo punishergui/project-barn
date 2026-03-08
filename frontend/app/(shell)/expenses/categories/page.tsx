@@ -33,14 +33,17 @@ export default function ExpenseCategoriesPage() {
 
   return (
     <div className="w-full space-y-3 px-4 pb-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Expense Categories</h1>
-        <Link href="/expenses" className="see-all-link">
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold text-foreground">Expense Categories</h1>
+        <Link
+          href="/expenses"
+          className="text-xs font-medium text-primary underline-offset-4 transition hover:underline"
+        >
           Back to expenses
         </Link>
       </div>
 
-      <section className="barn-card space-y-2 text-sm">
+      <section className="space-y-2 rounded-lg border border-border bg-card p-4 text-sm text-foreground">
         <p>Total expenses: {expenses.length}</p>
         <p>
           Total spent: ${expenses.reduce((sum, item) => sum + item.amount, 0).toFixed(2)}
@@ -48,12 +51,17 @@ export default function ExpenseCategoriesPage() {
       </section>
 
       {categorySummary.length === 0 ? (
-        <p className="barn-row text-sm text-[var(--barn-muted)]">No expenses logged yet.</p>
+        <p className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
+          No expenses logged yet.
+        </p>
       ) : (
         categorySummary.map((item) => (
-          <article key={item.category} className="barn-row">
-            <p className="font-medium capitalize">{item.category}</p>
-            <p className="text-xs text-[var(--barn-muted)]">
+          <article
+            key={item.category}
+            className="space-y-1 rounded-lg border border-border bg-card p-4"
+          >
+            <p className="font-medium capitalize text-foreground">{item.category}</p>
+            <p className="text-xs text-muted-foreground">
               {item.count} {item.count === 1 ? "expense" : "expenses"} • ${item.total.toFixed(2)}
             </p>
           </article>

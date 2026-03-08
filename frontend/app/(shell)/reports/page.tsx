@@ -3,8 +3,13 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-import { FamilyFinancialSummary, FamilySummaryExtra, apiClientJson } from "@/lib/api";
+import { FamilyFinancialSummary, apiClientJson } from "@/lib/api";
 import { toUserErrorMessage } from "@/lib/errorMessage";
+
+type FamilySummaryExtra = {
+  checklists?: { total: number; completed: number; completion_percent: number }
+  project_type_distribution?: Record<string, number>
+};
 
 export default function ReportsPage() {
   const [summary, setSummary] = useState<FamilyFinancialSummary | null>(null);
