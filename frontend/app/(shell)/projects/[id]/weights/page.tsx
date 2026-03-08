@@ -135,7 +135,7 @@ export default function ProjectWeightsPage() {
               <button
                 type="button"
                 onClick={() => removeWeightEntry(entry.id).catch(() => undefined)}
-                className="rounded border border-white/20 px-2 py-1 text-xs hover:bg-white/10 disabled:opacity-50"
+                className="rounded border border-border px-2 py-1 text-xs hover:bg-secondary disabled:opacity-50"
                 disabled={deletingId === entry.id}
               >
                 {deletingId === entry.id ? "Removing..." : "Remove"}

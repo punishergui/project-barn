@@ -14,8 +14,8 @@ export default function SettingsProfilesPage() {
   }, []);
 
   return (
-    <div className="w-full space-y-3 px-4 pb-4">
-      <h1 className="text-xl font-semibold">Profiles / Members</h1>
+    <div className="w-full px-4 pb-4">
+      <h1 className="mb-4 font-serif text-2xl text-foreground">Profiles / Members</h1>
       {profiles.length === 0 ? (
         <EmptyState
           icon="👤"
@@ -24,9 +24,18 @@ export default function SettingsProfilesPage() {
           actions={[{ href: "/setup", label: "Open setup" }]}
         />
       ) : profiles.map((profile) => (
-        <Link key={profile.id} href={`/settings/profiles/${profile.id}`} className="text-sm text-muted-foreground block text-sm">
-          <p className="font-medium">{profile.name}</p>
-          <p className="text-xs text-muted-foreground">{profile.role} • {profile.archived ? "Archived" : "Active"}</p>
+        <Link
+          key={profile.id}
+          href={`/settings/profiles/${profile.id}`}
+          className="mb-2 flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-sm"
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+            {profile.name.slice(0, 2).toUpperCase()}
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-foreground">{profile.name}</p>
+            <p className="text-xs capitalize text-muted-foreground">{profile.role} • {profile.archived ? "Archived" : "Active"}</p>
+          </div>
         </Link>
       ))}
     </div>

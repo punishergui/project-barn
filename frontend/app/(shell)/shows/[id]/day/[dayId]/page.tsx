@@ -200,7 +200,7 @@ export default function ShowDayModePage() {
         <p className="text-sm text-muted-foreground">{day?.label || `Day ${day?.day_number ?? ""}`}</p>
         <p className="text-xs text-muted-foreground">{formatDate(day?.show_date || day?.date)}</p>
         {error ? (
-          <div className="rounded border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-100">
+          <div className="rounded border border-red-500/40 bg-red-500/10 p-3 text-xs text-foreground">
             <p>{error}</p>
             <button type="button" onClick={() => load().catch(() => undefined)} className="mt-2 min-h-11 rounded bg-secondary text-foreground px-3 py-2 text-xs">Retry</button>
           </div>
@@ -234,7 +234,7 @@ export default function ShowDayModePage() {
                     type="button"
                     disabled={isSaving || !canManage}
                     onClick={() => toggleTask(entry.project_id, template.key, template.label).catch(() => undefined)}
-                    className={`min-h-14 rounded-lg border px-3 py-2 text-left text-sm disabled:opacity-60 ${row?.is_completed ? "border-emerald-500 bg-emerald-700/40" : "border-border bg-background"}`}
+                    className={`min-h-14 rounded-lg border px-3 py-2 text-left text-sm disabled:opacity-60 ${row?.is_completed ? "border-primary bg-secondary" : "border-border bg-background"}`}
                   >
                     <p className="font-medium">{template.label}</p>
                     <p className="text-xs text-muted-foreground">{row?.is_completed ? `Done ${formatDate(row.completed_at)}` : "Tap to mark complete"}</p>

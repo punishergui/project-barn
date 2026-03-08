@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { apiClientJson } from "@/lib/api";
@@ -50,28 +51,51 @@ export default function AdminDataPage() {
   };
 
   return (
-    <div className="space-y-4 px-4 pb-4">
-      <section className="rounded-2xl bg-card border border-border shadow-sm p-4 space-y-1">
-        <h1 className="text-2xl font-semibold">Admin Data Tools</h1>
-        <p className="text-sm text-muted-foreground">Backup/export controls for durability checks.</p>
-      </section>
+    <div className="px-4 pb-4">
+      <h1 className="mb-1 font-serif text-2xl text-foreground">Admin Data Tools</h1>
+      <p className="mb-4 text-sm text-muted-foreground">Backup/export controls for durability checks.</p>
 
-      {error ? <p className="text-sm text-muted-foreground text-sm text-red-200">{error}</p> : null}
+      {error ? <p className="mb-4 rounded-2xl border border-border bg-card px-4 py-3 text-sm text-red-500">{error}</p> : null}
 
       {summary ? (
-        <section className="rounded-2xl bg-card border border-border shadow-sm p-4 space-y-2 text-sm">
-          <p>Database path: <span className="font-mono text-xs">{summary.paths.database}</span></p>
-          <p>Media path: <span className="font-mono text-xs">{summary.paths.media}</span></p>
-          <p>Database size: {humanSize(summary.database_size_bytes)}</p>
-          <p>Media size: {humanSize(summary.media_size_bytes)} ({summary.media_count} files)</p>
-          <p>Orphan media: {summary.orphan_media_count}</p>
+        <section className="mb-4 rounded-2xl border border-border bg-card p-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col">
+              <p className="text-xs text-muted-foreground">Database path</p>
+              <p className="font-mono text-xs font-semibold text-foreground">{summary.paths.database}</p>
+            </div>
+            <div className="flex flex-col">
+              <p className="text-xs text-muted-foreground">Media path</p>
+              <p className="font-mono text-xs font-semibold text-foreground">{summary.paths.media}</p>
+            </div>
+            <div className="flex flex-col">
+              <p className="text-xs text-muted-foreground">Database size</p>
+              <p className="font-mono text-sm font-semibold text-foreground">{humanSize(summary.database_size_bytes)}</p>
+            </div>
+            <div className="flex flex-col">
+              <p className="text-xs text-muted-foreground">Media size</p>
+              <p className="font-mono text-sm font-semibold text-foreground">{humanSize(summary.media_size_bytes)}</p>
+            </div>
+            <div className="flex flex-col">
+              <p className="text-xs text-muted-foreground">Media files</p>
+              <p className="font-mono text-sm font-semibold text-foreground">{summary.media_count}</p>
+            </div>
+            <div className="flex flex-col">
+              <p className="text-xs text-muted-foreground">Orphan media</p>
+              <p className="font-mono text-sm font-semibold text-foreground">{summary.orphan_media_count}</p>
+            </div>
+          </div>
         </section>
       ) : null}
 
-      <section className="rounded-2xl bg-card border border-border shadow-sm p-4 space-y-2 text-sm">
-        <a href="/api/export/all" className="rounded-xl bg-card border border-border px-4 py-3 flex items-center gap-2 text-sm text-foreground justify-start px-3">Download full export bundle (.zip)</a>
-        <button type="button" onClick={() => scanOrphans().catch(() => undefined)} disabled={scanning} className="rounded-xl bg-card border border-border px-4 py-3 flex items-center gap-2 text-sm text-foreground justify-start px-3 disabled:opacity-60">
-          {scanning ? "Scanning..." : "Run orphan media scan"}
+      <section className="flex flex-col gap-2">
+        <a href="/api/export/all" className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground">
+          <span>Download full export bundle (.zip)</span>
+          <ChevronRight size={14} className="text-muted-foreground" />
+        </a>
+        <button type="button" onClick={() => scanOrphans().catch(() => undefined)} disabled={scanning} className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground disabled:opacity-60">
+          <span>{scanning ? "Scanning..." : "Run orphan media scan"}</span>
+          <ChevronRight size={14} className="text-muted-foreground" />
         </button>
       </section>
     </div>

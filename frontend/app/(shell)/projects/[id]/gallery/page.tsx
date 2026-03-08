@@ -135,7 +135,7 @@ export default function ProjectGalleryPage() {
             </button>
           ))}
         </div>
-        {error ? <p className="rounded bg-red-500/10 p-2 text-sm text-red-200">{error}</p> : null}
+        {error ? <p className="rounded bg-secondary p-2 text-sm text-foreground">{error}</p> : null}
       </header>
 
       <section className="rounded-2xl bg-card border border-border shadow-sm p-4 space-y-2 text-sm">
@@ -180,8 +180,8 @@ export default function ProjectGalleryPage() {
                   <img src={item.file_url || item.url} alt={item.caption || item.file_name} loading="lazy" className="h-24 w-full object-cover" />
                 )}
                 {item.ribbon_type ? <span className={`absolute left-1 top-1 rounded px-1.5 py-0.5 text-[10px] ${ribbonBadgeClass(item.ribbon_type)}`}>{item.ribbon_type}</span> : null}
-                {item.show_name ? <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px]">{item.show_name}</span> : null}
-                {item.placing_value ? <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px]">{item.placing_value}</span> : null}
+                {item.show_name ? <span className="absolute bottom-1 left-1 rounded bg-card/95 px-1.5 py-0.5 text-[10px] text-foreground">{item.show_name}</span> : null}
+                {item.placing_value ? <span className="absolute bottom-1 right-1 rounded bg-card/95 px-1.5 py-0.5 text-[10px] text-foreground">{item.placing_value}</span> : null}
               </button>
               {canManage ? <button type="button" onClick={() => deleteMedia(item.id).catch(() => undefined)} className="w-full rounded bg-secondary text-foreground px-2 py-1 text-[10px]">Delete</button> : null}
             </div>

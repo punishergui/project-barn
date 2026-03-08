@@ -16,9 +16,9 @@ function formatDate(value?: string | null) {
 function ribbonClass(ribbon?: string | null) {
   const key = (ribbon ?? "").toLowerCase();
   if (key.includes("blue")) return "bg-primary text-primary-foreground/70";
-  if (key.includes("red")) return "bg-red-700/70";
-  if (key.includes("white")) return "bg-slate-400/70 text-black";
-  if (key.includes("purple")) return "bg-purple-700/70";
+  if (key.includes("red")) return "bg-primary text-primary-foreground/70";
+  if (key.includes("white")) return "bg-secondary text-foreground";
+  if (key.includes("purple")) return "bg-primary text-primary-foreground/70";
   return "bg-background";
 }
 
@@ -212,11 +212,11 @@ export default function ShowDetailPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Link href={`/shows/${show.id}/edit`} className="rounded bg-secondary text-foreground px-3 py-2 text-xs">Edit</Link>
-            {canManage ? <button type="button" onClick={() => removeShow().catch(() => undefined)} className="rounded bg-red-900 px-3 py-2 text-xs">Delete</button> : null}
+            {canManage ? <button type="button" onClick={() => removeShow().catch(() => undefined)} className="rounded bg-primary text-primary-foreground px-3 py-2 text-xs">Delete</button> : null}
           </div>
         </div>
         {show.notes ? <p className="text-sm text-muted-foreground">{show.notes}</p> : null}
-        {error ? <p className="rounded bg-red-500/10 p-2 text-sm text-red-200">{error}</p> : null}
+        {error ? <p className="rounded bg-secondary p-2 text-sm text-foreground">{error}</p> : null}
       </header>
 
       <section className="rounded-2xl bg-card border border-border shadow-sm p-4 space-y-2">

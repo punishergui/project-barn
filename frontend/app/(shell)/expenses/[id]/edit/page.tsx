@@ -114,7 +114,7 @@ export default function EditExpensePage() {
         {savedSummary.allocations.map((row, index) => <p key={`${row.projectName}-${index}`}>{row.projectName}: ${row.amount.toFixed(2)}</p>)}
       </div>
       <p className="text-sm">Receipts on file: {savedSummary.receiptCount}</p>
-      <button onClick={() => { router.push(`/expenses/${params.id}`); router.refresh(); }} className="rounded bg-red-700 px-3 py-2 text-sm">Back to expense</button>
+      <button onClick={() => { router.push(`/expenses/${params.id}`); router.refresh(); }} className="rounded bg-primary text-primary-foreground px-3 py-2 text-sm">Back to expense</button>
     </section>;
   }
 
@@ -132,26 +132,26 @@ export default function EditExpensePage() {
       <div className="flex flex-wrap items-center gap-2">
         <input type="file" multiple accept="image/*,.pdf,application/pdf" className="rounded bg-background p-2 text-sm" onChange={(event) => setReceiptFiles(Array.from(event.target.files ?? []))} />
         <input value={receiptCaption} onChange={(event) => setReceiptCaption(event.target.value)} placeholder="Caption" className="rounded bg-background p-2 text-sm" />
-        <button type="button" onClick={uploadReceipts} className="rounded bg-red-700 px-3 py-2 text-sm">Upload</button>
+        <button type="button" onClick={uploadReceipts} className="rounded bg-primary text-primary-foreground px-3 py-2 text-sm">Upload</button>
       </div>
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-3">{receipts.map((receipt) => <div key={receipt.id} className="space-y-1 rounded bg-background p-2 text-xs">{/\.pdf($|\?)/i.test(receipt.url) ? <a href={receipt.url} className="block rounded border border-white/20 p-3 text-center text-blue-200 underline">Download PDF</a> : <img src={receipt.url} alt={receipt.caption ?? receipt.file_name} className="h-20 w-full cursor-pointer rounded object-cover" onClick={() => setPreviewUrl(receipt.url)} />}<p>{receipt.caption ?? receipt.file_name}</p></div>)}</div>
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-3">{receipts.map((receipt) => <div key={receipt.id} className="space-y-1 rounded bg-background p-2 text-xs">{/\.pdf($|\?)/i.test(receipt.url) ? <a href={receipt.url} className="block rounded border border-border p-3 text-center text-primary underline">Download PDF</a> : <img src={receipt.url} alt={receipt.caption ?? receipt.file_name} className="h-20 w-full cursor-pointer rounded object-cover" onClick={() => setPreviewUrl(receipt.url)} />}<p>{receipt.caption ?? receipt.file_name}</p></div>)}</div>
     </section>
 
     <section className="space-y-2 rounded border border-border p-3">
       <div className="flex items-center justify-between"><h2 className="font-semibold">Split allocations</h2><label className="text-sm"><input type="checkbox" checked={splitEnabled} onChange={(event) => setSplitEnabled(event.target.checked)} className="mr-2" />Split this expense</label></div>
       {splitEnabled ? <>
         <div className="flex gap-2 text-sm">
-          <button type="button" onClick={() => setSplitMode("dollar")} className={`rounded px-2 py-1 ${splitMode === "dollar" ? "bg-red-700" : "bg-background"}`}>Dollar split</button>
-          <button type="button" onClick={() => setSplitMode("percent")} className={`rounded px-2 py-1 ${splitMode === "percent" ? "bg-red-700" : "bg-background"}`}>Percent split</button>
+          <button type="button" onClick={() => setSplitMode("dollar")} className={`rounded px-2 py-1 ${splitMode === "dollar" ? "bg-primary text-primary-foreground" : "bg-background"}`}>Dollar split</button>
+          <button type="button" onClick={() => setSplitMode("percent")} className={`rounded px-2 py-1 ${splitMode === "percent" ? "bg-primary text-primary-foreground" : "bg-background"}`}>Percent split</button>
           <button type="button" onClick={autoSplitEqually} className="rounded bg-background px-2 py-1">Auto split equally</button>
         </div>
         <div className="space-y-2">{rows.map((row) => <div key={row.id} className="grid grid-cols-12 gap-2 text-sm"><select value={row.project_id} onChange={(event) => setRows((prev) => prev.map((item) => item.id === row.id ? ({ ...item, project_id: event.target.value }) : item))} className="col-span-6 rounded bg-background p-2"><option value="">Project</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select>{splitMode === "dollar" ? <input type="number" step="0.01" value={row.amount} onChange={(event) => setRows((prev) => prev.map((item) => item.id === row.id ? ({ ...item, amount: event.target.value }) : item))} placeholder="Amount" className="col-span-5 rounded bg-background p-2" /> : <input type="number" step="0.01" value={row.percent} onChange={(event) => setRows((prev) => prev.map((item) => item.id === row.id ? ({ ...item, percent: event.target.value }) : item))} placeholder="Percent" className="col-span-5 rounded bg-background p-2" />}<button type="button" onClick={() => setRows((prev) => prev.length > 1 ? prev.filter((item) => item.id !== row.id) : prev)} className="col-span-1 rounded bg-secondary text-foreground">×</button></div>)}</div>
-        <div className="flex items-center justify-between"><button type="button" onClick={() => setRows((prev) => [...prev, { id: Date.now() + prev.length, project_id: "", amount: "", percent: "" }])} className="rounded bg-background px-3 py-2 text-sm">Add allocation</button><p className={`text-sm ${preview.remainingCents === 0 ? "text-green-300" : "text-yellow-300"}`}>Remaining ${(preview.remainingCents / 100).toFixed(2)}</p></div>
+        <div className="flex items-center justify-between"><button type="button" onClick={() => setRows((prev) => [...prev, { id: Date.now() + prev.length, project_id: "", amount: "", percent: "" }])} className="rounded bg-background px-3 py-2 text-sm">Add allocation</button><p className={`text-sm ${preview.remainingCents === 0 ? "text-primary" : "text-muted-foreground"}`}>Remaining ${(preview.remainingCents / 100).toFixed(2)}</p></div>
       </> : null}
     </section>
 
-    {error ? <p className="text-red-300">{error}</p> : null}
-    <button disabled={splitEnabled && preview.remainingCents !== 0} className="rounded bg-red-700 px-3 py-2 disabled:opacity-50">Save</button>
-    {previewUrl ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => setPreviewUrl(null)}><img src={previewUrl} alt="receipt preview" className="max-h-[90vh] max-w-[90vw] rounded" /></div> : null}
+    {error ? <p className="text-foreground">{error}</p> : null}
+    <button disabled={splitEnabled && preview.remainingCents !== 0} className="rounded bg-primary text-primary-foreground px-3 py-2 disabled:opacity-50">Save</button>
+    {previewUrl ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-card/95" onClick={() => setPreviewUrl(null)}><img src={previewUrl} alt="receipt preview" className="max-h-[90vh] max-w-[90vw] rounded" /></div> : null}
   </form>;
 }
