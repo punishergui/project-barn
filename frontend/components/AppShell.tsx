@@ -14,6 +14,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import BarnLogo from "@/components/BarnLogo";
 import { NotificationsResponse, SessionResponse, apiClientJson } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -28,18 +29,7 @@ function TopBar({
     <header className="sticky top-0 z-40 h-14 border-b border-border bg-card">
       <div className="mx-auto flex h-full max-w-lg items-center justify-between px-4">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <svg viewBox="0 0 64 48" width="28" height="21" fill="none" aria-hidden="true" className="text-primary">
-            <path d="M10 20 H54 V44 H10 Z" stroke="currentColor" strokeWidth="1.8" fill="none" />
-            <path d="M6 21 L32 8 L58 21" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M28 4 H36 V9 H28 Z" stroke="currentColor" strokeWidth="1.8" fill="none" />
-            <path d="M27 4 L32 1 L37 4" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M18 24 H24 V30 H18 Z" stroke="currentColor" strokeWidth="1.8" fill="none" />
-            <path d="M40 24 H46 V30 H40 Z" stroke="currentColor" strokeWidth="1.8" fill="none" />
-            <path d="M20 28 H32 V44 H20 Z" stroke="currentColor" strokeWidth="1.8" fill="none" />
-            <path d="M32 28 H44 V44 H32 Z" stroke="currentColor" strokeWidth="1.8" fill="none" />
-            <path d="M20 28 L32 44 M32 28 L20 44" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" />
-            <path d="M32 28 L44 44 M44 28 L32 44" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" />
-          </svg>
+          <BarnLogo size={28} className="h-[21px] w-[28px] object-contain" />
           <span className="font-serif text-lg text-foreground">Project Barn</span>
         </Link>
         <div className="flex items-center gap-3">
