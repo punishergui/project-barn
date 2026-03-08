@@ -22,6 +22,7 @@ import {
   ChecklistResponse,
   Expense,
   FeedEntry,
+  FeedInventoryItem,
   MediaItem,
   Placing,
   Profile,
@@ -38,6 +39,7 @@ import {
 import { toUserErrorMessage } from "@/lib/errorMessage";
 import { uploadProjectHero, uploadProjectMedia } from "@/lib/uploads";
 import { cn } from "@/lib/utils";
+import LogActivityDrawer from "@/components/LogActivityDrawer";
 
 type SectionName = "info" | "tasks" | "expenses" | "weight";
 
@@ -62,6 +64,7 @@ export default function ProjectDetailPage() {
   const [weights, setWeights] = useState<WeightEntry[]>([]);
   const [placings, setPlacings] = useState<Placing[]>([]);
   const [feedEntries, setFeedEntries] = useState<FeedEntry[]>([]);
+  const [feedInventory, setFeedInventory] = useState<FeedInventoryItem[]>([]);
   const [materials, setMaterials] = useState<ProjectMaterial[]>([]);
   const [financialSummary, setFinancialSummary] = useState<ProjectFinancialSummary | null>(null);
   const [checklists, setChecklists] = useState<ChecklistResponse | null>(null);
@@ -69,11 +72,12 @@ export default function ProjectDetailPage() {
   const [reminders, setReminders] = useState<ProjectReminder[]>([]);
   const [auth, setAuth] = useState<AuthStatus | null>(null);
   const [mediaCaption, setMediaCaption] = useState("");
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
     const id = Number(params.id);
-    const [projectData, profileData, expenseData, showData, timelineData, taskData, mediaData, placingData, authData, weightData, feedData, materialData, financialData, checklistData, readinessData, reminderData] = await Promise.all([
+    const [projectData, profileData, expenseData, showData, timelineData, taskData, mediaData, placingData, authData, weightData, feedData, materialData, financialData, checklistData, readinessData, reminderData, feedInventoryData] = await Promise.all([
       apiClientJson<Project>(`/projects/${id}`),
       apiClientJson<Profile[]>("/profiles"),
       apiClientJson<Expense[]>(`/expenses?project_id=${id}`).catch(() => []),
@@ -89,7 +93,8 @@ export default function ProjectDetailPage() {
       apiClientJson<ProjectFinancialSummary>(`/projects/${id}/financial-summary`).catch(() => null),
       apiClientJson<ChecklistResponse>(`/projects/${id}/checklists`).catch(() => null),
       apiClientJson<ShowReadinessResponse>(`/projects/${id}/show-readiness`).catch(() => null),
-      apiClientJson<ProjectReminder[]>(`/projects/${id}/reminders`).catch(() => [])
+      apiClientJson<ProjectReminder[]>(`/projects/${id}/reminders`).catch(() => []),
+      apiClientJson<FeedInventoryItem[]>("/feed").catch(() => [])
     ]);
 
     setProject(projectData);
@@ -108,6 +113,7 @@ export default function ProjectDetailPage() {
     setChecklists(checklistData);
     setReadiness(readinessData);
     setReminders(reminderData);
+    setFeedInventory(feedInventoryData);
   };
 
   useEffect(() => {
@@ -350,6 +356,25 @@ export default function ProjectDetailPage() {
           </section>
         ) : null}
       </div>
+
+      <button
+        onClick={() => setDrawerOpen(true)}
+        className="fixed bottom-20 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg transition-transform active:scale-95"
+      >
+        <span className="text-base">+</span>
+        Log Activity
+      </button>
+
+      <LogActivityDrawer
+        projectId={Number(params.id)}
+        projectName={project?.name ?? ""}
+        isLivestock={project?.is_livestock ?? false}
+        feedInventoryItems={feedInventory}
+        targetWeight={project?.target_weight ?? null}
+        onSuccess={() => load().catch(() => undefined)}
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+      />
     </div>
   );
 }
