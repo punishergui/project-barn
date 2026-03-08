@@ -51,48 +51,50 @@ export default function AuctionsPage() {
   }), { gross: 0, addOns: 0, fees: 0, payout: 0 }), [sales]);
 
   return (
-    <div className="w-full space-y-4 px-4 pb-5">
-      <section className="barn-card space-y-1">
-        <h1 className="text-2xl font-semibold">Auction & Sale Tracking</h1>
-        <p className="text-sm text-[var(--barn-muted)]">Record buyers, add-ons, fees, and final payout per project sale.</p>
+    <div className="w-full space-y-4 pb-5">
+      <section>
+        <h1 className="mb-4 font-serif text-2xl text-foreground">Auctions</h1>
+        <p className="text-sm text-muted-foreground">Record buyers, add-ons, fees, and final payout per project sale.</p>
       </section>
 
       <section className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-        <article className="barn-chip">${totals.gross.toFixed(2)}<span>Gross sale</span></article>
-        <article className="barn-chip">${totals.addOns.toFixed(2)}<span>Add-ons</span></article>
-        <article className="barn-chip">${totals.fees.toFixed(2)}<span>Fees</span></article>
-        <article className="barn-chip">${totals.payout.toFixed(2)}<span>Net payout</span></article>
+        <article className="rounded-2xl bg-card border border-border shadow-sm px-4 py-3"><p className="text-foreground font-semibold">${totals.gross.toFixed(2)}</p><span className="text-sm text-muted-foreground">Gross sale</span></article>
+        <article className="rounded-2xl bg-card border border-border shadow-sm px-4 py-3"><p className="text-foreground font-semibold">${totals.addOns.toFixed(2)}</p><span className="text-sm text-muted-foreground">Add-ons</span></article>
+        <article className="rounded-2xl bg-card border border-border shadow-sm px-4 py-3"><p className="text-foreground font-semibold">${totals.fees.toFixed(2)}</p><span className="text-sm text-muted-foreground">Fees</span></article>
+        <article className="rounded-2xl bg-card border border-border shadow-sm px-4 py-3"><p className="text-green-600 font-semibold">${totals.payout.toFixed(2)}</p><span className="text-sm text-muted-foreground">Net payout</span></article>
       </section>
 
-      <form className="barn-card grid gap-2" onSubmit={(event) => createSale(event).catch(() => undefined)}>
-        <h2 className="text-base font-semibold">Add Sale</h2>
-        <select name="project_id" required className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-3 text-base">
+      <form className="rounded-2xl bg-card border border-border shadow-sm p-4 mb-4 grid gap-2" onSubmit={(event) => createSale(event).catch(() => undefined)}>
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Add Auction Sale</h2>
+        <select name="project_id" required className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30">
           <option value="">Select project</option>
           {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
         </select>
-        <select name="show_id" className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-3 text-base">
+        <select name="show_id" className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30">
           <option value="">No linked show</option>
           {shows.map((show) => <option key={show.id} value={show.id}>{show.name}</option>)}
         </select>
-        <input name="sale_date" type="date" required className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-3 text-base" />
-        <input name="buyer_name" required placeholder="Buyer name" className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-3 text-base" />
-        <input name="sale_amount" type="number" min="0" step="0.01" placeholder="Sale amount" required className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-3 text-lg font-semibold" />
-        <input name="add_ons_amount" type="number" min="0" step="0.01" placeholder="Add-ons amount" className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-3 text-base" />
-        <input name="fees_amount" type="number" min="0" step="0.01" placeholder="Commission / fees" className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-3 text-base" />
-        <input name="final_payout" type="number" min="0" step="0.01" placeholder="Final payout (optional)" className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-3 text-base" />
-        <textarea name="notes" rows={3} placeholder="Notes" className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-3 text-base" />
-        <button className="rounded-lg bg-[var(--barn-red)] px-4 py-2 text-sm font-medium">Save Sale</button>
+        <input name="sale_date" type="date" required className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30" />
+        <input name="buyer_name" required placeholder="Buyer name" className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30" />
+        <input name="sale_amount" type="number" min="0" step="0.01" placeholder="Sale amount" required className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30" />
+        <input name="add_ons_amount" type="number" min="0" step="0.01" placeholder="Add-ons amount" className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30" />
+        <input name="fees_amount" type="number" min="0" step="0.01" placeholder="Commission / fees" className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30" />
+        <input name="final_payout" type="number" min="0" step="0.01" placeholder="Final payout (optional)" className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30" />
+        <textarea name="notes" rows={3} placeholder="Notes" className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30" />
+        <button className="bg-primary text-primary-foreground rounded-xl px-4 py-2 text-sm font-medium">Save Sale</button>
       </form>
 
-      <section className="barn-card space-y-2">
-        <h2 className="text-base font-semibold">Recent Sales</h2>
-        {sales.length === 0 ? <p className="barn-row text-sm text-[var(--barn-muted)]">No sale outcomes recorded yet.</p> : null}
+      <section className="space-y-2">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Recent Sales</h2>
+        {sales.length === 0 ? <p className="text-sm text-muted-foreground">No sale outcomes recorded yet.</p> : null}
         {sales.map((sale) => (
-          <article key={sale.id} className="barn-row text-sm">
-            <p className="font-medium">{projects.find((project) => project.id === sale.project_id)?.name ?? `Project ${sale.project_id}`} • {sale.buyer_name}</p>
-            <p className="text-xs text-[var(--barn-muted)]">{new Date(sale.sale_date).toLocaleDateString()} • Gross ${sale.sale_amount.toFixed(2)}</p>
-            <p className="text-xs text-[var(--barn-muted)]">Add-ons ${sale.add_ons_amount.toFixed(2)} • Fees ${sale.fees_amount.toFixed(2)} • Net ${sale.final_payout.toFixed(2)}</p>
-            {sale.notes ? <p className="text-xs text-[var(--barn-muted)]">{sale.notes}</p> : null}
+          <article key={sale.id} className="rounded-2xl bg-card border border-border shadow-sm px-4 py-3">
+            <p className="font-semibold text-sm">{sale.buyer_name}</p>
+            <p className="text-base font-bold text-foreground">Sale ${sale.sale_amount.toFixed(2)}</p>
+            <p className="text-green-600 font-semibold">Final payout ${sale.final_payout.toFixed(2)}</p>
+            <p className="text-xs text-muted-foreground">{new Date(sale.sale_date).toLocaleDateString()} • {shows.find((show) => show.id === sale.show_id)?.name ?? "No show"}</p>
+            <p className="text-xs text-muted-foreground">{projects.find((project) => project.id === sale.project_id)?.name ?? `Project ${sale.project_id}`}</p>
+            {sale.notes ? <p className="text-xs text-muted-foreground">{sale.notes}</p> : null}
           </article>
         ))}
       </section>

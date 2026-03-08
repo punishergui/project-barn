@@ -43,54 +43,77 @@ export default function ProjectsPage() {
   const owners = useMemo(() => new Map(profiles.map((profile) => [profile.id, profile.name])), [profiles]);
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-5 px-4 pb-4">
-      <div className="flex items-center justify-between">
+    <div className="space-y-5 pb-4">
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Projects</h1>
-          <p className="text-sm text-neutral-300">Track livestock and non-livestock projects in one place.</p>
+          <h1 className="mb-4 font-serif text-2xl text-foreground">Projects</h1>
+          <p className="text-sm text-muted-foreground">Track livestock and non-livestock projects in one place.</p>
         </div>
         {auth?.role === "parent" && auth.is_unlocked ? (
-          <Link className="rounded-lg bg-[var(--barn-red)] px-3 py-2 text-sm font-medium text-white" href="/projects/new">
+          <Link className="bg-primary text-primary-foreground rounded-xl px-4 py-2 text-sm font-medium" href="/projects/new">
             Add Project
           </Link>
         ) : null}
       </div>
 
-      <section className="barn-card grid gap-2 sm:grid-cols-3">
-        <input value={projectType} onChange={(event) => setProjectType(event.target.value)} placeholder="Project type" className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-2" />
-        <input value={status} onChange={(event) => setStatus(event.target.value)} placeholder="Status" className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-2" />
-        <select value={owner} onChange={(event) => setOwner(event.target.value)} className="rounded-lg border border-[var(--barn-border)] bg-black/20 p-2">
-          <option value="">Owner</option>
-          {profiles.map((profile) => (
-            <option key={profile.id} value={profile.id}>
-              {profile.name}
-            </option>
-          ))}
-        </select>
+      <section className="rounded-2xl bg-card border border-border shadow-sm p-4">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            value={projectType}
+            onChange={(event) => setProjectType(event.target.value)}
+            placeholder="Project type"
+            className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+          <input
+            value={status}
+            onChange={(event) => setStatus(event.target.value)}
+            placeholder="Status"
+            className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+          <select
+            value={owner}
+            onChange={(event) => setOwner(event.target.value)}
+            className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30"
+          >
+            <option value="">Owner</option>
+            {profiles.map((profile) => (
+              <option key={profile.id} value={profile.id}>
+                {profile.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </section>
 
-      {loading ? <p className="text-sm text-[var(--barn-muted)]">Loading projects...</p> : null}
+      {loading ? <p className="text-sm text-muted-foreground">Loading projects...</p> : null}
 
       {error ? (
-        <div className="barn-card space-y-2 text-sm">
-          <p className="text-red-200">{error}</p>
-          <button type="button" onClick={() => load().catch(() => undefined)} className="rounded bg-neutral-700 px-3 py-2 text-sm">
+        <div className="rounded-2xl bg-card border border-border shadow-sm p-4 space-y-2 text-sm">
+          <p className="text-destructive">{error}</p>
+          <button type="button" onClick={() => load().catch(() => undefined)} className="bg-secondary text-foreground rounded-xl px-4 py-2 text-sm">
             Retry
           </button>
         </div>
       ) : null}
 
-      {!loading && !error && projects.length === 0 ? <p className="barn-card text-sm text-[var(--barn-muted)]">No projects found for the current filters.</p> : null}
+      {!loading && !error && projects.length === 0 ? (
+        <p className="rounded-2xl bg-card border border-border shadow-sm px-4 py-3 text-sm text-muted-foreground">No projects found for the current filters.</p>
+      ) : null}
 
       <div className="grid gap-3 md:grid-cols-2">
         {projects.map((project) => (
-          <Link key={project.id} href={`/projects/${project.id}`} className="barn-card space-y-2 text-sm">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-base font-semibold">{project.name}</p>
-              <span className="rounded bg-[var(--barn-bg)] px-2 py-1 text-xs">{project.status}</span>
+          <Link key={project.id} href={`/projects/${project.id}`} className="rounded-2xl bg-card border border-border shadow-sm px-4 py-3">
+            <div className="flex items-center gap-3">
+              <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-secondary" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate text-sm font-semibold text-foreground">{project.name}</p>
+                  <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">{project.status}</span>
+                </div>
+                <p className="text-sm text-muted-foreground">Owner: {owners.get(project.owner_profile_id) ?? "Unknown"}</p>
+                <p className="text-sm text-muted-foreground">{project.species || project.project_category || project.project_type}</p>
+              </div>
             </div>
-            <p className="text-xs text-[var(--barn-muted)]">{project.project_category ?? project.project_type}</p>
-            <p className="text-xs text-[var(--barn-muted)]">Owner: {owners.get(project.owner_profile_id) ?? "Unknown"}</p>
           </Link>
         ))}
       </div>
