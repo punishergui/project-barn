@@ -101,56 +101,72 @@ export default function NewExpensePage() {
   };
 
   if (savedSummary) {
-    return <section className="space-y-3 rounded-lg border border-white/10 bg-neutral-900 p-4">
-      <h1 className="text-xl font-semibold">Expense saved</h1>
-      <p className="text-sm text-neutral-300">Total amount: ${savedSummary.amount.toFixed(2)}</p>
-      <div className="rounded bg-neutral-800 p-3 text-sm">
-        <p className="mb-1 font-semibold">Allocations</p>
-        {savedSummary.allocations.map((row, index) => <p key={`${row.projectName}-${index}`}>{row.projectName}: ${row.amount.toFixed(2)}</p>)}
+    return <section className="space-y-4 rounded-2xl bg-card border border-border shadow-sm p-4">
+      <h1 className="mb-4 font-serif text-2xl text-foreground">Expense saved</h1>
+      <p className="text-sm text-muted-foreground">Total amount: ${savedSummary.amount.toFixed(2)}</p>
+      <div className="rounded-2xl bg-card border border-border shadow-sm px-4 py-3 text-sm">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Allocations</p>
+        {savedSummary.allocations.map((row, index) => <p key={`${row.projectName}-${index}`} className="text-sm text-foreground">{row.projectName}: ${row.amount.toFixed(2)}</p>)}
       </div>
-      <p className="text-sm">Receipts uploaded: {savedSummary.receiptCount}</p>
+      <p className="text-sm text-muted-foreground">Receipts uploaded: {savedSummary.receiptCount}</p>
       <div className="flex gap-2">
-        <button onClick={() => router.push(`/expenses/${savedSummary.expenseId}`)} className="rounded bg-red-700 px-3 py-2 text-sm">View expense</button>
-        <button onClick={() => router.push("/expenses/new")} className="rounded bg-neutral-800 px-3 py-2 text-sm">Add another</button>
+        <button onClick={() => router.push(`/expenses/${savedSummary.expenseId}`)} className="bg-primary text-primary-foreground rounded-xl px-4 py-2 text-sm font-medium">View expense</button>
+        <button onClick={() => router.push("/expenses/new")} className="bg-secondary text-foreground rounded-xl px-4 py-2 text-sm">Add another</button>
       </div>
     </section>;
   }
 
-  return <form onSubmit={submit} className="space-y-3 rounded-lg border border-white/10 bg-neutral-900 p-4">
-    <h1 className="text-xl font-semibold">New Expense</h1>
-    <select name="project_id" defaultValue={preselectedProject} className="w-full rounded bg-neutral-800 p-2">{projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
-    <input name="date" type="date" required className="w-full rounded bg-neutral-800 p-2" />
-    <input name="category" required placeholder="Category" className="w-full rounded bg-neutral-800 p-2" />
-    <input name="vendor" placeholder="Vendor" className="w-full rounded bg-neutral-800 p-2" />
-    <input name="amount" type="number" step="0.01" required placeholder="Amount" className="w-full rounded bg-neutral-800 p-2" onChange={(event) => setAmount(event.target.value)} />
-    <textarea name="note" placeholder="Note" className="w-full rounded bg-neutral-800 p-2" />
+  return <form onSubmit={submit} className="space-y-4 pb-4">
+    <div>
+      <h1 className="mb-4 font-serif text-2xl text-foreground">New Expense</h1>
+      <p className="text-sm text-muted-foreground">Record spending and optionally split allocations across projects.</p>
+    </div>
 
-    <section className="space-y-2 rounded border border-white/10 p-3">
-      <h2 className="font-semibold">Receipt photos</h2>
-      {!receiptUploadSupported ? <p className="rounded bg-amber-900/40 p-2 text-xs text-amber-200">Receipt upload not configured.</p> : null}
-      <input type="file" accept=".png,.jpg,.jpeg,.webp" multiple className="w-full rounded bg-neutral-800 p-2 text-sm" onChange={(event) => setReceiptFiles(Array.from(event.target.files ?? []))} />
-      <input value={receiptCaption} onChange={(event) => setReceiptCaption(event.target.value)} placeholder="Caption for uploaded receipts" className="w-full rounded bg-neutral-800 p-2 text-sm" />
+    <section className="rounded-2xl bg-card border border-border shadow-sm p-4 space-y-2">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Expense Details</p>
+      <select name="project_id" defaultValue={preselectedProject} className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30">{projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+      <input name="date" type="date" required className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30" />
+      <input name="category" required placeholder="Category" className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30" />
+      <input name="vendor" placeholder="Vendor" className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30" />
+      <input name="amount" type="number" step="0.01" required placeholder="Amount" className="rounded-xl border border-border bg-background px-3 py-2 text-3xl font-bold text-center text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30" onChange={(event) => setAmount(event.target.value)} />
+      <textarea name="note" placeholder="Note" className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30" />
+    </section>
+
+    <section className="rounded-2xl bg-card border border-border shadow-sm p-4 space-y-2">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Receipt Photos</p>
+      {!receiptUploadSupported ? <p className="rounded-xl bg-secondary px-3 py-2 text-xs text-muted-foreground">Receipt upload not configured.</p> : null}
+      <input type="file" accept=".png,.jpg,.jpeg,.webp" multiple className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30" onChange={(event) => setReceiptFiles(Array.from(event.target.files ?? []))} />
+      <input value={receiptCaption} onChange={(event) => setReceiptCaption(event.target.value)} placeholder="Caption for uploaded receipts" className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30" />
       <div className="grid grid-cols-3 gap-2">
-        {receiptPreviews.map((item) => <img key={item.file.name + item.file.lastModified} src={item.url} alt={item.file.name} className="h-16 w-full rounded object-cover" />)}
+        {receiptPreviews.map((item) => <img key={item.file.name + item.file.lastModified} src={item.url} alt={item.file.name} className="h-16 w-full rounded-xl object-cover" />)}
       </div>
     </section>
 
-    <section className="space-y-2 rounded border border-white/10 p-3">
-      <div className="flex items-center justify-between"><h2 className="font-semibold">Split allocations</h2><label className="text-sm"><input type="checkbox" checked={splitEnabled} onChange={(event) => setSplitEnabled(event.target.checked)} className="mr-2" />Split this expense</label></div>
+    <section className="rounded-2xl bg-card border border-border shadow-sm p-4 space-y-2">
+      <div className="flex items-center justify-between py-2">
+        <h2 className="text-sm font-semibold text-foreground">Split allocations</h2>
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          <input type="checkbox" checked={splitEnabled} onChange={(event) => setSplitEnabled(event.target.checked)} />
+          Split this expense
+        </label>
+      </div>
       {splitEnabled ? <>
         <div className="flex gap-2 text-sm">
-          <button type="button" onClick={() => setSplitMode("dollar")} className={`rounded px-2 py-1 ${splitMode === "dollar" ? "bg-red-700" : "bg-neutral-800"}`}>Dollar split</button>
-          <button type="button" onClick={() => setSplitMode("percent")} className={`rounded px-2 py-1 ${splitMode === "percent" ? "bg-red-700" : "bg-neutral-800"}`}>Percent split</button>
-          <button type="button" onClick={autoSplitEqually} className="rounded bg-neutral-800 px-2 py-1">Auto split equally</button>
+          <button type="button" onClick={() => setSplitMode("dollar")} className={splitMode === "dollar" ? "bg-primary text-primary-foreground rounded-xl px-4 py-2 text-sm font-medium" : "bg-secondary text-foreground rounded-xl px-4 py-2 text-sm"}>Dollar split</button>
+          <button type="button" onClick={() => setSplitMode("percent")} className={splitMode === "percent" ? "bg-primary text-primary-foreground rounded-xl px-4 py-2 text-sm font-medium" : "bg-secondary text-foreground rounded-xl px-4 py-2 text-sm"}>Percent split</button>
+          <button type="button" onClick={autoSplitEqually} className="bg-secondary text-foreground rounded-xl px-4 py-2 text-sm">Auto split equally</button>
         </div>
         <div className="space-y-2">
-          {rows.map((row) => <div key={row.id} className="grid grid-cols-12 gap-2 text-sm"><select value={row.project_id} onChange={(event) => setRows((prev) => prev.map((item) => item.id === row.id ? ({ ...item, project_id: event.target.value }) : item))} className="col-span-6 rounded bg-neutral-800 p-2"><option value="">Project</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select>{splitMode === "dollar" ? <input type="number" step="0.01" value={row.amount} onChange={(event) => setRows((prev) => prev.map((item) => item.id === row.id ? ({ ...item, amount: event.target.value }) : item))} placeholder="Amount" className="col-span-5 rounded bg-neutral-800 p-2" /> : <input type="number" step="0.01" value={row.percent} onChange={(event) => setRows((prev) => prev.map((item) => item.id === row.id ? ({ ...item, percent: event.target.value }) : item))} placeholder="Percent" className="col-span-5 rounded bg-neutral-800 p-2" />}<button type="button" onClick={() => setRows((prev) => prev.length > 1 ? prev.filter((item) => item.id !== row.id) : prev)} className="col-span-1 rounded bg-neutral-700">×</button></div>)}
+          {rows.map((row) => <div key={row.id} className="flex gap-2 items-center"><select value={row.project_id} onChange={(event) => setRows((prev) => prev.map((item) => item.id === row.id ? ({ ...item, project_id: event.target.value }) : item))} className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30"><option value="">Project</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select>{splitMode === "dollar" ? <input type="number" step="0.01" value={row.amount} onChange={(event) => setRows((prev) => prev.map((item) => item.id === row.id ? ({ ...item, amount: event.target.value }) : item))} placeholder="Amount" className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30" /> : <input type="number" step="0.01" value={row.percent} onChange={(event) => setRows((prev) => prev.map((item) => item.id === row.id ? ({ ...item, percent: event.target.value }) : item))} placeholder="Percent" className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/30" />}<button type="button" onClick={() => setRows((prev) => prev.length > 1 ? prev.filter((item) => item.id !== row.id) : prev)} className="bg-secondary text-foreground rounded-xl px-4 py-2 text-sm">×</button></div>)}
         </div>
-        <div className="flex items-center justify-between"><button type="button" onClick={() => setRows((prev) => [...prev, { id: Date.now() + prev.length, project_id: "", amount: "", percent: "" }])} className="rounded bg-neutral-800 px-3 py-2 text-sm">Add allocation</button><p className={`text-sm ${preview.remainingCents === 0 ? "text-green-300" : "text-yellow-300"}`}>Remaining ${(preview.remainingCents / 100).toFixed(2)}</p></div>
+        <div className="flex items-center justify-between">
+          <button type="button" onClick={() => setRows((prev) => [...prev, { id: Date.now() + prev.length, project_id: "", amount: "", percent: "" }])} className="bg-secondary text-foreground rounded-xl px-4 py-2 text-sm">Add allocation</button>
+          <p className={`text-sm ${preview.remainingCents === 0 ? "text-green-600" : "text-muted-foreground"}`}>Remaining ${(preview.remainingCents / 100).toFixed(2)}</p>
+        </div>
       </> : null}
     </section>
 
-    {error ? <p className="text-red-300">{error}</p> : null}
-    <button disabled={splitEnabled && preview.remainingCents !== 0} className="rounded bg-red-700 px-3 py-2 disabled:opacity-50">Save expense</button>
+    {error ? <p className="text-sm text-destructive">{error}</p> : null}
+    <button disabled={splitEnabled && preview.remainingCents !== 0} className="w-full bg-primary text-primary-foreground rounded-xl py-3 font-semibold disabled:opacity-50">Save expense</button>
   </form>;
 }
