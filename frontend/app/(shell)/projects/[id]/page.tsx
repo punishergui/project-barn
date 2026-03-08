@@ -297,7 +297,7 @@ export default function ProjectDetailPage() {
             {weights.length === 0 ? <p className="px-4 py-3 text-sm text-muted-foreground">No weight entries yet.</p> : weights.map((entry, i) => (
               <div key={entry.id}>
                 <div className="flex items-center justify-between px-4 py-3 text-sm">
-                  <span>{formatDate(entry.weighed_at)}</span>
+                  <span>{formatDate(entry.recorded_at)}</span>
                   <span className="font-mono">{entry.weight_lbs.toFixed(1)} lb</span>
                 </div>
                 {i < weights.length - 1 ? <div className="mx-4 h-px bg-border" /> : null}
