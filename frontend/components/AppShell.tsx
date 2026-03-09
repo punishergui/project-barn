@@ -66,7 +66,7 @@ function TopBar({
           <button
             type="button"
             onClick={onToggleNotifications}
-            className="relative text-amber-200/70 transition-colors hover:text-amber-50"
+            className="relative text-amber-200 transition-colors hover:text-amber-50"
             aria-label="Toggle notifications"
           >
             <Bell size={20} />
@@ -84,7 +84,7 @@ function TopBar({
           >
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-          <Link href="/settings">
+          <Link href="/profile-picker">
             <Avatar className="h-8 w-8 rounded-full border border-amber-500 bg-primary text-primary-foreground">
               {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt={profile.name ?? "Profile"} /> : null}
               <AvatarFallback className="bg-primary text-xs font-bold text-primary-foreground">
@@ -230,14 +230,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-border" />
             <h2 className="mb-4 font-serif text-xl text-foreground">Admin</h2>
             <div className="flex flex-col gap-3">
-              <a href="/admin/profiles" className="rounded-xl bg-secondary px-4 py-3 text-sm text-foreground">
+              <a href="/profile-picker" className="rounded-xl bg-secondary px-4 py-3 text-sm text-foreground">
                 Manage Profiles
               </a>
-              <a href="/admin/feed-inventory" className="rounded-xl bg-secondary px-4 py-3 text-sm text-foreground">
+              <a href="/feed/inventory" className="rounded-xl bg-secondary px-4 py-3 text-sm text-foreground">
                 Feed Inventory
-              </a>
-              <a href="/admin/custom-options" className="rounded-xl bg-secondary px-4 py-3 text-sm text-foreground">
-                Custom Dropdown Options
               </a>
             </div>
           </Drawer.Content>
