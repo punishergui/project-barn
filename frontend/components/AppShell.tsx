@@ -230,11 +230,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-border" />
             <h2 className="mb-4 font-serif text-xl text-foreground">Admin</h2>
             <div className="flex flex-col gap-3">
-              <a href="/profile-picker" className="rounded-xl bg-secondary px-4 py-3 text-sm text-foreground">
+              <a href="/admin/profiles" className="rounded-xl bg-secondary px-4 py-3 text-sm text-foreground">
                 Manage Profiles
               </a>
-              <a href="/feed/inventory" className="rounded-xl bg-secondary px-4 py-3 text-sm text-foreground">
+              <a href="/admin/feed-inventory" className="rounded-xl bg-secondary px-4 py-3 text-sm text-foreground">
                 Feed Inventory
+              </a>
+              <a href="/admin/custom-options" className="rounded-xl bg-secondary px-4 py-3 text-sm text-foreground">
+                Custom Dropdown Options
+              </a>
+              <a href="/settings" className="rounded-xl bg-secondary px-4 py-3 text-sm text-foreground">
+                Settings
               </a>
             </div>
           </Drawer.Content>
