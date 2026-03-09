@@ -113,7 +113,7 @@ export default function ProjectWeightsPage() {
         </section>
       ) : null}
 
-      <WeightChart weights={rows} targetWeight={null} />
+      <WeightChart entries={rows} targetWeight={undefined} />
 
       <form onSubmit={submit} className="rounded-2xl border border-border bg-card p-4">
         <h2 className="mb-3 text-sm font-semibold text-foreground">Add Entry</h2>
