@@ -64,7 +64,7 @@ export default function AdminDashboardPage() {
       <section className="mb-4 grid grid-cols-2 gap-2">
         <Link href="/settings/profiles" className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-foreground">Manage Profiles</Link>
         <Link href="/projects" className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-foreground">Manage Projects</Link>
-        <Link href="/notifications" className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-foreground">Manage Reminders</Link>
+        <Link href="/settings" className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-foreground">Manage Settings</Link>
         <Link href="/reports" className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-foreground">Open Reports</Link>
         <Link href="/equipment" className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-foreground">📦 Equipment</Link>
         <Link href="/packing-lists" className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-foreground">🎒 Packing Lists</Link>
