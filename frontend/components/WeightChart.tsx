@@ -4,7 +4,7 @@ import { format } from "date-fns";
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 interface WeightEntry {
-  logged_at: string;
+  recorded_at: string;
   weight_lbs: number;
 }
 
@@ -15,7 +15,7 @@ interface WeightChartProps {
 
 export default function WeightChart({ entries, targetWeight }: WeightChartProps) {
   const data = entries.map((e) => ({
-    date: format(new Date(e.logged_at), "MMM d"),
+    date: format(new Date(e.recorded_at), "MMM d"),
     weight: e.weight_lbs
   }));
 
