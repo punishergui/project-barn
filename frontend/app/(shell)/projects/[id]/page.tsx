@@ -435,7 +435,7 @@ export default function ProjectDetailPage() {
         {activeSection === "weight" ? (
           <section className="rounded-xl border border-border bg-card px-4">
             <WeightChart
-              entries={weights.map((entry) => ({ logged_at: entry.recorded_at, weight_lbs: entry.weight_lbs }))}
+              entries={weights.map((entry) => ({ recorded_at: entry.recorded_at, weight_lbs: entry.weight_lbs }))}
               targetWeight={projectTargetWeightLbs ?? undefined}
             />
             {weights.length === 0 ? (
