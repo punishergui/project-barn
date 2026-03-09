@@ -16,7 +16,6 @@ const navLinks = [
   { href: "/family", label: "👨‍👩‍👧‍👦 Family" },
   { href: "/reports", label: "📊 Reports" },
   { href: "/activity", label: "🕒 Activity" },
-  { href: "/notifications", label: "🔔 Notifications" },
   { href: "/income", label: "💰 Income" },
   { href: "/inventory", label: "🧰 Inventory" },
   { href: "/equipment", label: "📦 Equipment" },
