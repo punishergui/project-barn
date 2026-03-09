@@ -31,27 +31,27 @@ function TopBar({
   const { theme, setTheme } = useTheme();
 
   return (
-    <header className="sticky top-0 z-40 h-14 border-b border-border bg-card">
+    <header className="sticky top-0 z-40 h-14 border-b border-amber-900/30 bg-gradient-to-r from-amber-800 via-amber-700 to-amber-600">
       <div className="mx-auto flex h-full max-w-lg items-center justify-between px-4">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <BarnLogo size={28} className="h-[21px] w-[28px] text-primary" />
-          <span className="font-serif text-lg text-foreground">Project Barn</span>
+          <BarnLogo size={28} className="h-[21px] w-[28px] text-amber-50" />
+          <span className="font-serif text-lg text-amber-50">Project Barn</span>
         </Link>
         <div className="flex items-center gap-3">
-          <Link href="/notifications" className="relative text-muted-foreground">
+          <Link href="/notifications" className="relative text-amber-200">
             <Bell size={20} />
             {unread > 0 ? <span className="absolute -right-0.5 top-0 h-1.5 w-1.5 rounded-full bg-primary" /> : null}
           </Link>
           <button
             type="button"
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="text-muted-foreground"
+            className="text-amber-200"
             aria-label="Toggle dark mode"
           >
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
           </button>
           <Link href="/profile-picker">
-            <Avatar className="h-8 w-8 rounded-full bg-primary text-primary-foreground">
+            <Avatar className="h-8 w-8 rounded-full border border-amber-500 bg-primary text-primary-foreground">
               {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt={profile.name ?? "Profile"} /> : null}
               <AvatarFallback className="bg-primary text-xs font-bold text-primary-foreground">
                 {profile?.name ? profile.name.slice(0, 2).toUpperCase() : <UserCircle size={16} />}
@@ -76,7 +76,7 @@ function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 h-16 border-t border-border bg-card">
+    <nav className="fixed inset-x-0 bottom-0 z-50 h-16 border-t border-amber-900/30 bg-gradient-to-r from-amber-800 via-amber-700 to-amber-600">
       <div className="mx-auto flex h-full max-w-lg items-stretch">
         {navItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
@@ -86,10 +86,10 @@ function BottomNav() {
               href={item.href}
               className={cn(
                 "relative flex flex-1 flex-col items-center justify-center gap-0.5",
-                isActive ? "text-primary" : "text-muted-foreground"
+                isActive ? "text-white" : "text-amber-200/75"
               )}
             >
-              {isActive ? <div className="absolute inset-x-4 top-0 h-0.5 rounded-full bg-primary" /> : null}
+              {isActive ? <div className="absolute inset-x-4 top-0 h-0.5 rounded-full bg-white" /> : null}
               <item.icon size={20} />
               <span className="text-[10px] font-medium">{item.label}</span>
             </Link>

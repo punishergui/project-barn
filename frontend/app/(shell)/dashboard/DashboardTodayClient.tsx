@@ -1,4 +1,4 @@
-import { Beef, ChevronRight, FolderOpen, Trophy } from "lucide-react";
+import { Beef, FolderOpen, Trophy } from "lucide-react";
 import Link from "next/link";
 
 type DashboardProject = {
@@ -42,7 +42,8 @@ function projectEmoji(project: DashboardProject) {
 export default function DashboardTodayClient({ todayLabel, profileName, activeProjects, upcomingShows, recentExpenses, financeSummary }: Props) {
   const firstName = profileName.split(" ")[0] ?? "Friend";
   const greeting = greetingForHour(new Date().getHours());
-  const netIsPositive = financeSummary.net_balance >= 0;
+  void recentExpenses;
+  void financeSummary;
 
   return (
     <div className="flex flex-col gap-6">
@@ -72,50 +73,68 @@ export default function DashboardTodayClient({ todayLabel, profileName, activePr
       </div>
 
       <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Your Animals</p>
-        <div className="flex flex-col gap-3">
-          {activeProjects.map((project) => (
-            <Link key={project.id} href={`/projects/${project.id}`} className="flex items-center gap-0 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-              <div className="h-20 w-20 flex-shrink-0">
-                {project.photo_url ? (
-                  <img src={project.photo_url} alt={project.name} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-secondary text-2xl">{projectEmoji(project)}</div>
-                )}
-              </div>
-              <div className="flex flex-1 flex-col gap-1 px-3 py-2.5">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-foreground">{project.name}</p>
-                  <ChevronRight size={14} className="text-muted-foreground" />
-                </div>
-                <p className="text-xs capitalize text-muted-foreground">
-                  {project.owner} • {project.species}
-                </p>
-                <div className="mt-0.5 flex items-center gap-2">
-                  {project.next_show ? <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">🏆 {project.next_show.name}</span> : null}
-                  {project.open_tasks > 0 ? <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">{project.open_tasks} tasks</span> : null}
-                  {project.latest_weight_lbs ? <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">{project.latest_weight_lbs} lbs</span> : null}
-                </div>
-              </div>
-            </Link>
-          ))}
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Your Animals &amp; Projects
+          </p>
+          <Link href="/projects" className="text-xs font-medium text-primary">
+            See all
+          </Link>
         </div>
-      </div>
-
-      <div className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3">
-        <div>
-          <p className="text-xs text-muted-foreground">Total Spent</p>
-          <p className="text-base font-semibold text-foreground">${financeSummary.total_spent.toFixed(2)}</p>
-        </div>
-        <div className="h-8 w-px bg-border" />
-        <div>
-          <p className="text-xs text-muted-foreground">Income</p>
-          <p className="text-base font-semibold text-foreground">${financeSummary.total_income.toFixed(2)}</p>
-        </div>
-        <div className="h-8 w-px bg-border" />
-        <div>
-          <p className="text-xs text-muted-foreground">Net</p>
-          <p className={netIsPositive ? "text-base font-semibold text-green-600" : "text-base font-semibold text-red-500"}>${Math.abs(financeSummary.net_balance).toFixed(2)}</p>
+        <div className="-mx-4 px-4">
+          <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+            {activeProjects.length === 0 ? (
+              <p className="py-4 text-sm text-muted-foreground">
+                No projects yet — tap Projects to add one.
+              </p>
+            ) : (
+              activeProjects.map((project) => (
+                <Link
+                  key={project.id}
+                  href={`/projects/${project.id}`}
+                  className="block flex-shrink-0 w-40"
+                >
+                  <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+                    <div className="relative h-28 w-full bg-secondary">
+                      {project.photo_url ? (
+                        <img
+                          src={project.photo_url}
+                          alt={project.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-4xl">
+                          {projectEmoji(project)}
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                      <div className="absolute bottom-2 left-2.5 right-2.5">
+                        <p className="font-serif text-sm leading-tight text-white">
+                          {project.name}
+                        </p>
+                        <p className="text-[11px] text-white/70">{project.owner}</p>
+                      </div>
+                    </div>
+                    <div className="px-2.5 py-2">
+                      {project.open_tasks > 0 ? (
+                        <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
+                          {project.open_tasks} tasks
+                        </span>
+                      ) : project.latest_weight_lbs ? (
+                        <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
+                          {project.latest_weight_lbs} lbs
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground capitalize">
+                          {project.species}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              ))
+            )}
+          </div>
         </div>
       </div>
 
