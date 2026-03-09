@@ -13,6 +13,7 @@ class Profile(db.Model):
     role = db.Column(db.String(10), nullable=False)
     pin_hash = db.Column(db.String(255), nullable=True)
     avatar_path = db.Column(db.String(255), nullable=True)
+    avatar_url = db.Column(db.String(500), nullable=True)
     color = db.Column(db.String(20), nullable=False, default="#A08060")
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     archived = db.Column(db.Boolean, default=False, nullable=False)
