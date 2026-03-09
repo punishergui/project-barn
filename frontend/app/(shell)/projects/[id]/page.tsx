@@ -15,8 +15,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { format } from "date-fns";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { Drawer } from "vaul";
 
 import {
   apiClientJson,
@@ -44,7 +46,15 @@ import { cn } from "@/lib/utils";
 import LogActivityDrawer from "@/components/LogActivityDrawer";
 import WeightChart from "@/components/WeightChart";
 
-type SectionName = "info" | "tasks" | "expenses" | "weight";
+type SectionName = "info" | "tasks" | "expenses" | "weight" | "feed";
+
+interface ProjectFeedLog {
+  id: number;
+  feed_name: string;
+  amount_lbs: number;
+  notes: string | null;
+  logged_at: string;
+}
 
 function formatDate(value?: string | null) {
   if (!value) return "TBD";
@@ -67,6 +77,8 @@ export default function ProjectDetailPage() {
   const [weights, setWeights] = useState<WeightEntry[]>([]);
   const [placings, setPlacings] = useState<Placing[]>([]);
   const [feedEntries, setFeedEntries] = useState<FeedEntry[]>([]);
+  const [feedLogs, setFeedLogs] = useState<ProjectFeedLog[]>([]);
+  const [feedLogDrawerOpen, setFeedLogDrawerOpen] = useState(false);
   const [feedInventory, setFeedInventory] = useState<FeedInventoryItem[]>([]);
   const [materials, setMaterials] = useState<ProjectMaterial[]>([]);
   const [financialSummary, setFinancialSummary] = useState<ProjectFinancialSummary | null>(null);
@@ -80,7 +92,7 @@ export default function ProjectDetailPage() {
 
   const load = async () => {
     const id = Number(params.id);
-    const [projectData, profileData, expenseData, showData, timelineData, taskData, mediaData, placingData, authData, weightData, feedData, materialData, financialData, checklistData, readinessData, reminderData, feedInventoryData] = await Promise.all([
+    const [projectData, profileData, expenseData, showData, timelineData, taskData, mediaData, placingData, authData, weightData, feedData, feedLogsData, materialData, financialData, checklistData, readinessData, reminderData, feedInventoryData] = await Promise.all([
       apiClientJson<Project>(`/projects/${id}`),
       apiClientJson<Profile[]>("/profiles"),
       apiClientJson<Expense[]>(`/expenses?project_id=${id}`).catch(() => []),
@@ -92,12 +104,13 @@ export default function ProjectDetailPage() {
       apiClientJson<AuthStatus>("/auth/status").catch(() => null),
       apiClientJson<WeightEntry[]>(`/projects/${id}/weights`).catch(() => []),
       apiClientJson<FeedEntry[]>(`/projects/${id}/feed`).catch(() => []),
+      apiClientJson<ProjectFeedLog[]>(`/projects/${id}/feed-logs`).catch(() => []),
       apiClientJson<ProjectMaterial[]>(`/projects/${id}/materials`).catch(() => []),
       apiClientJson<ProjectFinancialSummary>(`/projects/${id}/financial-summary`).catch(() => null),
       apiClientJson<ChecklistResponse>(`/projects/${id}/checklists`).catch(() => null),
       apiClientJson<ShowReadinessResponse>(`/projects/${id}/show-readiness`).catch(() => null),
       apiClientJson<ProjectReminder[]>(`/projects/${id}/reminders`).catch(() => []),
-      apiClientJson<FeedInventoryItem[]>("/feed").catch(() => [])
+      apiClientJson<FeedInventoryItem[]>("/feed-inventory").catch(() => [])
     ]);
 
     setProject(projectData);
@@ -111,6 +124,7 @@ export default function ProjectDetailPage() {
     setAuth(authData);
     setWeights(weightData);
     setFeedEntries(feedData);
+    setFeedLogs(feedLogsData);
     setMaterials(materialData);
     setFinancialSummary(financialData);
     setChecklists(checklistData);
@@ -125,7 +139,7 @@ export default function ProjectDetailPage() {
 
   useEffect(() => {
     const tab = searchParams.get("tab");
-    if (tab === "tasks" || tab === "expenses" || tab === "weight" || tab === "info") {
+    if (tab === "tasks" || tab === "expenses" || tab === "weight" || tab === "info" || tab === "feed") {
       setActiveSection(tab);
     }
   }, [searchParams]);
@@ -191,6 +205,31 @@ export default function ProjectDetailPage() {
     }
   };
 
+
+
+  const createFeedLog = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+
+    try {
+      await apiClientJson(`/projects/${params.id}/feed-logs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          feed_inventory_id: Number(form.get("feed_inventory_id") || 0),
+          amount_lbs: Number(form.get("amount_lbs") || 0),
+          notes: String(form.get("notes") || "").trim()
+        })
+      });
+
+      setFeedLogDrawerOpen(false);
+      event.currentTarget.reset();
+      await load();
+    } catch {
+      toast.error("Failed to log feed");
+    }
+  };
+
   const handleMediaUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !project) return;
@@ -210,7 +249,7 @@ export default function ProjectDetailPage() {
   if (!project) return <p className="px-4 py-4 text-sm text-muted-foreground">Loading project...</p>;
 
   const moduleTiles = [
-    { href: `/projects/${project.id}/feed`, label: "Feed", icon: Utensils, badge: `${feedEntries.length}` },
+    { href: `/projects/${project.id}/feed`, label: "Feed", icon: Utensils, badge: `${feedLogs.length}` },
     { href: `/projects/${project.id}/health`, label: "Health", icon: HeartPulse },
     { href: `/projects/${project.id}/weights`, label: "Weight", icon: Scale, badge: latestWeight ? `${latestWeight} lb` : undefined },
     { href: `/projects/${project.id}/expenses`, label: "Expenses", icon: DollarSign, badge: `$${totalExpenses.toFixed(0)}` },
@@ -267,7 +306,7 @@ export default function ProjectDetailPage() {
       </div>
 
       <div className="mt-4 -mx-4 flex gap-0 border-b border-border px-4">
-        {(["info", "tasks", "expenses", "weight"] as SectionName[]).map((tab) => (
+        {(["info", "tasks", "expenses", "feed", "weight"] as SectionName[]).map((tab) => (
           <button
             key={tab}
             type="button"
@@ -279,7 +318,7 @@ export default function ProjectDetailPage() {
                 : "text-muted-foreground"
             )}
           >
-            {tab === "info" ? "Info" : tab === "tasks" ? "Tasks" : tab === "expenses" ? "Expenses" : "Weight"}
+            {tab === "info" ? "Info" : tab === "tasks" ? "Tasks" : tab === "expenses" ? "Expenses" : tab === "feed" ? "Feed" : "Weight"}
           </button>
         ))}
       </div>
@@ -347,9 +386,43 @@ export default function ProjectDetailPage() {
           </section>
         ) : null}
 
+
+        {activeSection === "feed" ? (
+          <section className="rounded-xl border border-border bg-card px-4 py-3">
+            {feedLogs.length === 0 ? (
+              <p className="py-3 text-sm text-muted-foreground">No feed logs yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {feedLogs.map((log) => (
+                  <div key={log.id} className="rounded-2xl border border-border bg-card px-4 py-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-foreground">{log.feed_name}</p>
+                      <p className="text-xs text-muted-foreground">{format(new Date(log.logged_at), "MMM d, h:mm a")}</p>
+                    </div>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {log.amount_lbs} lbs {log.notes ? `· ${log.notes}` : ""}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setFeedLogDrawerOpen(true)}
+              className="mt-3 w-full rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+            >
+              Log Feed
+            </button>
+          </section>
+        ) : null}
+
         {activeSection === "weight" ? (
           <section className="rounded-xl border border-border bg-card px-4">
-            <WeightChart weights={weights} targetWeight={targetWeight} />
+            <WeightChart
+              entries={weights.map((entry) => ({ logged_at: entry.recorded_at, weight_lbs: entry.weight_lbs }))}
+              targetWeight={targetWeight ?? undefined}
+            />
             {weights.length === 0 ? (
               <p className="py-3 text-sm text-muted-foreground">No weight entries yet.</p>
             ) : (
@@ -408,6 +481,31 @@ export default function ProjectDetailPage() {
         <span className="text-base">+</span>
         Log Activity
       </button>
+
+      <Drawer.Root open={feedLogDrawerOpen} onOpenChange={setFeedLogDrawerOpen}>
+        <Drawer.Portal>
+          <Drawer.Overlay className="fixed inset-0 z-40 bg-black/40" />
+          <Drawer.Content className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-card p-6 pb-10 shadow-xl">
+            <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-border" />
+            <h2 className="mb-4 font-serif text-xl text-foreground">Log Feed</h2>
+            <form onSubmit={(event) => createFeedLog(event).catch(() => undefined)} className="flex flex-col gap-3">
+              <select name="feed_inventory_id" required className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground">
+                <option value="">Select feed</option>
+                {feedInventory.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}{item.brand ? ` (${item.brand})` : ""}
+                  </option>
+                ))}
+              </select>
+              <input name="amount_lbs" type="number" step="0.1" required placeholder="Amount (lbs)" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground" />
+              <input name="notes" placeholder="Notes (optional)" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground" />
+              <button type="submit" className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
+                Save Feed Log
+              </button>
+            </form>
+          </Drawer.Content>
+        </Drawer.Portal>
+      </Drawer.Root>
 
       <LogActivityDrawer
         projectId={Number(params.id)}

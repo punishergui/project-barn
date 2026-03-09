@@ -125,7 +125,7 @@ function BottomNav({ isParent, onOpenAdmin }: { isParent: boolean; onOpenAdmin: 
           );
         })}
         {isParent && (
-          <button type="button" onClick={onOpenAdmin} className="flex flex-col items-center justify-center gap-0.5 px-3 text-amber-200/80">
+          <button type="button" onClick={onOpenAdmin} className="flex flex-col items-center gap-0.5 text-amber-200/80">
             <Settings size={20} />
             <span className="text-[10px]">Admin</span>
           </button>
@@ -174,9 +174,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   async function markAllRead() {
-    await apiClientJson("/notifications/mark-all-read", { method: "POST" });
-    setNotifications((prev) => prev.map((notification) => ({ ...notification, is_read: true })));
-    setUnreadCount(0);
+    try {
+      await apiClientJson("/notifications/mark-all-read", { method: "POST" });
+      setNotifications((prev) => prev.map((notification) => ({ ...notification, is_read: true })));
+      setUnreadCount(0);
+    } catch {
+      // Ignore failures and keep existing state.
+    }
   }
 
   return (
@@ -186,7 +190,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="fixed left-0 right-0 top-14 z-50 max-h-96 overflow-y-auto rounded-b-2xl border-b border-border bg-card shadow-lg">
           <div className="flex items-center justify-between border-b border-border px-4 py-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notifications</span>
-            <button onClick={() => markAllRead().catch(() => undefined)} className="text-xs font-medium text-primary">
+            <button onClick={markAllRead} className="text-xs font-medium text-primary">
               Mark all read
             </button>
           </div>

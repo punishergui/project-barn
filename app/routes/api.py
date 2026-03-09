@@ -2840,9 +2840,11 @@ def _feed_inventory_payload(item: FeedInventorySimple) -> dict[str, object]:
         "category": item.category,
         "unit": item.unit,
         "qty_on_hand": item.qty_on_hand,
+        "qty_bags": int(round(float(item.qty_on_hand or 0))),
         "low_stock_threshold": threshold,
         "low_stock": low_stock,
         "notes": item.notes,
+        "photo_url": None,
         "is_active": bool(item.is_active),
         "created_at": _iso(item.created_at),
         "updated_at": _iso(item.updated_at),
@@ -4069,27 +4071,46 @@ def api_feed_inventory_create_v2():
     _, error = _require_parent_unlocked()
     if error:
         return error
-    payload = request.get_json(silent=True) or {}
+
+    is_multipart = bool(request.content_type and request.content_type.startswith('multipart/form-data'))
+    payload = (request.form if is_multipart else (request.get_json(silent=True) or {}))
+
     name = str(payload.get('name') or '').strip()
-    unit = str(payload.get('unit') or '').strip()
-    if not name or not unit:
-        return jsonify({'error': 'name and unit are required'}), 400
-    threshold_value = payload.get('low_stock_threshold')
+    if not name:
+        return jsonify({'error': 'name required'}), 400
+
+    unit = str(payload.get('unit') or 'bags').strip() or 'bags'
+    qty_value = payload.get('qty_bags', payload.get('qty_on_hand', 1))
+    threshold_value = payload.get('low_stock_threshold', 2)
+
     row = FeedInventorySimple(
         name=name,
         brand=(str(payload.get('brand')).strip() if payload.get('brand') else None),
         category=(str(payload.get('category')).strip() if payload.get('category') else None),
         unit=unit,
-        qty_on_hand=float(payload.get('qty_on_hand') or 0),
+        qty_on_hand=float(qty_value or 0),
         low_stock_threshold=(float(threshold_value) if threshold_value not in (None, '') else None),
         notes=(str(payload.get('notes')).strip() if payload.get('notes') else None),
         is_active=True,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )
+
+    file = request.files.get('photo') if is_multipart else None
+    if file and file.filename:
+        extension = os.path.splitext(file.filename)[1].lower() or '.jpg'
+        filename = secure_filename(f"feed_{uuid.uuid4().hex}{extension}")
+        upload_dir = os.path.join(current_app.static_folder, 'uploads', 'feed')
+        os.makedirs(upload_dir, exist_ok=True)
+        file.save(os.path.join(upload_dir, filename))
+
     db.session.add(row)
     db.session.commit()
-    return jsonify(_feed_inventory_payload(row)), 201
+
+    payload_out = _feed_inventory_payload(row)
+    payload_out['qty_bags'] = int(round(float(row.qty_on_hand)))
+    payload_out['photo_url'] = None
+    return jsonify(payload_out), 201
 
 
 @api_bp.post('/feed')
@@ -4131,6 +4152,17 @@ def api_feed_inventory_update_alias(item_id: int):
     return api_feed_inventory_update_v2(item_id)
 
 
+@api_bp.patch('/feed-inventory/<int:item_id>/qty')
+def api_feed_inventory_adjust_qty(item_id: int):
+    row = FeedInventorySimple.query.get_or_404(item_id)
+    payload = request.get_json(silent=True) or {}
+    delta = float(payload.get('delta') or 0)
+    row.qty_on_hand = max(0.0, float(row.qty_on_hand or 0) + delta)
+    row.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({'qty_bags': int(round(float(row.qty_on_hand)))})
+
+
 @api_bp.delete('/feed/<int:item_id>')
 def api_feed_inventory_delete(item_id: int):
     _, error = _require_parent_unlocked()
@@ -4146,6 +4178,72 @@ def api_feed_inventory_delete(item_id: int):
     db.session.delete(row)
     db.session.commit()
     return jsonify({'success': True, 'soft_deleted': False})
+
+
+@api_bp.get('/projects/<int:project_id>/feed-logs')
+def api_project_feed_logs_list(project_id: int):
+    Project.query.get_or_404(project_id)
+    rows = FeedEntry.query.filter_by(project_id=project_id).order_by(FeedEntry.recorded_at.desc(), FeedEntry.id.desc()).all()
+    return jsonify([
+        {
+            'id': row.id,
+            'feed_name': row.feed_type,
+            'amount_lbs': row.amount,
+            'notes': row.notes,
+            'logged_at': datetime.combine(row.recorded_at, time.min).isoformat() if row.recorded_at else '',
+        }
+        for row in rows
+    ])
+
+
+@api_bp.post('/projects/<int:project_id>/feed-logs')
+def api_project_feed_logs_create(project_id: int):
+    profile = _active_profile()
+    if profile is None:
+        return jsonify({'error': 'No active profile'}), 401
+    Project.query.get_or_404(project_id)
+    payload = request.get_json(silent=True) or {}
+    inv_id = payload.get('feed_inventory_id')
+    if not inv_id:
+        return jsonify({'error': 'feed_inventory_id required'}), 400
+
+    inventory_item = FeedInventorySimple.query.get(int(inv_id))
+    if inventory_item is None:
+        return jsonify({'error': 'feed_inventory_id is invalid'}), 400
+
+    amount_lbs = float(payload.get('amount_lbs') or 0)
+    if amount_lbs <= 0:
+        return jsonify({'error': 'amount_lbs must be greater than 0'}), 400
+
+    row = FeedEntry(
+        project_id=project_id,
+        recorded_at=datetime.utcnow().date(),
+        feed_type=inventory_item.name,
+        amount=amount_lbs,
+        unit='lbs',
+        feed_inventory_item_id=inventory_item.id,
+        notes=(str(payload.get('notes')).strip() if payload.get('notes') else None),
+    )
+
+    inventory_item.qty_on_hand = max(0.0, float(inventory_item.qty_on_hand or 0) - 1)
+    inventory_item.updated_at = datetime.utcnow()
+
+    db.session.add(row)
+
+    threshold = inventory_item.low_stock_threshold
+    if threshold is not None and inventory_item.qty_on_hand <= threshold:
+        notification = Notification(
+            profile_id=profile.id,
+            title='Low feed inventory',
+            body=f"{inventory_item.name} is running low ({inventory_item.qty_on_hand:g} bags left).",
+            type='feed_low_stock',
+            read=False,
+            created_at=datetime.utcnow(),
+        )
+        db.session.add(notification)
+
+    db.session.commit()
+    return jsonify({'id': row.id}), 201
 
 
 @api_bp.get('/reports/project-record-book/<int:project_id>')
