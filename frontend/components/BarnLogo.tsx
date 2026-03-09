@@ -1,49 +1,40 @@
-type BarnLogoProps = {
-  size?: number;
-  className?: string;
-};
+type BarnLogoProps = { size?: number; className?: string };
 
 export default function BarnLogo({ size = 24, className }: BarnLogoProps) {
   return (
     <svg
-      viewBox="0 0 96 80"
-      role="img"
-      aria-label="Project Barn logo"
+      viewBox="0 0 100 80"
       width={size}
       height={size}
       className={className}
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
+      role="img"
+      aria-label="Project Barn logo"
     >
-      <path
-        d="M8 33.5L26.5 18.5L40.5 24.5L48 15L55.5 24.5L69.5 18.5L88 33.5V35.5H8V33.5Z"
-        fill="currentColor"
-      />
-      <path
-        d="M15 35H81V67C81 70.3137 78.3137 73 75 73H21C17.6863 73 15 70.3137 15 67V35Z"
-        fill="currentColor"
-      />
-      <path
-        d="M24 35L37.5 25.5L48 30.5L58.5 25.5L72 35"
-        stroke="white"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        opacity="0.95"
-      />
-      <rect x="24" y="43" width="12" height="10" rx="1.5" fill="white" fillOpacity="0.92" />
-      <rect x="60" y="43" width="12" height="10" rx="1.5" fill="white" fillOpacity="0.92" />
-      <path
-        d="M40 73V50.5C40 48.2909 41.7909 46.5 44 46.5H52C54.2091 46.5 56 48.2909 56 50.5V73"
-        stroke="white"
-        strokeWidth="3.2"
-        strokeLinecap="round"
-      />
-      <path d="M48 16V30" stroke="white" strokeWidth="2.4" strokeLinecap="round" opacity="0.95" />
-      <path d="M45 56L48 59L51 56" stroke="white" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M15 73H81" stroke="white" strokeWidth="2.6" strokeLinecap="round" opacity="0.85" />
-      <circle cx="30" cy="58.5" r="1.8" fill="white" fillOpacity="0.9" />
-      <circle cx="66" cy="58.5" r="1.8" fill="white" fillOpacity="0.9" />
+      {/* Roof — wide gable overhanging walls */}
+      <path d="M4 36 L50 6 L96 36 Z" fill="currentColor" />
+      {/* Roof ridge cap */}
+      <rect x="42" y="4" width="16" height="5" rx="2" fill="currentColor" />
+      {/* Main barn walls */}
+      <rect x="12" y="34" width="76" height="40" rx="2" fill="currentColor" />
+      {/* Vertical board lines on siding */}
+      <line x1="28" y1="34" x2="28" y2="74" stroke="white" strokeWidth="1.5" strokeOpacity="0.25" />
+      <line x1="44" y1="34" x2="44" y2="74" stroke="white" strokeWidth="1.5" strokeOpacity="0.25" />
+      <line x1="56" y1="34" x2="56" y2="74" stroke="white" strokeWidth="1.5" strokeOpacity="0.25" />
+      <line x1="72" y1="34" x2="72" y2="74" stroke="white" strokeWidth="1.5" strokeOpacity="0.25" />
+      {/* Loft vent window — centered at top of wall */}
+      <rect x="43" y="38" width="14" height="10" rx="2" fill="white" fillOpacity="0.9" />
+      <line x1="50" y1="38" x2="50" y2="48" stroke="currentColor" strokeWidth="1.2" strokeOpacity="0.4" />
+      {/* Left barn door */}
+      <rect x="18" y="50" width="25" height="24" rx="1.5" fill="white" fillOpacity="0.15" stroke="white" strokeWidth="1.5" strokeOpacity="0.7" />
+      {/* Right barn door */}
+      <rect x="57" y="50" width="25" height="24" rx="1.5" fill="white" fillOpacity="0.15" stroke="white" strokeWidth="1.5" strokeOpacity="0.7" />
+      {/* Door handles */}
+      <circle cx="41" cy="63" r="2" fill="white" fillOpacity="0.85" />
+      <circle cx="59" cy="63" r="2" fill="white" fillOpacity="0.85" />
+      {/* Ground line */}
+      <line x1="8" y1="74" x2="92" y2="74" stroke="white" strokeWidth="2" strokeOpacity="0.5" strokeLinecap="round" />
     </svg>
   );
 }
