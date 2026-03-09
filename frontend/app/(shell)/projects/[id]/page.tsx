@@ -148,7 +148,7 @@ export default function ProjectDetailPage() {
   const totalExpenses = useMemo(() => expenses.reduce((sum, row) => sum + row.amount, 0), [expenses]);
   const latestWeight = weights[0]?.weight_lbs ?? null;
   const targetWeight = project?.target_weight ?? null;
-  const projectTargetWeightLbs = (project as Project & { target_weight_lbs?: number | null }).target_weight_lbs;
+  const projectTargetWeightLbs = (project as (Project & { target_weight_lbs?: number | null }) | null)?.target_weight_lbs;
   const weightProgress = targetWeight && latestWeight ? Math.min(100, Math.round((latestWeight / targetWeight) * 100)) : 0;
 
   const addTimeline = async (event: FormEvent<HTMLFormElement>) => {
