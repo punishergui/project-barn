@@ -2098,17 +2098,21 @@ def api_income_csv():
 
 @api_bp.get('/notifications')
 def api_notifications_list():
-    profile = _active_profile()
-    if profile is None:
-        return jsonify({'error': 'No active profile'}), 401
-    scope = (request.args.get('scope') or 'all').strip().lower()
-    limit = min(max(int(request.args.get('limit', 50)), 1), 200)
-    query = Notification.query.filter_by(profile_id=profile.id)
-    if scope == 'unread':
-        query = query.filter(Notification.read.is_(False))
-    rows = query.order_by(Notification.created_at.desc(), Notification.id.desc()).limit(limit).all()
-    unread_count = Notification.query.filter_by(profile_id=profile.id, read=False).count()
-    return jsonify({'items': [_notification_payload(item) for item in rows], 'unread_count': unread_count})
+    profile_id = session.get('profile_id')
+    rows = Notification.query.filter(
+        (Notification.profile_id == profile_id) |
+        (Notification.profile_id.is_(None))
+    ).order_by(Notification.created_at.desc(), Notification.id.desc()).limit(50).all()
+    return jsonify([
+        {
+            'id': item.id,
+            'message': item.body or item.title,
+            'is_read': bool(item.read),
+            'created_at': item.created_at.isoformat() if item.created_at else '',
+            'notif_type': item.type,
+        }
+        for item in rows
+    ])
 
 
 @api_bp.patch('/notifications/<int:notification_id>')
@@ -2126,12 +2130,13 @@ def api_notifications_update(notification_id: int):
 
 @api_bp.post('/notifications/mark-all-read')
 def api_notifications_mark_all_read():
-    profile = _active_profile()
-    if profile is None:
-        return jsonify({'error': 'No active profile'}), 401
-    Notification.query.filter_by(profile_id=profile.id, read=False).update({'read': True})
+    profile_id = session.get('profile_id')
+    Notification.query.filter(
+        (Notification.profile_id == profile_id) |
+        (Notification.profile_id.is_(None))
+    ).update({'read': True}, synchronize_session=False)
     db.session.commit()
-    return jsonify({'success': True})
+    return jsonify({'ok': True})
 
 
 @api_bp.get('/activity')

@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Moon,
   Receipt,
+  Settings,
   Sun,
   Trophy,
   UserCircle
@@ -15,18 +16,42 @@ import Link from "next/link";
 import { useTheme } from "next-themes";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Drawer } from "vaul";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import BarnLogo from "@/components/BarnLogo";
-import { NotificationsResponse, SessionResponse, apiClientJson } from "@/lib/api";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { apiClientJson } from "@/lib/api";
 import { cn } from "@/lib/utils";
+
+interface AppNotification {
+  id: number;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+  notif_type: string;
+}
+
+type ActiveProfile = {
+  avatar_url: string | null;
+  name: string;
+  role: string;
+};
+
+type AuthStatusResponse = {
+  is_parent?: boolean;
+  profile_id?: number | null;
+  name?: string | null;
+  role?: string | null;
+};
 
 function TopBar({
   profile,
-  unread
+  unreadCount,
+  onToggleNotifications
 }: {
-  profile: SessionResponse["active_profile"] | null;
-  unread: number;
+  profile: ActiveProfile | null;
+  unreadCount: number;
+  onToggleNotifications: () => void;
 }) {
   const { theme, setTheme } = useTheme();
 
@@ -38,10 +63,14 @@ function TopBar({
           <span className="font-serif text-lg text-amber-50">Project Barn</span>
         </Link>
         <div className="flex items-center gap-3">
-          <Link href="/notifications" className="relative text-amber-200">
+          <button type="button" onClick={onToggleNotifications} className="relative text-amber-200" aria-label="Toggle notifications">
             <Bell size={20} />
-            {unread > 0 ? <span className="absolute -right-0.5 top-0 h-1.5 w-1.5 rounded-full bg-primary" /> : null}
-          </Link>
+            {unreadCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </button>
           <button
             type="button"
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
@@ -72,7 +101,7 @@ const navItems = [
   { href: "/reports", label: "Reports", icon: BarChart3 }
 ];
 
-function BottomNav() {
+function BottomNav({ isParent, onOpenAdmin }: { isParent: boolean; onOpenAdmin: () => void }) {
   const pathname = usePathname();
 
   return (
@@ -95,34 +124,113 @@ function BottomNav() {
             </Link>
           );
         })}
+        {isParent && (
+          <button type="button" onClick={onOpenAdmin} className="flex flex-1 flex-col items-center justify-center gap-0.5 text-amber-200/80">
+            <Settings size={20} />
+            <span className="text-[10px]">Admin</span>
+          </button>
+        )}
       </div>
     </nav>
   );
 }
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
-  const [profile, setProfile] = useState<SessionResponse["active_profile"] | null>(null);
-  const [unread, setUnread] = useState(0);
+  const [profile, setProfile] = useState<ActiveProfile | null>(null);
+  const [isParent, setIsParent] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const pathname = usePathname();
 
   useEffect(() => {
     const controller = new AbortController();
-    apiClientJson<SessionResponse>("/session", { signal: controller.signal })
-      .then((d) => setProfile(d.active_profile))
+
+    apiClientJson<{ active_profile: ActiveProfile | null }>("/session", { signal: controller.signal })
+      .then((data) => setProfile(data.active_profile))
       .catch(() => {});
 
-    apiClientJson<NotificationsResponse>("/notifications?scope=unread&limit=1", { signal: controller.signal })
-      .then((d) => setUnread(d.unread_count))
-      .catch(() => setUnread(0));
+    apiClientJson<AuthStatusResponse>("/auth/status", { signal: controller.signal })
+      .then((data) => {
+        if (typeof data.is_parent === "boolean") {
+          setIsParent(data.is_parent);
+          return;
+        }
+        setIsParent((data.role ?? "") === "parent");
+      })
+      .catch(() => setIsParent(false));
+
+    apiClientJson<AppNotification[]>("/notifications", { signal: controller.signal })
+      .then((data) => {
+        setNotifications(data);
+        setUnreadCount(data.filter((notification) => !notification.is_read).length);
+      })
+      .catch(() => {
+        setNotifications([]);
+        setUnreadCount(0);
+      });
 
     return () => controller.abort();
   }, [pathname]);
 
+  async function markAllRead() {
+    await apiClientJson("/notifications/mark-all-read", { method: "POST" });
+    setNotifications((prev) => prev.map((notification) => ({ ...notification, is_read: true })));
+    setUnreadCount(0);
+  }
+
   return (
     <div className="flex min-h-svh flex-col bg-background">
-      <TopBar profile={profile} unread={unread} />
+      <TopBar profile={profile} unreadCount={unreadCount} onToggleNotifications={() => setNotifOpen((value) => !value)} />
+      {notifOpen && (
+        <div className="fixed left-0 right-0 top-14 z-50 max-h-96 overflow-y-auto rounded-b-2xl border-b border-border bg-card shadow-lg">
+          <div className="flex items-center justify-between border-b border-border px-4 py-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notifications</span>
+            <button onClick={() => markAllRead().catch(() => undefined)} className="text-xs font-medium text-primary">
+              Mark all read
+            </button>
+          </div>
+          {notifications.length === 0 ? (
+            <p className="px-4 py-6 text-center text-sm text-muted-foreground">No notifications</p>
+          ) : (
+            notifications.map((notification) => (
+              <div
+                key={notification.id}
+                className={cn(
+                  "border-b border-border px-4 py-3 text-sm",
+                  notification.is_read ? "text-muted-foreground" : "font-medium text-foreground"
+                )}
+              >
+                <p>{notification.message}</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">{new Date(notification.created_at).toLocaleDateString()}</p>
+              </div>
+            ))
+          )}
+        </div>
+      )}
       <main className="mx-auto w-full max-w-lg flex-1 px-4 pb-28 pt-4">{children}</main>
-      <BottomNav />
+      <BottomNav isParent={isParent} onOpenAdmin={() => setAdminOpen(true)} />
+      <Drawer.Root open={adminOpen} onOpenChange={setAdminOpen}>
+        <Drawer.Portal>
+          <Drawer.Overlay className="fixed inset-0 z-50 bg-black/40" />
+          <Drawer.Content className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-card p-6 pb-10 shadow-xl">
+            <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-border" />
+            <h2 className="mb-4 font-serif text-xl text-foreground">Admin</h2>
+            <div className="flex flex-col gap-3">
+              <a href="/admin/profiles" className="rounded-xl bg-secondary px-4 py-3 text-sm text-foreground">
+                Manage Profiles
+              </a>
+              <a href="/admin/feed-inventory" className="rounded-xl bg-secondary px-4 py-3 text-sm text-foreground">
+                Feed Inventory
+              </a>
+              <a href="/admin/custom-options" className="rounded-xl bg-secondary px-4 py-3 text-sm text-foreground">
+                Custom Dropdown Options
+              </a>
+            </div>
+          </Drawer.Content>
+        </Drawer.Portal>
+      </Drawer.Root>
     </div>
   );
 }
