@@ -74,39 +74,60 @@ export default function DashboardTodayClient({ todayLabel, profileName, activePr
 
       <div>
         <div className="mb-2 flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Your Animals & Projects</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Your Animals &amp; Projects
+          </p>
           <Link href="/projects" className="text-xs font-medium text-primary">
             See all
           </Link>
         </div>
-
         <div className="-mx-4 px-4">
           <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
             {activeProjects.length === 0 ? (
-              <p className="py-4 text-sm text-muted-foreground">No projects yet. Add one to get started!</p>
+              <p className="py-4 text-sm text-muted-foreground">
+                No projects yet — tap Projects to add one.
+              </p>
             ) : (
               activeProjects.map((project) => (
-                <Link key={project.id} href={`/projects/${project.id}`} className="block w-40 flex-shrink-0">
+                <Link
+                  key={project.id}
+                  href={`/projects/${project.id}`}
+                  className="block flex-shrink-0 w-40"
+                >
                   <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
                     <div className="relative h-28 w-full bg-secondary">
                       {project.photo_url ? (
-                        <img src={project.photo_url} alt={project.name} className="h-full w-full object-cover" />
+                        <img
+                          src={project.photo_url}
+                          alt={project.name}
+                          className="h-full w-full object-cover"
+                        />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center text-3xl">{projectEmoji(project)}</div>
+                        <div className="flex h-full w-full items-center justify-center text-4xl">
+                          {projectEmoji(project)}
+                        </div>
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                       <div className="absolute bottom-2 left-2.5 right-2.5">
-                        <p className="font-serif text-sm leading-tight text-white">{project.name}</p>
-                        <p className="text-[11px] text-white/75">{project.owner}</p>
+                        <p className="font-serif text-sm leading-tight text-white">
+                          {project.name}
+                        </p>
+                        <p className="text-[11px] text-white/70">{project.owner}</p>
                       </div>
                     </div>
                     <div className="px-2.5 py-2">
                       {project.open_tasks > 0 ? (
-                        <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">{project.open_tasks} tasks</span>
+                        <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
+                          {project.open_tasks} tasks
+                        </span>
                       ) : project.latest_weight_lbs ? (
-                        <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">{project.latest_weight_lbs} lbs</span>
+                        <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
+                          {project.latest_weight_lbs} lbs
+                        </span>
                       ) : (
-                        <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] capitalize text-muted-foreground">{project.species}</span>
+                        <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground capitalize">
+                          {project.species}
+                        </span>
                       )}
                     </div>
                   </div>
