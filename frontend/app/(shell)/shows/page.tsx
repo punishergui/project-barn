@@ -1,7 +1,10 @@
 "use client";
 
+import { Plus } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { Drawer } from "vaul";
 
 import { AuthStatus, Show, apiClientJson } from "@/lib/api";
 import { toUserErrorMessage } from "@/lib/errorMessage";
@@ -16,6 +19,12 @@ export default function ShowsPage() {
   const [auth, setAuth] = useState<AuthStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [newShowOpen, setNewShowOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [date, setDate] = useState("");
+  const [location, setLocation] = useState("");
+  const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -36,10 +45,30 @@ export default function ShowsPage() {
     load().catch(() => undefined);
   }, []);
 
-  const sortedShows = useMemo(
-    () => [...shows].sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime()),
-    [shows]
-  );
+  const sortedShows = useMemo(() => [...shows].sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime()), [shows]);
+
+  async function handleCreateShow(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitting(true);
+    try {
+      await apiClientJson("/shows", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, date, location, notes: notes || null })
+      });
+      toast.success("Show added!");
+      setNewShowOpen(false);
+      setName("");
+      setDate("");
+      setLocation("");
+      setNotes("");
+      await load();
+    } catch {
+      toast.error("Failed to add show");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div className="space-y-4 px-4 pb-4">
@@ -85,11 +114,7 @@ export default function ShowsPage() {
           const placingCount = show.entries.reduce((count, entry) => count + entry.placings.length, 0);
 
           return (
-            <Link
-              key={show.id}
-              href={`/shows/${show.id}`}
-              className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-sm"
-            >
+            <Link key={show.id} href={`/shows/${show.id}`} className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-sm">
               <div>
                 <h2 className="text-sm font-semibold text-foreground">{show.name}</h2>
                 <p className="mt-0.5 text-xs text-muted-foreground">{show.location}</p>
@@ -105,6 +130,49 @@ export default function ShowsPage() {
           );
         })}
       </div>
+
+      {auth?.role === "parent" && auth.is_unlocked ? (
+        <button
+          onClick={() => setNewShowOpen(true)}
+          className="fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95"
+        >
+          <Plus size={26} />
+        </button>
+      ) : null}
+
+      <Drawer.Root open={newShowOpen} onOpenChange={setNewShowOpen}>
+        <Drawer.Portal>
+          <Drawer.Overlay className="fixed inset-0 z-50 bg-black/40" />
+          <Drawer.Content className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-card p-6 pb-10 shadow-xl">
+            <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-border" />
+            <h2 className="mb-4 font-serif text-xl text-foreground">Add Show</h2>
+            <form onSubmit={handleCreateShow} className="flex flex-col gap-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-foreground">Show name</label>
+                <input value={name} onChange={(event) => setName(event.target.value)} required className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-foreground">Date</label>
+                <input type="date" value={date} onChange={(event) => setDate(event.target.value)} required className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-foreground">Location</label>
+                <input value={location} onChange={(event) => setLocation(event.target.value)} className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-foreground">Notes</label>
+                <textarea rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground w-full" />
+              </div>
+              <button type="submit" disabled={submitting} className="bg-primary text-primary-foreground rounded-xl px-4 py-2 text-sm font-medium w-full">
+                Save show
+              </button>
+              <button type="button" onClick={() => setNewShowOpen(false)} className="bg-secondary text-foreground rounded-xl px-4 py-2 text-sm w-full">
+                Cancel
+              </button>
+            </form>
+          </Drawer.Content>
+        </Drawer.Portal>
+      </Drawer.Root>
     </div>
   );
 }

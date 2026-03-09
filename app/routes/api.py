@@ -16,7 +16,7 @@ from sqlalchemy import func, text
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app import save_upload, save_upload_in_subdir
-from app.models import AppSetting, AuctionSale, EquipmentItem, Expense, ExpenseAllocation, ExpenseReceipt, FamilyInventoryItem, FeedEntry, FeedInventorySimple, HealthEntry, IncomeRecord, Media, Notification, PackingListItem, PackingListTemplate, Placing, Profile, Project, ProjectMaterial, ProjectReminder, ProjectTask, Show, ShowDay, ShowDayCheck, ShowDayTask, ShowEntry, SkillsChecklist, Task, TaskItem, TimelineEntry, WeightEntry, db
+from app.models import AppSetting, AuctionSale, CustomOption, EquipmentItem, Expense, ExpenseAllocation, ExpenseReceipt, FamilyInventoryItem, FeedEntry, FeedInventorySimple, HealthEntry, IncomeRecord, Media, Notification, PackingListItem, PackingListTemplate, Placing, Profile, Project, ProjectMaterial, ProjectReminder, ProjectTask, Show, ShowDay, ShowDayCheck, ShowDayTask, ShowEntry, SkillsChecklist, Task, TaskItem, TimelineEntry, WeightEntry, db
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 UNLOCK_DURATION_MINUTES = 15
@@ -43,6 +43,11 @@ PROJECT_TYPE_API_TO_DB = {
     "photography": "photography",
     "sewing": "sewing",
     "other": "other",
+    "market": "other",
+    "breeding": "other",
+    "showmanship": "other",
+    "poultry": "other",
+    "non-livestock": "other",
     "steer": "cow",
     "goat": "goat",
     "pig": "pig",
@@ -1031,11 +1036,11 @@ def api_create_project():
     name = str(payload.get("name", "")).strip()
     species = str(payload.get("species", "")).strip() or "other"
     project_type = str(payload.get("project_type", "")).strip()
-    owner_profile_id = payload.get("owner_profile_id")
+    owner_profile_id = payload.get("owner_profile_id") or payload.get("owner_id")
 
     if not name:
         return jsonify({"error": "name is required"}), 400
-    normalized = project_type or species
+    normalized = species if species in PROJECT_TYPE_API_TO_DB else (project_type or species)
     if normalized not in PROJECT_TYPE_API_TO_DB:
         return jsonify({"error": "project_type must be one of livestock, cooking, crafts, woodworking, gardening, photography, sewing, other"}), 400
     if not owner_profile_id:
@@ -1052,8 +1057,8 @@ def api_create_project():
         owner_id=owner_profile_id,
         breed=(payload.get("breed") or None),
         sex=(payload.get("sex") or None),
-        target_weight=(float(payload["target_weight"]) if payload.get("target_weight") not in (None, "") else None),
-        purchase_date=_parse_date_value(payload.get("purchase_date")),
+        target_weight=(float(payload.get("target_weight", payload.get("target_weight_lbs"))) if payload.get("target_weight", payload.get("target_weight_lbs")) not in (None, "") else None),
+        purchase_date=_parse_date_value(payload.get("purchase_date") or payload.get("birth_date")),
         ear_tag=(payload.get("tag") or None),
         sub_type=(payload.get("project_category") or None),
         goal=(payload.get("goal") or None),
@@ -2099,9 +2104,45 @@ def api_income_csv():
     csv_rows = [[row.id, row.project_id, row.logged_by_id, row.date.isoformat(), INCOME_TYPE_API_MAP.get(row.category, row.category), row.source or '', f"{float(row.amount):.2f}", row.notes or ''] for row in rows]
     return _csv_response('income.csv', ['id', 'project_id', 'profile_id', 'date', 'type', 'source', 'amount', 'notes'], csv_rows)
 
+
+@api_bp.get('/custom-options')
+def api_custom_options_list():
+    field_key = (request.args.get('field_key') or '').strip()
+    if not field_key:
+        return jsonify([])
+    opts = CustomOption.query.filter_by(field_key=field_key).order_by(CustomOption.id.asc()).all()
+    return jsonify([
+        {
+            'value': item.value,
+            'label': item.label,
+        }
+        for item in opts
+    ])
+
+
+@api_bp.post('/custom-options')
+def api_custom_options_create():
+    data = request.get_json(silent=True) or {}
+    field_key = str(data.get('field_key', '')).strip()
+    label = str(data.get('label', '')).strip()
+    if not field_key or not label:
+        return jsonify({'error': 'field_key and label required'}), 400
+
+    value = '_'.join(label.lower().split())
+    existing = CustomOption.query.filter_by(field_key=field_key, value=value).first()
+    if existing:
+        return jsonify({'value': existing.value, 'label': existing.label}), 200
+
+    opt = CustomOption(field_key=field_key, label=label, value=value)
+    db.session.add(opt)
+    db.session.commit()
+    return jsonify({'value': opt.value, 'label': opt.label}), 201
+
+
+
 @api_bp.get('/notifications')
 def api_notifications_list():
-    profile_id = session.get('profile_id')
+    profile_id = session.get('active_profile_id') or session.get('profile_id')
     rows = Notification.query.filter(
         (Notification.profile_id == profile_id) |
         (Notification.profile_id.is_(None))
@@ -2133,7 +2174,7 @@ def api_notifications_update(notification_id: int):
 
 @api_bp.post('/notifications/mark-all-read')
 def api_notifications_mark_all_read():
-    profile_id = session.get('profile_id')
+    profile_id = session.get('active_profile_id') or session.get('profile_id')
     Notification.query.filter(
         (Notification.profile_id == profile_id) |
         (Notification.profile_id.is_(None))
@@ -2751,9 +2792,9 @@ def api_create_show():
     payload = request.get_json(silent=True) or {}
     name = str(payload.get('name', '')).strip()
     location = str(payload.get('location', '')).strip()
-    start_date_raw = payload.get('start_date')
-    if not name or not location or not start_date_raw:
-        return jsonify({'error': 'name, location, and start_date are required'}), 400
+    start_date_raw = payload.get('start_date') or payload.get('date')
+    if not name or not start_date_raw:
+        return jsonify({'error': 'name and date are required'}), 400
     show = Show(name=name, location=location, start_date=date.fromisoformat(start_date_raw), end_date=date.fromisoformat(payload['end_date']) if payload.get('end_date') else None, notes=payload.get('notes'))
     db.session.add(show)
     db.session.commit()
