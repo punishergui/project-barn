@@ -63,7 +63,12 @@ function TopBar({
           <span className="font-serif text-lg text-amber-50">Project Barn</span>
         </Link>
         <div className="flex items-center gap-3">
-          <button type="button" onClick={onToggleNotifications} className="relative text-amber-200" aria-label="Toggle notifications">
+          <button
+            type="button"
+            onClick={onToggleNotifications}
+            className="relative text-amber-200/70 transition-colors hover:text-amber-50"
+            aria-label="Toggle notifications"
+          >
             <Bell size={20} />
             {unreadCount > 0 && (
               <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
@@ -125,7 +130,11 @@ function BottomNav({ isParent, onOpenAdmin }: { isParent: boolean; onOpenAdmin: 
           );
         })}
         {isParent && (
-          <button type="button" onClick={onOpenAdmin} className="flex flex-col items-center gap-0.5 text-amber-200/80">
+          <button
+            type="button"
+            onClick={onOpenAdmin}
+            className="flex flex-col items-center justify-center gap-0.5 text-amber-200/80"
+          >
             <Settings size={20} />
             <span className="text-[10px]">Admin</span>
           </button>

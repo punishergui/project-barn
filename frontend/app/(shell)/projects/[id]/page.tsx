@@ -148,6 +148,7 @@ export default function ProjectDetailPage() {
   const totalExpenses = useMemo(() => expenses.reduce((sum, row) => sum + row.amount, 0), [expenses]);
   const latestWeight = weights[0]?.weight_lbs ?? null;
   const targetWeight = project?.target_weight ?? null;
+  const projectTargetWeightLbs = (project as Project & { target_weight_lbs?: number | null }).target_weight_lbs;
   const weightProgress = targetWeight && latestWeight ? Math.min(100, Math.round((latestWeight / targetWeight) * 100)) : 0;
 
   const addTimeline = async (event: FormEvent<HTMLFormElement>) => {
@@ -212,19 +213,33 @@ export default function ProjectDetailPage() {
     const form = new FormData(event.currentTarget);
 
     try {
-      await apiClientJson(`/projects/${params.id}/feed-logs`, {
+      const feedInventoryId = Number(form.get("feed_inventory_id") || 0);
+      const amountLbs = Number(form.get("amount_lbs") || 0);
+      const notes = String(form.get("notes") || "").trim();
+
+      const created = await apiClientJson<{ id: number }>(`/projects/${params.id}/feed-logs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          feed_inventory_id: Number(form.get("feed_inventory_id") || 0),
-          amount_lbs: Number(form.get("amount_lbs") || 0),
-          notes: String(form.get("notes") || "").trim()
+          feed_inventory_id: feedInventoryId,
+          amount_lbs: amountLbs,
+          notes
         })
       });
 
+      const selectedFeed = feedInventory.find((item) => item.id === feedInventoryId);
+      const nextLog: ProjectFeedLog = {
+        id: created.id,
+        feed_name: selectedFeed?.name ?? "Feed",
+        amount_lbs: amountLbs,
+        notes,
+        logged_at: new Date().toISOString()
+      };
+
       setFeedLogDrawerOpen(false);
       event.currentTarget.reset();
-      await load();
+      setFeedLogs((prev) => [nextLog, ...prev]);
+      toast.success("Feed logged");
     } catch {
       toast.error("Failed to log feed");
     }
@@ -410,9 +425,9 @@ export default function ProjectDetailPage() {
             <button
               type="button"
               onClick={() => setFeedLogDrawerOpen(true)}
-              className="mt-3 w-full rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+              className="mt-4 w-full rounded-xl border border-border bg-secondary px-4 py-3 text-sm text-foreground"
             >
-              Log Feed
+              + Log Feed
             </button>
           </section>
         ) : null}
@@ -421,7 +436,7 @@ export default function ProjectDetailPage() {
           <section className="rounded-xl border border-border bg-card px-4">
             <WeightChart
               entries={weights.map((entry) => ({ logged_at: entry.recorded_at, weight_lbs: entry.weight_lbs }))}
-              targetWeight={targetWeight ?? undefined}
+              targetWeight={projectTargetWeightLbs ?? undefined}
             />
             {weights.length === 0 ? (
               <p className="py-3 text-sm text-muted-foreground">No weight entries yet.</p>
@@ -490,7 +505,7 @@ export default function ProjectDetailPage() {
             <h2 className="mb-4 font-serif text-xl text-foreground">Log Feed</h2>
             <form onSubmit={(event) => createFeedLog(event).catch(() => undefined)} className="flex flex-col gap-3">
               <select name="feed_inventory_id" required className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground">
-                <option value="">Select feed</option>
+                <option value="">Select feed...</option>
                 {feedInventory.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.name}{item.brand ? ` (${item.brand})` : ""}
