@@ -385,6 +385,16 @@ class Notification(db.Model):
     link = db.Column(db.String(255), nullable=True)
 
 
+class CustomOption(db.Model):
+    __tablename__ = "custom_options"
+
+    id = db.Column(db.Integer, primary_key=True)
+    field_key = db.Column(db.String(100), nullable=False)
+    label = db.Column(db.String(200), nullable=False)
+    value = db.Column(db.String(200), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class ProjectReminder(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     project_id = db.Column(db.Integer, db.ForeignKey("project.id"), nullable=False)
