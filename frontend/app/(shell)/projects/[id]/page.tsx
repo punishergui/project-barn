@@ -16,7 +16,7 @@ import {
 import Link from "next/link";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Drawer } from "vaul";
 
@@ -63,7 +63,6 @@ function formatDate(value?: string | null) {
 
 export default function ProjectDetailPage() {
   const params = useParams<{ id: string }>();
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   const [activeSection, setActiveSection] = useState<SectionName>("info");
@@ -177,15 +176,22 @@ export default function ProjectDetailPage() {
     form.append("photo", file);
 
     try {
-      const response = await fetch(`/api/projects/${project.id}/photos`, { method: "POST", body: form });
+      const response = await fetch(`/api/projects/${project.id}/photos`, {
+        method: "POST",
+        body: form
+      });
+
       if (response.ok) {
+        const data = (await response.json()) as { photo_url?: string };
+        setProject((prev) => (prev ? { ...prev, photo_url: data.photo_url ?? prev.photo_url } : prev));
         toast.success("Photo updated");
-        router.refresh();
-        await load();
       } else {
-        toast.error("Upload failed");
+        const text = await response.text();
+        console.error("Photo upload failed:", response.status, text);
+        toast.error("Upload failed — check console");
       }
-    } catch {
+    } catch (error) {
+      console.error("Photo upload error:", error);
       toast.error("Upload failed");
     } finally {
       event.target.value = "";
