@@ -79,7 +79,7 @@ function TopBar({
           >
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-          <Link href="/profile-picker">
+          <Link href="/settings">
             <Avatar className="h-8 w-8 rounded-full border border-amber-500 bg-primary text-primary-foreground">
               {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt={profile.name ?? "Profile"} /> : null}
               <AvatarFallback className="bg-primary text-xs font-bold text-primary-foreground">
@@ -125,7 +125,7 @@ function BottomNav({ isParent, onOpenAdmin }: { isParent: boolean; onOpenAdmin: 
           );
         })}
         {isParent && (
-          <button type="button" onClick={onOpenAdmin} className="flex flex-1 flex-col items-center justify-center gap-0.5 text-amber-200/80">
+          <button type="button" onClick={onOpenAdmin} className="flex flex-col items-center justify-center gap-0.5 px-3 text-amber-200/80">
             <Settings size={20} />
             <span className="text-[10px]">Admin</span>
           </button>
@@ -142,7 +142,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const pathname = usePathname();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -172,7 +171,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       });
 
     return () => controller.abort();
-  }, [pathname]);
+  }, []);
 
   async function markAllRead() {
     await apiClientJson("/notifications/mark-all-read", { method: "POST" });

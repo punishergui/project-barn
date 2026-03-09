@@ -7,6 +7,7 @@ import json
 import mimetypes
 import os
 import tempfile
+import uuid
 import zipfile
 
 from werkzeug.utils import secure_filename
@@ -455,6 +456,7 @@ def _auth_status_payload(profile: Profile | None) -> dict[str, object]:
         "role": profile.role if profile else None,
         "is_unlocked": _is_unlocked(),
         "unlock_expires_at": session.get("unlock_expires_at"),
+        "requires_pin": bool(profile.pin_hash) if profile else False,
     }
 
 
@@ -866,6 +868,75 @@ def api_profile_patch(profile_id: int):
         profile.birthdate = date.fromisoformat(value) if value else None
     db.session.commit()
     return jsonify(_profile_payload(profile))
+
+
+@api_bp.route('/profiles/<int:profile_id>/avatar', methods=['POST'])
+def upload_avatar(profile_id: int):
+    profile = Profile.query.get_or_404(profile_id)
+    active_profile = _active_profile()
+    if active_profile is None:
+        return jsonify({'error': 'No active profile'}), 401
+    if active_profile.id != profile_id and active_profile.role != 'parent':
+        return jsonify({'error': 'Parent profile required'}), 403
+
+    file = request.files.get('avatar')
+    if not file:
+        return jsonify({'error': 'no file'}), 400
+
+    ext = os.path.splitext(file.filename or '')[1].lower() or '.jpg'
+    filename = f"avatar_{profile_id}_{uuid.uuid4().hex}{ext}"
+    upload_dir = os.path.join(current_app.static_folder or '', 'uploads', 'avatars')
+    os.makedirs(upload_dir, exist_ok=True)
+    file.save(os.path.join(upload_dir, filename))
+
+    profile.avatar_path = f"avatars/{filename}"
+    profile.avatar_url = f"/static/uploads/avatars/{filename}"
+    db.session.commit()
+    return jsonify({'avatar_url': profile.avatar_url})
+
+
+@api_bp.route('/profiles/<int:profile_id>/change-pin', methods=['POST'])
+def change_pin(profile_id: int):
+    profile = Profile.query.get_or_404(profile_id)
+    active_profile = _active_profile()
+    if active_profile is None or active_profile.id != profile_id:
+        return jsonify({'error': 'Forbidden'}), 403
+
+    data = request.get_json(silent=True) or {}
+    current_pin = str(data.get('current_pin', ''))
+    new_pin = str(data.get('new_pin', ''))
+
+    if not profile.pin_hash or not check_password_hash(profile.pin_hash, current_pin):
+        return jsonify({'error': 'Current PIN is incorrect'}), 400
+    if len(new_pin) != 4 or not new_pin.isdigit():
+        return jsonify({'error': 'New PIN must be 4 digits'}), 400
+
+    profile.pin_hash = generate_password_hash(new_pin)
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+@api_bp.route('/projects/<int:project_id>/photos', methods=['POST'])
+def upload_project_photo(project_id: int):
+    project = Project.query.get_or_404(project_id)
+    profile, error = _require_parent_unlocked()
+    if error:
+        return error
+
+    file = request.files.get('photo')
+    if not file:
+        return jsonify({'error': 'no file'}), 400
+
+    ext = os.path.splitext(file.filename or '')[1].lower() or '.jpg'
+    filename = f"project_{project_id}_{uuid.uuid4().hex}{ext}"
+    upload_dir = os.path.join(current_app.static_folder or '', 'uploads', 'projects')
+    os.makedirs(upload_dir, exist_ok=True)
+    file.save(os.path.join(upload_dir, filename))
+
+    project.photo_path = f"projects/{filename}"
+    project.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({'photo_url': f"/static/uploads/projects/{filename}"})
 
 
 @api_bp.get("/uploads/status")

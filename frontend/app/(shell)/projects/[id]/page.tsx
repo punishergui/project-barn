@@ -2,6 +2,7 @@
 
 import {
   BarChart3,
+  Camera,
   ClipboardList,
   DollarSign,
   HeartPulse,
@@ -15,6 +16,7 @@ import {
 import Link from "next/link";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 
 import {
   apiClientJson,
@@ -151,6 +153,30 @@ export default function ProjectDetailPage() {
     await load();
   };
 
+
+
+  async function handlePhotoUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file || !project) return;
+    const form = new FormData();
+    form.append("photo", file);
+
+    try {
+      const response = await fetch(`/api/projects/${project.id}/photos`, { method: "POST", body: form });
+      if (response.ok) {
+        toast.success("Photo updated");
+        router.refresh();
+        await load();
+      } else {
+        toast.error("Upload failed");
+      }
+    } catch {
+      toast.error("Upload failed");
+    } finally {
+      event.target.value = "";
+    }
+  }
+
   const handleHeroUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !project) return;
@@ -205,6 +231,14 @@ export default function ProjectDetailPage() {
           <div className="flex h-full w-full items-center justify-center bg-secondary text-6xl">{project.is_livestock ? "🐄" : "📋"}</div>
         )}
       </section>
+
+      <div className="mt-3">
+        <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-secondary px-4 py-2 text-sm text-foreground">
+          <Camera size={16} />
+          <span>Update photo</span>
+          <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(event) => handlePhotoUpload(event).catch(() => undefined)} />
+        </label>
+      </div>
 
       <div className="mt-3">
         <h1 className="font-serif text-2xl text-foreground">{project.name}</h1>
