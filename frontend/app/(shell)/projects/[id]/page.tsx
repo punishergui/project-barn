@@ -296,7 +296,7 @@ export default function ProjectDetailPage() {
         <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-secondary px-4 py-2 text-sm text-foreground">
           <Camera size={16} />
           <span>Update photo</span>
-          <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(event) => handlePhotoUpload(event).catch(() => undefined)} />
+          <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(event) => handleHeroUpload(event).catch(() => undefined)} />
         </label>
       </div>
 
