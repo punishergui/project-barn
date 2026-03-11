@@ -54,19 +54,19 @@ export function uploadProfileAvatar(file: File, profileId?: number): Promise<str
   if (profileId) {
     fields.profile_id = String(profileId);
   }
-  return upload("/uploads/profile-avatar", fields, file, "avatar");
+  return upload("/api/uploads/profile-avatar", fields, file, "avatar");
 }
 
 export function uploadProjectHero(projectId: number, file: File): Promise<string> {
-  return upload("/uploads/project-hero", { project_id: String(projectId) }, file, "project-image");
+  return upload("/api/uploads/project-hero", { project_id: String(projectId) }, file, "project-image");
 }
 
 export function uploadProjectMedia(projectId: number, file: File, caption?: string): Promise<string> {
-  return upload("/uploads/project-media", { project_id: String(projectId), caption: caption ?? "" }, file, "project-media");
+  return upload("/api/uploads/project-media", { project_id: String(projectId), caption: caption ?? "" }, file, "project-media");
 }
 
 export function uploadReceipt(expenseId: number, file: File, caption?: string): Promise<string> {
-  return upload("/uploads/receipt", { expense_id: String(expenseId), caption: caption ?? "" }, file, "receipt");
+  return upload("/api/uploads/receipt", { expense_id: String(expenseId), caption: caption ?? "" }, file, "receipt");
 }
 
 export const uploadExpenseReceipt = uploadReceipt;
