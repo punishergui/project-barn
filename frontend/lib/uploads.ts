@@ -1,7 +1,3 @@
-import { apiClientJson } from "@/lib/api";
-
-type UploadResponse = { url: string };
-
 type UploadKind = "avatar" | "project-image" | "project-media" | "receipt";
 
 type UploadRule = {
@@ -38,15 +34,32 @@ function validateUploadFile(file: File, kind: UploadKind) {
   }
 }
 
-async function upload(path: string, fields: Record<string, string>, file: File, kind: UploadKind): Promise<string> {
+async function upload(
+  path: string,
+  fields: Record<string, string>,
+  file: File,
+  kind: UploadKind
+): Promise<string> {
   validateUploadFile(file, kind);
-
   const formData = new FormData();
-  Object.entries(fields).forEach(([key, value]) => formData.set(key, value));
+  Object.entries(fields).forEach(([key, value]) =>
+    formData.set(key, value)
+  );
   formData.set("file", file);
 
-  const response = await apiClientJson<UploadResponse>(path, { method: "POST", body: formData });
-  return response.url;
+  const response = await fetch(path, {
+    method: "POST",
+    body: formData,
+    credentials: "include"
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => response.statusText);
+    throw new Error(text || `Upload failed with status ${response.status}`);
+  }
+
+  const data = (await response.json()) as { url: string };
+  return data.url;
 }
 
 export function uploadProfileAvatar(file: File, profileId?: number): Promise<string> {
@@ -58,15 +71,30 @@ export function uploadProfileAvatar(file: File, profileId?: number): Promise<str
 }
 
 export function uploadProjectHero(projectId: number, file: File): Promise<string> {
-  return upload("/api/uploads/project-hero", { project_id: String(projectId) }, file, "project-image");
+  return upload(
+    "/api/uploads/project-hero",
+    { project_id: String(projectId) },
+    file,
+    "project-image"
+  );
 }
 
 export function uploadProjectMedia(projectId: number, file: File, caption?: string): Promise<string> {
-  return upload("/api/uploads/project-media", { project_id: String(projectId), caption: caption ?? "" }, file, "project-media");
+  return upload(
+    "/api/uploads/project-media",
+    { project_id: String(projectId), caption: caption ?? "" },
+    file,
+    "project-media"
+  );
 }
 
 export function uploadReceipt(expenseId: number, file: File, caption?: string): Promise<string> {
-  return upload("/api/uploads/receipt", { expense_id: String(expenseId), caption: caption ?? "" }, file, "receipt");
+  return upload(
+    "/api/uploads/receipt",
+    { expense_id: String(expenseId), caption: caption ?? "" },
+    file,
+    "receipt"
+  );
 }
 
 export const uploadExpenseReceipt = uploadReceipt;
