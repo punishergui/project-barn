@@ -29,7 +29,7 @@ services:
       - proxy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.barn-api.rule=Host(`barn.white-house.cc`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.barn-api.rule=Host(`barn.white-house.cc`) && (PathPrefix(`/api`) || PathPrefix(`/uploads`))"
       - "traefik.http.routers.barn-api.entrypoints=websecure"
       - "traefik.http.routers.barn-api.tls=true"
       - "traefik.http.routers.barn-api.priority=100"

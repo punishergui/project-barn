@@ -3886,7 +3886,7 @@ def api_project_weights_create(project_id: int):
     payload = request.get_json(silent=True) or {}
     if payload.get('weight_lbs') is None or not payload.get('recorded_at'):
         return jsonify({'error': 'recorded_at and weight_lbs are required'}), 400
-    row = WeightEntry(project_id=project_id, recorded_at=date.fromisoformat(payload['recorded_at']), weight_lbs=float(payload['weight_lbs']), notes=(payload.get('notes') or None))
+    row = WeightEntry(project_id=project_id, recorded_at=datetime.fromisoformat(payload["recorded_at"].replace("Z", "+00:00")), weight_lbs=float(payload['weight_lbs']), notes=(payload.get('notes') or None))
     db.session.add(row)
     db.session.commit()
     return jsonify(_weight_entry_payload(row)), 201
@@ -3931,7 +3931,7 @@ def api_project_health_create(project_id: int):
         cents = int(round(float(payload.get('cost')) * 100))
     elif payload.get('cost_cents') is not None:
         cents = int(payload.get('cost_cents'))
-    row = HealthEntry(project_id=project_id, recorded_at=date.fromisoformat(payload['recorded_at']), category=str(payload['category']).strip(), description=str(payload['description']).strip(), cost_cents=cents, vendor=(str(payload.get('vendor')).strip() if payload.get('vendor') else None), attachment_receipt_url=(str(payload.get('attachment_receipt_url')).strip() if payload.get('attachment_receipt_url') else None))
+    row = HealthEntry(project_id=project_id, recorded_at=datetime.fromisoformat(payload["recorded_at"].replace("Z", "+00:00")), category=str(payload['category']).strip(), description=str(payload['description']).strip(), cost_cents=cents, vendor=(str(payload.get('vendor')).strip() if payload.get('vendor') else None), attachment_receipt_url=(str(payload.get('attachment_receipt_url')).strip() if payload.get('attachment_receipt_url') else None))
     db.session.add(row)
     db.session.commit()
     return jsonify(_health_entry_payload(row)), 201
@@ -3987,7 +3987,7 @@ def api_project_feed_create(project_id: int):
         cents = int(round(float(payload.get('cost')) * 100))
     elif payload.get('cost_cents') is not None:
         cents = int(payload.get('cost_cents'))
-    row = FeedEntry(project_id=project_id, recorded_at=date.fromisoformat(payload['recorded_at']), feed_type=feed_type, amount=amount, unit=str(payload['unit']).strip(), cost_cents=cents, feed_inventory_item_id=(inventory_item.id if inventory_item else None), notes=(str(payload.get('notes')).strip() if payload.get('notes') else None))
+    row = FeedEntry(project_id=project_id, recorded_at=datetime.fromisoformat(payload["recorded_at"].replace("Z", "+00:00")), feed_type=feed_type, amount=amount, unit=str(payload['unit']).strip(), cost_cents=cents, feed_inventory_item_id=(inventory_item.id if inventory_item else None), notes=(str(payload.get('notes')).strip() if payload.get('notes') else None))
 
     if inventory_item is not None and payload.get('decrement_inventory', True):
         inventory_item.qty_on_hand = max(0.0, float(inventory_item.qty_on_hand) - amount)
