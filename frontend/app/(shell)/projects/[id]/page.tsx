@@ -169,35 +169,6 @@ export default function ProjectDetailPage() {
 
 
 
-  async function handlePhotoUpload(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file || !project) return;
-    const form = new FormData();
-    form.append("photo", file);
-
-    try {
-      const response = await fetch(`/api/projects/${project.id}/photos`, {
-        method: "POST",
-        body: form
-      });
-
-      if (response.ok) {
-        const data = (await response.json()) as { photo_url?: string };
-        setProject((prev) => (prev ? { ...prev, photo_url: data.photo_url ?? prev.photo_url } : prev));
-        toast.success("Photo updated");
-      } else {
-        const text = await response.text();
-        console.error("Photo upload failed:", response.status, text);
-        toast.error("Upload failed — check console");
-      }
-    } catch (error) {
-      console.error("Photo upload error:", error);
-      toast.error("Upload failed");
-    } finally {
-      event.target.value = "";
-    }
-  }
-
   const handleHeroUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !project) return;
