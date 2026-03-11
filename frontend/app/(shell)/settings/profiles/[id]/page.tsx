@@ -46,7 +46,7 @@ export default function SettingsProfileDetailPage() {
   };
 
   const uploadAvatar = async (file: File) => {
-    await uploadProfileAvatar(file);
+    await uploadProfileAvatar(file, Number(params.id));
     await load();
   };
 
